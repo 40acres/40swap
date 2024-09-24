@@ -1,0 +1,9 @@
+{
+  "env": {
+    "node": true
+  },
+  "ignorePatterns": [
+    "src/loop/**/*.ts",
+    "src/lnd/**/*.ts"
+  ]
+}

@@ -1,0 +1,16 @@
+server:
+  port: 7081
+db:
+  host: 'localhost'
+  port: 5432
+  username: '40swap'
+  password: '40swap'
+  database: '40swap'
+  synchronize: true
+  migrationsRun: false
+bitcoin:
+  network: regtest
+  requiredConfirmations: 3
+nbxplorer:
+  baseUrl: http://localhost:32838/v1/cryptos/btc
+  fallbackFeeRate: 10

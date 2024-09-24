@@ -1,0 +1,145 @@
+services:
+  postgres:
+    image: "postgres:16.4"
+    container_name: 40swap_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "40swap"
+      POSTGRES_PASSWORD: "40swap"
+      POSTGRES_DB: "40swap"
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:22.2.5
+    container_name: 40swap_cloudbeaver
+    volumes:
+      - ./cloudbeaver-data-sources.json:/opt/cloudbeaver/conf/initial-data-sources.conf
+      - ./cloudbeaver.auto.conf:/opt/cloudbeaver/conf/.cloudbeaver.auto.conf
+      - cloudbeaver-data:/opt/cloudbeaver/workspace
+    ports:
+      - 8978:8978
+  bitcoind:
+    image: ruimarinho/bitcoin-core:24.0.1
+    container_name: 40swap_bitcoind
+    command:
+      -printtoconsole
+      -regtest=1
+      -rpcbind=0.0.0.0
+      -rpcport=18443
+      -rpcallowip=0.0.0.0/0
+      -rpcauth=40swap:5604308b0303bc9e98f790c8edfb18fd$$bfdfba8951c6cc9c06ad5934ff176e7e031109e6afe5413270f295ee45dd4d66
+      -whitelist=0.0.0.0/0
+      -whitebind=0.0.0.0:18333
+      -txindex=1
+      -server=1
+      -zmqpubrawblock=tcp://0.0.0.0:28334
+      -zmqpubrawtx=tcp://0.0.0.0:28335
+    volumes:
+      - bitcoind-data:/home/bitcoin/.bitcoin
+    expose:
+      - "18332"
+      - "18333"
+      - "18443"
+  lnd-lsp:
+    image: lightninglabs/lnd:v0.18.2-beta
+    container_name: 40swap_lnd_lsp
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=40swap-lsp --externalip=lnd-lsp
+      --tlsextradomain=lnd-lsp
+      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap
+      --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334
+      --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20
+      --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-lsp-data:/root/.lnd
+    expose:
+      - '8080'
+      - '10009'
+      - '9735'
+    ports:
+      - '10002:10009'
+  lnd-user:
+    image: lightninglabs/lnd:v0.18.2-beta
+    container_name: 40swap_lnd_user
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=40swap-user --externalip=lnd-user
+      --tlsextradomain=lnd-user
+      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap
+      --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334
+      --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20
+      --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-user-data:/root/.lnd
+    expose:
+      - '8080'
+      - '10009'
+      - '9735'
+  lnd-alice:
+    image: lightninglabs/lnd:v0.18.2-beta
+    container_name: 40swap_lnd_alice
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=alice --externalip=lnd-alice
+      --tlsextradomain=lnd-alice
+      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap
+      --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334
+      --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20
+      --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-alice-data:/root/.lnd
+    expose:
+      - '8080'
+      - '10009'
+      - '9735'
+  nbxplorer:
+    image: nicolasdorier/nbxplorer:2.3.62
+    container_name: morpheus_nbxplorer
+    ports:
+      - 32838:32838
+    depends_on:
+      - postgres
+      - bitcoind
+    restart: unless-stopped
+    environment:
+      NBXPLORER_NETWORK: regtest
+      NBXPLORER_BIND: 0.0.0.0:32838
+      NBXPLORER_NOAUTH: 1
+      NBXPLORER_CHAINS: "btc"
+      NBXPLORER_BTCRPCURL: http://bitcoind:18443/
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:18333
+      NBXPLORER_POSTGRES: Host=postgres;Port=5432;Database=40swap;Username=40swap;Password=40swap
+      NBXPLORER_BTCRPCUSER: "40swap"
+      NBXPLORER_BTCRPCPASSWORD: "pass"
+      NBXPLORER_MAXGAPSIZE: 400
+      NBXPLORER_MINGAPSIZE: 300
+    volumes:
+      - "nbxplorer-data:/datadir"
+      - "bitcoind-data:/root/.bitcoin"
+    links:
+      - bitcoind
+volumes:
+  bitcoind-data:
+  lnd-lsp-data:
+  lnd-user-data:
+  lnd-alice-data:
+  nbxplorer-data:
+  cloudbeaver-data:
