@@ -1,8 +1,8 @@
 import { LndService } from './LndService.js';
-import { NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
+import { NBXplorerNewTransactionEvent, NbxplorerService, NBXplorerTransaction } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import Decimal from 'decimal.js';
@@ -13,11 +13,12 @@ import { networks, payments, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SwapOut } from './entities/SwapOut.js';
-import { swapOutRequestSchema, SwapOutResponse } from '@40swap/shared';
+import { claimSwapOutRequestSchema, GetSwapOutResponse, swapOutRequestSchema } from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 
 class SwapOutRequestDto extends createZodDto(swapOutRequestSchema) {}
+class ClaimSwapOutRequestDto extends createZodDto(claimSwapOutRequestSchema) {}
 
 @Controller('/swap/out')
 export class SwapOutController {
@@ -28,7 +29,7 @@ export class SwapOutController {
     ) {}
 
     @Post()
-    async createSwap(@Body() request: SwapOutRequestDto): Promise<SwapOutResponse> {
+    async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
@@ -54,21 +55,28 @@ export class SwapOutController {
         const swap = await this.dataSource.getRepository(SwapOut).save({
             contractAddress: address,
             inputAmount: new Decimal(request.inputAmount),
-            outputAmount: new Decimal(0),
             lockScript,
-            state: 'CREATED',
+            status: 'CREATED',
             preImageHash: preImageHash,
+            invoice,
         });
 
         this.performSwap(swap);
-        return {
-            swapId: '123',
-            timeoutBlockHeight: 10,
-            redeemScript: lockScript.toString('hex'),
-            invoice,
-            contractAddress: address!,
-            outputAmount: request.inputAmount,
-        };
+        return this.mapToResponse(swap);
+    }
+
+    @Get('/:id')
+    async getSwap(@Param('id') id: string): Promise<GetSwapOutResponse> {
+        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        return this.mapToResponse(swap);
+    }
+
+    @Post('/:id/claim')
+    async claimSwap(@Body() request: ClaimSwapOutRequestDto, @Param('id') id: string): Promise<void> {
+        // TODO validate claim tx and set output amount
+        const tx = Transaction.fromHex(request.claimTx);
+        await this.dataSource.getRepository(SwapOut).update(id, { claimTxId: tx.getHash().toString('hex') });
+        await this.nbxplorer.broadcastTx(tx);
     }
 
     async performSwap(swap: SwapOut): Promise<void> {
@@ -79,14 +87,35 @@ export class SwapOutController {
             await sleep(1000);
         }
         console.log(`invoice state ${invoice.state}`);
-        swap.state = 'INVOICE_PAYMENT_INTENT_RECEIVED';
+        swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
         await swapOutRepository.save(swap);
 
-        swap.lockTxId = await this.lnd.sendCoinsOnChain(swap.contractAddress!, invoice.value as unknown as number);
-        swap.state = 'CONTRACT_FUNDED';
+        const lockTxId = await this.lnd.sendCoinsOnChain(swap.contractAddress!, invoice.value as unknown as number);
+        let lockTx: NBXplorerTransaction|null = null;
+
+        while (lockTx == null) {
+            await sleep(1000);
+            lockTx = await this.nbxplorer.getTx(lockTxId);
+            console.log(`lockTx ${lockTx}`);
+        }
+
+        swap.lockTx = Buffer.from(lockTx.transaction, 'hex');
+        swap.status = 'CONTRACT_FUNDED';
         await swapOutRepository.save(swap);
     }
 
+    private mapToResponse(swap: SwapOut): GetSwapOutResponse {
+        return {
+            swapId: swap.id,
+            timeoutBlockHeight: 10,
+            redeemScript: swap.lockScript.toString('hex'),
+            invoice: swap.invoice,
+            contractAddress: swap.contractAddress,
+            outputAmount: swap.outputAmount?.toNumber(),
+            status: swap.status,
+            lockTx: swap.lockTx?.toString('hex'),
+        };
+    }
 
     @OnEvent('nbxplorer.newtransaction')
     private async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
@@ -96,7 +125,7 @@ export class SwapOutController {
         if (match != null) {
             const txAddress = match[1];
             const swap = await swapOutRepository.findOneBy({
-                state: 'CONTRACT_FUNDED',
+                status: 'CONTRACT_FUNDED',
                 contractAddress: txAddress,
             });
             if (swap != null) {
@@ -104,8 +133,10 @@ export class SwapOutController {
                     console.log(`found lock tx sent by us ${JSON.stringify(event, null, 2)}`);
                 } else {
                     console.log(`found claim tx ${JSON.stringify(event, null, 2)}`);
+                    assert(swap.lockTx != null);
                     const tx = Transaction.fromHex(event.data.transactionData.transaction);
-                    const input = tx.ins.find(i => Buffer.from(i.hash).reverse().toString('hex') === swap.lockTxId);
+                    const swapTx = Transaction.fromBuffer(swap.lockTx);
+                    const input = tx.ins.find(i => Buffer.from(i.hash).reverse().toString('hex') === swapTx.getHash().reverse().toString('hex'));
                     if (input != null) {
                         const preimage = input.witness[1];
                         assert(preimage != null);
@@ -116,7 +147,7 @@ export class SwapOutController {
                         console.log('settling invoice');
                         await this.lnd.settleInvoice(preimage);
 
-                        swap.state = 'CLAIMED';
+                        swap.status = 'CLAIMED';
                         await swapOutRepository.save(swap);
                     }
                 }

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { SwapOutRequest, swapOutResponseSchema } from '@40swap/shared';
+import { SwapOutRequest, getSwapOutResponseSchema } from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -26,5 +26,5 @@ const r = await fetch('http://localhost:7081/swap/out', {
     } satisfies SwapOutRequest),
 });
 
-const response = swapOutResponseSchema.parse(await r.json());
+const response = getSwapOutResponseSchema.parse(await r.json());
 console.log(`response: \n ${JSON.stringify(response, null, 2)}`);

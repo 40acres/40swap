@@ -1,8 +1,7 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import Decimal from 'decimal.js';
 import { DecimalTransformer } from './DecimalTransformer.js';
-
-type SwapInState = 'CREATED'|'CONTRACT_FUNDED'|'INVOICE_PAID'|'CLAIMED';
+import { SwapInStatus } from '@40swap/shared';
 
 @Entity()
 export class SwapIn {
@@ -34,5 +33,5 @@ export class SwapIn {
     preImage: Buffer|null = null;
 
     @Column({ type: 'text' })
-    state!: SwapInState;
+    status!: SwapInStatus;
 }

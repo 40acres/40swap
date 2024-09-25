@@ -1,8 +1,7 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
-
-type SwapOutState = 'CREATED'|'INVOICE_PAYMENT_INTENT_RECEIVED'|'CONTRACT_FUNDED'|'CLAIMED';
+import { SwapOutStatus } from '@40swap/shared';
 
 @Entity()
 export class SwapOut {
@@ -15,14 +14,14 @@ export class SwapOut {
     @Column({ type: 'decimal', precision: 15, scale: 8, transformer: new DecimalTransformer() })
     inputAmount: Decimal = new Decimal(0);
 
-    @Column({ type: 'decimal', precision: 15, scale: 8, transformer: new DecimalTransformer() })
-    outputAmount: Decimal = new Decimal(0);
+    @Column({ type: 'decimal', precision: 15, scale: 8, transformer: new DecimalTransformer(), nullable: true })
+    outputAmount: Decimal|null = null;
 
     @Column({ type: 'bytea'})
     lockScript!: Buffer;
 
     @Column({ type: 'text' })
-    state!: SwapOutState;
+    status!: SwapOutStatus;
 
     @Column({ type: 'bytea'})
     preImageHash!: Buffer;
@@ -30,8 +29,11 @@ export class SwapOut {
     @Column({ type: 'bytea', nullable: true })
     preImage: Buffer|null = null;
 
+    @Column({ type: 'bytea', nullable: true })
+    lockTx: Buffer|null  = null;
+
     @Column({ type: 'text', nullable: true })
-    lockTxId: string|null  = null;
+    invoice!: string;
 
     @Column({ type: 'text', nullable: true })
     claimTxId: string|null  = null;

@@ -234,10 +234,13 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    async getTx(id: string): Promise<NBXplorerTransaction> {
+    async getTx(id: string): Promise<NBXplorerTransaction|null> {
         const response = await fetch(`${this.config.baseUrl}/transactions/${id}`, {
             method: 'GET',
         });
+        if (response.status === 404) {
+            return null;
+        }
         if (response.status >= 300) {
             throw new Error(`nbxplorer threw an error when fetching a transaction: ${id}`);
         }

@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
 const SWAP_IN_STATUSES = ['CREATED', 'CONTRACT_FUNDED', 'INVOICE_PAID', 'CLAIMED'] as const;
-const swapInStateSchema = z.enum(SWAP_IN_STATUSES);
-export type SwapInState = z.infer<typeof swapInStateSchema>;
+const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
+export type SwapInStatus = z.infer<typeof swapInStatusSchema>;
+
+const SWAP_OUT_STATUSES = ['CREATED', 'INVOICE_PAYMENT_INTENT_RECEIVED', 'CONTRACT_FUNDED', 'CLAIMED'] as const;
+const swapOutStatusSchema = z.enum(SWAP_OUT_STATUSES);
+export type SwapOutStatus = z.infer<typeof swapOutStatusSchema>;
 
 export const swapInRequestSchema = z.object({
     invoice: z.string(),
@@ -15,7 +19,8 @@ export const getSwapInResponseSchema = z.object({
     address: z.string(),
     redeemScript: z.string(),
     timeoutBlockHeight: z.number(),
-    status: swapInStateSchema,
+    status: swapInStatusSchema,
+    inputAmount: z.number().positive(),
 });
 export type GetSwapInResponse = z.infer<typeof getSwapInResponseSchema>;
 
@@ -26,12 +31,19 @@ export const swapOutRequestSchema = z.object({
 });
 export type SwapOutRequest = z.infer<typeof swapOutRequestSchema>;
 
-export const swapOutResponseSchema = z.object({
+export const getSwapOutResponseSchema = z.object({
     swapId: z.string(),
     invoice: z.string(),
     redeemScript: z.string(),
     timeoutBlockHeight: z.number(),
-    outputAmount: z.number().positive(),
     contractAddress: z.string(),
+    lockTx: z.string().optional(),
+    outputAmount: z.number().positive().optional(),
+    status: swapOutStatusSchema,
 });
-export type SwapOutResponse = z.infer<typeof swapOutResponseSchema>;
+export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
+
+export const claimSwapOutRequestSchema = z.object({
+    claimTx: z.string(),
+});
+export type ClaimSwapOutRequest = z.infer<typeof claimSwapOutRequestSchema>;

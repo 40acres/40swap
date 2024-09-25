@@ -36,10 +36,11 @@ export class SwapInController {
 
     @Post()
     async createSwap(@Body() request: SwapInRequestDto): Promise<GetSwapInResponse> {
-        const { tags } = decode(request.invoice, { bech32: 'bcrt' } );
+        const { tags, satoshis } = decode(request.invoice, { bech32: 'bcrt' } );
         const hashTag = tags.find(t => t.tagName === 'payment_hash');
         assert(hashTag);
         assert(typeof hashTag.data === 'string');
+        assert(satoshis != null);
         const paymentHash = hashTag.data;
 
         const claimKey = ECPair.makeRandom();
@@ -64,9 +65,9 @@ export class SwapInController {
             invoice: request.invoice,
             lockScript,
             privKey: claimKey.privateKey!,
-            inputAmount: new Decimal(0),
-            outputAmount: new Decimal(0),
-            state: 'CREATED',
+            inputAmount: new Decimal(satoshis).div(1e8).toDecimalPlaces(8),
+            outputAmount: new Decimal(satoshis).div(1e8).toDecimalPlaces(8),
+            status: 'CREATED',
             sweepAddress: await this.lnd.getNewAddress(),
         });
 
@@ -85,7 +86,8 @@ export class SwapInController {
             address: swap.contractAddress,
             redeemScript: swap.lockScript.toString('hex'),
             timeoutBlockHeight: 10,
-            status: swap.state,
+            status: swap.status,
+            inputAmount: swap.inputAmount.toNumber(),
         };
     }
 
@@ -148,7 +150,7 @@ export class SwapInController {
             const swapInRepository = this.dataSource.getRepository(SwapIn);
             const txAddress = match[1];
             const swap = await swapInRepository.findOneBy({
-                state: 'CREATED',
+                status: 'CREATED',
                 contractAddress: txAddress,
             });
             if (swap == null) {
@@ -156,18 +158,23 @@ export class SwapInController {
             }
             const output = event.data.outputs.find(o => o.address === swap.contractAddress);
             assert(output != null);
-            swap.state = 'CONTRACT_FUNDED';
+            const expectedAmount = new Decimal(output.value).div(1e8);
+            if (!expectedAmount.equals(swap.outputAmount)) {
+                this.logger.error(`amount mismatch. Failed swap. Expected ${expectedAmount.toNumber()}, incoming ${swap.outputAmount.toNumber()}`);
+                return;
+            }
+            swap.status = 'CONTRACT_FUNDED';
             swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
             await swapInRepository.save(swap);
 
             const preimage = await this.lnd.sendPayment(swap.invoice);
             swap.preImage = preimage;
-            swap.state = 'INVOICE_PAID';
+            swap.status = 'INVOICE_PAID';
             await swapInRepository.save(swap);
 
             const claimTx = await this.constructClaimTx(swap, output, event.data.transactionData.transactionHash);
             await this.nbxplorer.broadcastTx(claimTx);
-            swap.state = 'CLAIMED';
+            swap.status = 'CLAIMED';
             await swapInRepository.save(swap);
         }
     }
