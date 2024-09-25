@@ -1,19 +1,23 @@
 import { z } from 'zod';
 
+const SWAP_IN_STATUSES = ['CREATED', 'CONTRACT_FUNDED', 'INVOICE_PAID', 'CLAIMED'] as const;
+const swapInStateSchema = z.enum(SWAP_IN_STATUSES);
+export type SwapInState = z.infer<typeof swapInStateSchema>;
+
 export const swapInRequestSchema = z.object({
     invoice: z.string(),
     refundPublicKey: z.string(),
 });
 export type SwapInRequest = z.infer<typeof swapInRequestSchema>;
 
-export const swapInResponseSchema = z.object({
+export const getSwapInResponseSchema = z.object({
     swapId: z.string(),
     address: z.string(),
     redeemScript: z.string(),
     timeoutBlockHeight: z.number(),
+    status: swapInStateSchema,
 });
-export type SwapInResponse = z.infer<typeof swapInResponseSchema>;
-
+export type GetSwapInResponse = z.infer<typeof getSwapInResponseSchema>;
 
 export const swapOutRequestSchema = z.object({
     preImageHash: z.string(),

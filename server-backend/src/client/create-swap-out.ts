@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { SwapOutRequest, swapOutResponseSchema } from '../api.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import { SwapOutRequest, swapOutResponseSchema } from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 

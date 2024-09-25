@@ -8,6 +8,7 @@ async function bootstrap(): Promise<void> {
     app.enableShutdownHooks();
     const config = app.get(ConfigService<FourtySwapConfiguration>);
     const port = config.getOrThrow('server.port', { infer: true });
+    app.setGlobalPrefix('api');
     await app.listen(port);
 }
 

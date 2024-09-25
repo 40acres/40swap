@@ -2,7 +2,6 @@ import { LndService } from './LndService.js';
 import { NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { swapOutRequestSchema, SwapOutResponse } from './api.js';
 import { Body, Controller, Post } from '@nestjs/common';
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
@@ -14,6 +13,7 @@ import { networks, payments, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SwapOut } from './entities/SwapOut.js';
+import { swapOutRequestSchema, SwapOutResponse } from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 

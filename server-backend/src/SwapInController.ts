@@ -1,5 +1,4 @@
-import { Body, Controller, Logger, Post, UsePipes } from '@nestjs/common';
-import { swapInRequestSchema, SwapInResponse } from './api.js';
+import { Body, Controller, Get, Logger, Param, Post, UsePipes } from '@nestjs/common';
 import { createZodDto, ZodValidationPipe } from '@anatine/zod-nestjs';
 import { decode } from '@boltz/bolt11';
 import assert from 'node:assert';
@@ -14,6 +13,7 @@ import { SwapIn } from './entities/SwapIn.js';
 import Decimal from 'decimal.js';
 import { LndService } from './LndService.js';
 import { swapScript } from './contracts.js';
+import { GetSwapInResponse, swapInRequestSchema } from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -35,7 +35,7 @@ export class SwapInController {
     }
 
     @Post()
-    async createSwap(@Body() request: SwapInRequestDto): Promise<SwapInResponse> {
+    async createSwap(@Body() request: SwapInRequestDto): Promise<GetSwapInResponse> {
         const { tags } = decode(request.invoice, { bech32: 'bcrt' } );
         const hashTag = tags.find(t => t.tagName === 'payment_hash');
         assert(hashTag);
@@ -59,7 +59,7 @@ export class SwapInController {
         assert(address);
         await this.nbxplorer.trackAddress(address);
 
-        await this.dataSource.getRepository(SwapIn).save({
+        const swap = await this.dataSource.getRepository(SwapIn).save({
             contractAddress: address,
             invoice: request.invoice,
             lockScript,
@@ -70,11 +70,22 @@ export class SwapInController {
             sweepAddress: await this.lnd.getNewAddress(),
         });
 
+        return this.mapToResponse(swap);
+    }
+
+    @Get('/:id')
+    async getSwap(@Param('id') id: string): Promise<GetSwapInResponse> {
+        const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
+        return this.mapToResponse(swap);
+    }
+
+    private mapToResponse(swap: SwapIn): GetSwapInResponse {
         return {
-            address,
-            swapId: '12345678',
+            swapId: swap.id,
+            address: swap.contractAddress,
+            redeemScript: swap.lockScript.toString('hex'),
             timeoutBlockHeight: 10,
-            redeemScript: lockScript.toString('hex'),
+            status: swap.state,
         };
     }
 

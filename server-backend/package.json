@@ -1,5 +1,5 @@
 {
-  "name": "@40hub/server-backend",
+  "name": "@40swap/server-backend",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@40swap/shared": "file:../shared",
     "@anatine/zod-nestjs": "^2.0.3",
     "@boltz/bolt11": "^1.2.7",
     "@grpc/grpc-js": "^1.11.1",
