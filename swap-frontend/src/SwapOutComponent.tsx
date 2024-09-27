@@ -3,9 +3,10 @@ import { Alert, Button, Form } from 'solid-bootstrap';
 import { ClaimSwapOutRequest, GetSwapOutResponse, getSwapOutResponseSchema, SwapOutRequest } from '@40swap/shared';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { address, networks, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
+import { address, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 import Decimal from 'decimal.js';
+import { applicationContext } from './ApplicationContext.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -105,7 +106,7 @@ export const SwapOutComponent: Component = () => {
         claimKey: ECPairInterface,
         preImage: Buffer,
     }): Promise<Transaction> {
-        const network = networks.regtest;
+        const network = (await applicationContext.config).bitcoinNetwork;
 
         const spendingOutput = args.lockTx.outs
             .map((value, index) => ({ ...value, index }))

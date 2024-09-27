@@ -4,7 +4,7 @@ import { decode } from '@boltz/bolt11';
 import assert from 'node:assert';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { networks, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
+import { payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 import { NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -14,6 +14,7 @@ import Decimal from 'decimal.js';
 import { LndService } from './LndService.js';
 import { swapScript } from './contracts.js';
 import { GetSwapInResponse, swapInRequestSchema } from '@40swap/shared';
+import { BitcoinConfigurationDetails } from './BitcoinService.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -28,15 +29,13 @@ export class SwapInController {
         private lnd: LndService,
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
-    ) {
-        const k = ECPair.makeRandom();
-        console.log(`pub: ${k.publicKey.toString('hex')}`);
-        console.log(`priv: ${k.privateKey!.toString('hex')}`);
-    }
+        private bitcoinConfig: BitcoinConfigurationDetails,
+    ) {}
 
     @Post()
     async createSwap(@Body() request: SwapInRequestDto): Promise<GetSwapInResponse> {
-        const { tags, satoshis } = decode(request.invoice, { bech32: 'bcrt' } );
+        const { network } = this.bitcoinConfig;
+        const { tags, satoshis } = decode(request.invoice, { bech32: network.bech32 } );
         const hashTag = tags.find(t => t.tagName === 'payment_hash');
         assert(hashTag);
         assert(typeof hashTag.data === 'string');
@@ -50,13 +49,7 @@ export class SwapInController {
             Buffer.from(request.refundPublicKey, 'hex'),
             10,
         );
-        const { address } = payments.p2wsh({
-            network: networks.regtest,
-            redeem: {
-                output: lockScript,
-                network: networks.regtest,
-            },
-        });
+        const { address } = payments.p2wsh({network, redeem: { output: lockScript, network }});
         assert(address);
         await this.nbxplorer.trackAddress(address);
 
@@ -96,7 +89,7 @@ export class SwapInController {
         spendingOutput: NBXplorerNewTransactionEvent['data']['outputs'][number],
         txHash: string,
     ): Promise<Transaction> {
-        const network = networks.regtest;
+        const { network } = this.bitcoinConfig;
         const psbt = new Psbt({ network });
         psbt.addOutput({
             address: swap.sweepAddress,
@@ -121,6 +114,7 @@ export class SwapInController {
         } => {
             assert(input.partialSig != null);
             const redeemPayment = payments.p2wsh({
+                network,
                 redeem: {
                     input: script.compile([
                         input.partialSig[0].signature,
@@ -160,7 +154,7 @@ export class SwapInController {
             assert(output != null);
             const expectedAmount = new Decimal(output.value).div(1e8);
             if (!expectedAmount.equals(swap.outputAmount)) {
-                this.logger.error(`amount mismatch. Failed swap. Expected ${expectedAmount.toNumber()}, incoming ${swap.outputAmount.toNumber()}`);
+                this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
                 return;
             }
             swap.status = 'CONTRACT_FUNDED';

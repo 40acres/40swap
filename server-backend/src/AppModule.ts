@@ -13,6 +13,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LndService } from './LndService.js';
 import { SwapOutController } from './SwapOutController.js';
+import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
+import { ConfigurationController } from './ConfigurationController.js';
 
 @Module({
     imports: [
@@ -43,10 +45,19 @@ import { SwapOutController } from './SwapOutController.js';
     controllers: [
         SwapInController,
         SwapOutController,
+        ConfigurationController,
     ],
     providers: [
         NbxplorerService,
         LndService,
+        BitcoinService,
+        {
+            inject: [BitcoinService],
+            useFactory: (bitcoinService: BitcoinService) => {
+                return bitcoinService.configurationDetails;
+            },
+            provide: BitcoinConfigurationDetails,
+        },
         {
             inject: [ConfigService],
             useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {

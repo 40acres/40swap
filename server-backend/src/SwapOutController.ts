@@ -9,11 +9,12 @@ import Decimal from 'decimal.js';
 import { reverseSwapScript } from './contracts.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { networks, payments, Transaction } from 'bitcoinjs-lib';
+import { payments, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SwapOut } from './entities/SwapOut.js';
 import { claimSwapOutRequestSchema, GetSwapOutResponse, swapOutRequestSchema } from '@40swap/shared';
+import { BitcoinConfigurationDetails } from './BitcoinService.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -26,10 +27,12 @@ export class SwapOutController {
         private lnd: LndService,
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
+        private bitcoinConfig: BitcoinConfigurationDetails,
     ) {}
 
     @Post()
     async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
+        const { network } = this.bitcoinConfig;
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
@@ -43,13 +46,7 @@ export class SwapOutController {
             refundKey.publicKey,
             10,
         );
-        const { address } = payments.p2wsh({
-            network: networks.regtest,
-            redeem: {
-                output: lockScript,
-                network: networks.regtest,
-            },
-        });
+        const { address } = payments.p2wsh({network, redeem: { output: lockScript, network }});
         assert(address != null);
         await this.nbxplorer.trackAddress(address);
         const swap = await this.dataSource.getRepository(SwapOut).save({

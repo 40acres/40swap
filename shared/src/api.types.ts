@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { networks } from 'bitcoinjs-lib';
 
 const SWAP_IN_STATUSES = ['CREATED', 'CONTRACT_FUNDED', 'INVOICE_PAID', 'CLAIMED'] as const;
 const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
@@ -47,3 +48,9 @@ export const claimSwapOutRequestSchema = z.object({
     claimTx: z.string(),
 });
 export type ClaimSwapOutRequest = z.infer<typeof claimSwapOutRequestSchema>;
+
+export const frontendConfigurationSchema = z.object({
+    bitcoinNetwork: z.enum(['bitcoin', 'regtest', 'testnet']).transform(n => networks[n]),
+});
+export type FrontendConfiguration = z.infer<typeof frontendConfigurationSchema>;
+export type FrontendConfigurationServer = z.input<typeof frontendConfigurationSchema>;

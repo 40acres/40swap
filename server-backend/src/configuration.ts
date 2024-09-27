@@ -29,6 +29,7 @@ const configSchema = z.object({
     bitcoin: z.object({
         network: z.enum(['bitcoin', 'regtest', 'testnet']),
         requiredConfirmations: z.number().int().nonnegative(),
+        swapLockBlockDelta: z.number().int().positive().default(24 * 60 * 10),
     }),
     nbxplorer:  z.object({
         baseUrl: z.string().url(),
