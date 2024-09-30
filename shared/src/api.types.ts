@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import { networks } from 'bitcoinjs-lib';
 
-const SWAP_IN_STATUSES = ['CREATED', 'CONTRACT_FUNDED', 'INVOICE_PAID', 'CLAIMED'] as const;
+const SWAP_IN_STATUSES = [
+    // happy flow
+    'CREATED',
+    'CONTRACT_FUNDED',
+    'INVOICE_PAID',
+    'CLAIMED',
+    // if it expires after CONTRACT_FUNDED
+    'CONTRACT_EXPIRED',
+    'REFUNDED',
+] as const;
 const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
 export type SwapInStatus = z.infer<typeof swapInStatusSchema>;
 
@@ -54,3 +63,8 @@ export const frontendConfigurationSchema = z.object({
 });
 export type FrontendConfiguration = z.infer<typeof frontendConfigurationSchema>;
 export type FrontendConfigurationServer = z.input<typeof frontendConfigurationSchema>;
+
+export const psbtResponseSchema = z.object({
+    psbt: z.string(),
+});
+export type PsbtResponse = z.infer<typeof psbtResponseSchema>;

@@ -167,6 +167,12 @@ interface NBXplorerCreatePsbtRequest {
     includeOnlyOutpoints?: string[],
 }
 
+const nbxplorerNetworkStatus = z.object({
+    isFullySynched: z.boolean(),
+    chainHeight: z.number().int().positive(),
+});
+export type NBXplorerNetworkStatus = z.infer<typeof nbxplorerNetworkStatus>;
+
 const STATE_KEY = 'NBXplorer.lastEventId';
 
 @Injectable()
@@ -377,6 +383,14 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
             );
         }
         return nbxplorerCreatePsbtResponseSchema.parse(await response.json());
+    }
+
+    async getNetworkStatus(): Promise<NBXplorerNetworkStatus> {
+        const response = await fetch(`${this.config.baseUrl}/status`);
+        if (response.status >= 300) {
+            throw new Error('nbxplorer threw an when fetching the network status');
+        }
+        return nbxplorerNetworkStatus.parse(await response.json());
     }
 
     onApplicationBootstrap(): void {

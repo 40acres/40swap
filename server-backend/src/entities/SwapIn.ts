@@ -20,6 +20,9 @@ export class SwapIn {
     @Column({ type: 'bytea'})
     lockScript!: Buffer;
 
+    @Column({ type: 'integer' })
+    timeoutBlockHeight!: number;
+
     @Column({ type: 'text' })
     invoice!: string;
 
@@ -31,6 +34,9 @@ export class SwapIn {
 
     @Column({ type: 'bytea', nullable: true })
     preImage: Buffer|null = null;
+
+    @Column({ type: 'bytea', nullable: true })
+    lockTx: Buffer|null  = null;
 
     @Column({ type: 'text' })
     status!: SwapInStatus;
