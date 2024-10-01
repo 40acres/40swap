@@ -2,10 +2,12 @@ import { FrontendConfiguration, frontendConfigurationSchema } from '@40swap/shar
 import { ECPairAPI, ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { SwapInService } from './SwapInService.js';
+import { SwapOutService } from './SwapOutService.js';
 
 export class ApplicationContext {
     private _config?: Promise<FrontendConfiguration>;
     private _swapInService?: SwapInService;
+    private _swapOutService?: SwapOutService;
 
     get config(): Promise<FrontendConfiguration> {
         if (this._config == null) {
@@ -30,6 +32,13 @@ export class ApplicationContext {
             this._swapInService = new SwapInService();
         }
         return this._swapInService;
+    }
+
+    get swapOutService(): SwapOutService {
+        if (this._swapOutService == null) {
+            this._swapOutService = new SwapOutService();
+        }
+        return this._swapOutService;
     }
 }
 

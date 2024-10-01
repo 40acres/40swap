@@ -1,13 +1,18 @@
 import { GetSwapInResponse } from '@40swap/shared';
 import * as idb from 'idb';
 import { DBSchema, IDBPDatabase } from 'idb';
+import { PersistedSwapOut } from './SwapOutService.js';
 
 export type PersistedSwapIn = GetSwapInResponse & { refundKey: string };
 
-interface FourtySwapDbSchema extends DBSchema {
+export interface FourtySwapDbSchema extends DBSchema {
     'swap-in': {
         key: string,
         value: PersistedSwapIn,
+    };
+    'swap-out': {
+        key: string,
+        value: PersistedSwapOut,
     };
 }
 
@@ -19,6 +24,7 @@ export class SwapInService {
         this.db = idb.openDB<FourtySwapDbSchema>('40swap', 1, {
             upgrade(db) {
                 db.createObjectStore('swap-in', { keyPath: 'swapId'});
+                db.createObjectStore('swap-out', { keyPath: 'swapId'});
             },
         });
     }

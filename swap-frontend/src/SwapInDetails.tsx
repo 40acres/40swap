@@ -1,17 +1,13 @@
 import { Component, createResource, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
-import { ECPairFactory } from 'ecpair';
 import { GetSwapInResponse, getSwapInResponseSchema, psbtResponseSchema, TxRequest } from '@40swap/shared';
 import { Alert, Button, Container, Form } from 'solid-bootstrap';
-import * as ecc from 'tiny-secp256k1';
 import { payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 import { applicationContext } from './ApplicationContext.js';
 import { useParams } from '@solidjs/router';
 
-const ECPair = ECPairFactory(ecc);
-
 export const SwapInDetails: Component = () => {
-    const { swapInService } = applicationContext;
+    const { swapInService, ECPair } = applicationContext;
 
     const params = useParams();
     const { id: swapId } = params;

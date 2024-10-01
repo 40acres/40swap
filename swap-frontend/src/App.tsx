@@ -6,10 +6,11 @@ import './app.scss';
 import { render } from 'solid-js/web';
 import 'solid-devtools';
 import { SwapInDetails } from './SwapInDetails.js';
-import { SwapOutComponent } from './SwapOutComponent.js';
+import { SwapOutDetails } from './SwapOutDetails.js';
 import { Route, Router, RouteSectionProps } from '@solidjs/router';
 import { Toaster } from 'solid-toast';
 import { SwapInForm } from './SwapInForm.js';
+import { SwapOutForm } from './SwapOutForm.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
     return <>
@@ -37,7 +38,7 @@ const Home: Component = () => {
                 <SwapInForm/>
             </Tab>
             <Tab title="Swap Out" eventKey="swap-out">
-                <SwapOutComponent/>
+                <SwapOutForm/>
             </Tab>
         </Tabs>
     </div>;
@@ -47,6 +48,7 @@ const App: Component = () => {
     return <Router root={Layout}>
         <Route path="/" component={Home} />
         <Route path="/swap/in/:id" component={SwapInDetails} />
+        <Route path="/swap/out/:id" component={SwapOutDetails} />
     </Router>;
 };
 
