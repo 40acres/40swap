@@ -18,10 +18,12 @@
     "bootstrap": "^5.3.3",
     "solid-bootstrap": "^1.0.20",
     "solid-fa": "^0.2.0",
+    "solid-toast": "^0.5.0",
     "bitcoinjs-lib": "^6.1.5",
     "ecpair": "2.1.0",
     "tiny-secp256k1": "^2.2.3",
-    "decimal.js": "^10.4.3"
+    "decimal.js": "^10.4.3",
+    "idb": "^8.0.0"
   },
   "devDependencies": {
     "solid-devtools": "^0.30.1",
