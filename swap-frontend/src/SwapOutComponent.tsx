@@ -1,9 +1,15 @@
 import { Component, createEffect, createResource, createSignal, Match, Show, Switch } from 'solid-js';
 import { Alert, Button, Form } from 'solid-bootstrap';
-import { ClaimSwapOutRequest, GetSwapOutResponse, getSwapOutResponseSchema, SwapOutRequest } from '@40swap/shared';
+import {
+    GetSwapOutResponse,
+    getSwapOutResponseSchema,
+    psbtResponseSchema,
+    SwapOutRequest,
+    TxRequest,
+} from '@40swap/shared';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { address, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
+import { payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 import Decimal from 'decimal.js';
 import { applicationContext } from './ApplicationContext.js';
@@ -62,32 +68,63 @@ export const SwapOutComponent: Component = () => {
     createEffect(async () => {
         const swap = currentSwap();
         const localDetails = localSwapDetails();
-        if (swap == null || localDetails == null || claimed) {
+        const address = sweepAddress();
+        if (swap == null || localDetails == null || sweepAddress() == null || claimed) {
             return;
         }
         if (swap.status === 'CONTRACT_FUNDED') {
             if (swap.lockTx == null) {
                 return;
             }
-            const claimTx = await createClaimTransaction({
-                claimKey: localDetails.claimKey,
-                preImage: localDetails.preImage,
-                contractAddress: swap.contractAddress,
-                lockScript: Buffer.from(swap.redeemScript, 'hex'),
-                lockTx: Transaction.fromHex(swap.lockTx),
-                sweepAddress: sweepAddress(),
+            const resp = await fetch(`/api/swap/out/${swap.swapId}/claim-psbt?` + new URLSearchParams({
+                address,
+            }));
+            if (resp.status >= 300) {
+                alert(`error claiming: ${await resp.text()}`);
+            }
+
+            const network = (await applicationContext.config).bitcoinNetwork;
+            const psbt = Psbt.fromBase64(psbtResponseSchema.parse(await resp.json()).psbt, { network });
+            // TODO validate output
+            psbt.signInput(0, localDetails.claimKey, [Transaction.SIGHASH_ALL]);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            psbt.finalizeInput(0, (inputIndex, input, arg2, isSegwit, isP2SH, isP2WSH): {
+                finalScriptSig: Buffer | undefined;
+                finalScriptWitness: Buffer | undefined;
+            } => {
+                if (input.partialSig == null) {
+                    throw new Error();
+                }
+                const redeemPayment = payments.p2wsh({
+                    redeem: {
+                        input: script.compile([
+                            input.partialSig[0].signature,
+                            localDetails.preImage,
+                        ]),
+                        output: input.witnessScript,
+                    },
+                });
+
+                const finalScriptWitness = witnessStackToScriptWitness(
+                    redeemPayment.witness ?? []
+                );
+                return {
+                    finalScriptSig: Buffer.from(''),
+                    finalScriptWitness,
+                };
             });
-            const resp = await fetch(`/api/swap/out/${swap.swapId}/claim`, {
+            const claimTx = psbt.extractTransaction();
+            const resp2 = await fetch(`/api/swap/out/${swap.swapId}/claim`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    claimTx: claimTx.toHex(),
-                } satisfies ClaimSwapOutRequest),
+                    tx: claimTx.toHex(),
+                } satisfies TxRequest),
                 headers: {
                     'content-type': 'application/json',
                 },
             });
             claimed = true;
-            if (resp.status >= 300) {
+            if (resp2.status >= 300) {
                 alert(`error claiming: ${resp.text()}`);
             }
         }
@@ -96,76 +133,6 @@ export const SwapOutComponent: Component = () => {
     async function getSwap(id: string): Promise<GetSwapOutResponse> {
         const resp = await fetch(`/api/swap/out/${id}`);
         return getSwapOutResponseSchema.parse(await resp.json());
-    }
-
-    async function createClaimTransaction(args: {
-        contractAddress: string,
-        lockTx: Transaction,
-        sweepAddress: string,
-        lockScript: Buffer,
-        claimKey: ECPairInterface,
-        preImage: Buffer,
-    }): Promise<Transaction> {
-        const network = (await applicationContext.config).bitcoinNetwork;
-
-        const spendingOutput = args.lockTx.outs
-            .map((value, index) => ({ ...value, index }))
-            .find(o => {
-                try {
-                    return address.fromOutputScript(o.script, network) === args.contractAddress;
-                } catch (e) {
-                    return false;
-                }
-            });
-        if(spendingOutput == null) {
-            throw new Error();
-        }
-
-        const psbt = new Psbt({ network });
-        psbt.addOutput({
-            address: args.sweepAddress,
-            value: spendingOutput.value - 200, // TODO calculate fee
-        });
-
-        const p2wsh = payments.p2wsh({ redeem: { output: args.lockScript, network }, network });
-        psbt.addInput({
-            hash: args.lockTx.getHash(),
-            index: spendingOutput.index,
-            witnessScript: args.lockScript,
-            witnessUtxo: {
-                script: p2wsh.output!,
-                value: spendingOutput.value,
-            },
-        });
-        psbt.signInput(0, args.claimKey, [Transaction.SIGHASH_ALL]);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        psbt.finalizeInput(0, (inputIndex, input, arg2, isSegwit, isP2SH, isP2WSH): {
-            finalScriptSig: Buffer | undefined;
-            finalScriptWitness: Buffer | undefined;
-        } => {
-            if(input.partialSig == null) {
-                throw new Error();
-            }
-            const redeemPayment = payments.p2wsh({
-                redeem: {
-                    input: script.compile([
-                        input.partialSig[0].signature,
-                        args.preImage,
-                    ]),
-                    output: input.witnessScript,
-                },
-            });
-
-            const finalScriptWitness = witnessStackToScriptWitness(
-                redeemPayment.witness ?? []
-            );
-
-            return {
-                finalScriptSig: Buffer.from(''),
-                finalScriptWitness,
-            };
-        });
-        return psbt.extractTransaction();
     }
 
     return <>
@@ -204,6 +171,12 @@ export const SwapOutComponent: Component = () => {
                 </Match>
                 <Match when={s().status === 'CLAIMED'}>
                     <Alert variant="success">Success</Alert>
+                </Match>
+                <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                    Expired. Refunding to 40 swap.
+                </Match>
+                <Match when={s().status === 'REFUNDED'}>
+                    <Alert variant="danger">Failed</Alert>
                 </Match>
             </Switch>
         </>}</Show>

@@ -1,6 +1,12 @@
 import { Component, createEffect, createResource, createSignal, Match, Show, Switch } from 'solid-js';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
-import { GetSwapInResponse, getSwapInResponseSchema, psbtResponseSchema, SwapInRequest } from '@40swap/shared';
+import {
+    GetSwapInResponse,
+    getSwapInResponseSchema,
+    psbtResponseSchema,
+    SwapInRequest,
+    TxRequest,
+} from '@40swap/shared';
 import { Alert, Button, Form } from 'solid-bootstrap';
 import * as ecc from 'tiny-secp256k1';
 import { payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
@@ -88,8 +94,20 @@ export const SwapInComponent: Component = () => {
             };
         });
 
-        console.log(psbt.extractTransaction().toHex());
-
+        const tx = psbt.extractTransaction();
+        const resp2 = await fetch(`/api/swap/in/${swap.swapId}/refund-tx`, {
+            method: 'POST',
+            body: JSON.stringify({
+                tx: tx.toHex(),
+            } satisfies TxRequest),
+            headers: {
+                'content-type': 'application/json',
+            },
+        });
+        if (resp2.status >= 300) {
+            alert(`Unknown error broadcasting refund tx. ${JSON.stringify(await resp.json())}`);
+            return;
+        }
     }
 
     async function getSwap(id: string): Promise<GetSwapInResponse> {
@@ -140,6 +158,9 @@ export const SwapInComponent: Component = () => {
                         </Form.Group>
                         <Button onClick={startRefund}>Refund</Button>
                     </div>
+                </Match>
+                <Match when={s().status === 'REFUNDED'}>
+                    <Alert variant="info">Refunded</Alert>
                 </Match>
             </Switch>
         </>}</Show>

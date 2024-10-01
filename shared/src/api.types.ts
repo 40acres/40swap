@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { networks } from 'bitcoinjs-lib';
 
 const SWAP_IN_STATUSES = [
-    // happy flow
+    // happy path
     'CREATED',
     'CONTRACT_FUNDED',
     'INVOICE_PAID',
@@ -14,7 +14,16 @@ const SWAP_IN_STATUSES = [
 const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
 export type SwapInStatus = z.infer<typeof swapInStatusSchema>;
 
-const SWAP_OUT_STATUSES = ['CREATED', 'INVOICE_PAYMENT_INTENT_RECEIVED', 'CONTRACT_FUNDED', 'CLAIMED'] as const;
+const SWAP_OUT_STATUSES = [
+    // happy path
+    'CREATED',
+    'INVOICE_PAYMENT_INTENT_RECEIVED',
+    'CONTRACT_FUNDED',
+    'CLAIMED',
+    // if it expires after CONTRACT_FUNDED
+    'CONTRACT_EXPIRED',
+    'REFUNDED',
+] as const;
 const swapOutStatusSchema = z.enum(SWAP_OUT_STATUSES);
 export type SwapOutStatus = z.infer<typeof swapOutStatusSchema>;
 
@@ -48,15 +57,10 @@ export const getSwapOutResponseSchema = z.object({
     timeoutBlockHeight: z.number(),
     contractAddress: z.string(),
     lockTx: z.string().optional(),
-    outputAmount: z.number().positive().optional(),
+    outputAmount: z.number(),
     status: swapOutStatusSchema,
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
-
-export const claimSwapOutRequestSchema = z.object({
-    claimTx: z.string(),
-});
-export type ClaimSwapOutRequest = z.infer<typeof claimSwapOutRequestSchema>;
 
 export const frontendConfigurationSchema = z.object({
     bitcoinNetwork: z.enum(['bitcoin', 'regtest', 'testnet']).transform(n => networks[n]),
@@ -68,3 +72,8 @@ export const psbtResponseSchema = z.object({
     psbt: z.string(),
 });
 export type PsbtResponse = z.infer<typeof psbtResponseSchema>;
+
+export const txRequestSchema = z.object({
+    tx: z.string(),
+});
+export type TxRequest = z.infer<typeof txRequestSchema>;

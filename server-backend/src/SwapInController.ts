@@ -8,17 +8,18 @@ import { address, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { OnEvent } from '@nestjs/event-emitter';
-import { DataSource, LessThanOrEqual } from 'typeorm';
+import { DataSource, In, LessThanOrEqual } from 'typeorm';
 import { SwapIn } from './entities/SwapIn.js';
 import Decimal from 'decimal.js';
 import { LndService } from './LndService.js';
 import { swapScript } from './contracts.js';
-import { GetSwapInResponse, PsbtResponse, swapInRequestSchema } from '@40swap/shared';
+import { GetSwapInResponse, PsbtResponse, swapInRequestSchema, txRequestSchema } from '@40swap/shared';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 
 const ECPair = ECPairFactory(ecc);
 
 class SwapInRequestDto extends createZodDto(swapInRequestSchema) {}
+class TxRequestDto extends createZodDto(txRequestSchema) {}
 
 @Controller('/swap/in')
 @UsePipes(ZodValidationPipe)
@@ -85,6 +86,18 @@ export class SwapInController {
         const lockTx = Transaction.fromBuffer(swap.lockTx);
         const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress);
         return { psbt: refundPsbt.toBase64() };
+    }
+
+    @Post('/:id/refund-tx')
+    async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto): Promise<void> {
+        try {
+            // TODO validate
+            const tx = Transaction.fromHex(txRequest.tx);
+            await this.nbxplorer.broadcastTx(tx);
+        } catch (e) {
+            throw new BadRequestException('invalid bitcoin tx');
+        }
+
     }
 
     @Get('/:id')
@@ -189,34 +202,65 @@ export class SwapInController {
             const swapInRepository = this.dataSource.getRepository(SwapIn);
             const txAddress = match[1];
             const swap = await swapInRepository.findOneBy({
-                status: 'CREATED',
+                status: In(['CREATED', 'CONTRACT_EXPIRED']),
                 contractAddress: txAddress,
             });
             if (swap == null) {
+                // TODO log
                 return;
             }
-
-            // TODO: the output is also found by buildClaimTx(), needs refactor
-            const output = event.data.outputs.find(o => o.address === swap.contractAddress);
-            assert(output != null);
-            const expectedAmount = new Decimal(output.value).div(1e8);
-            if (!expectedAmount.equals(swap.outputAmount)) {
-                this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
-                return;
+            if (swap.status === 'CREATED') {
+                await this.processContractFundingTx(swap, event);
+            } else if (swap.status === 'CONTRACT_EXPIRED') {
+                await this.processContractSpendingTx(swap, event);
             }
-            swap.status = 'CONTRACT_FUNDED';
-            swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
-            swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
-            await swapInRepository.save(swap);
+        }
+    }
 
-            const preimage = await this.lnd.sendPayment(swap.invoice);
-            swap.preImage = preimage;
-            swap.status = 'INVOICE_PAID';
-            await swapInRepository.save(swap);
+    private async processContractFundingTx(swap: SwapIn, event: NBXplorerNewTransactionEvent): Promise<void> {
+        const swapInRepository = this.dataSource.getRepository(SwapIn);
+        // TODO: the output is also found by buildClaimTx(), needs refactor
+        const output = event.data.outputs.find(o => o.address === swap.contractAddress);
+        assert(output != null);
+        const expectedAmount = new Decimal(output.value).div(1e8);
+        if (!expectedAmount.equals(swap.outputAmount)) {
+            this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
+            return;
+        }
+        swap.status = 'CONTRACT_FUNDED';
+        swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
+        swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+        await swapInRepository.save(swap);
 
-            const claimTx = this.buildClaimTx(swap, Transaction.fromHex(event.data.transactionData.transaction));
-            await this.nbxplorer.broadcastTx(claimTx);
-            swap.status = 'CLAIMED';
+        const preimage = await this.lnd.sendPayment(swap.invoice);
+        swap.preImage = preimage;
+        swap.status = 'INVOICE_PAID';
+        await swapInRepository.save(swap);
+
+        const claimTx = this.buildClaimTx(swap, Transaction.fromHex(event.data.transactionData.transaction));
+        await this.nbxplorer.broadcastTx(claimTx);
+        swap.status = 'CLAIMED';
+        await swapInRepository.save(swap);
+    }
+
+    private async processContractSpendingTx(swap: SwapIn, event: NBXplorerNewTransactionEvent): Promise<void> {
+        const swapInRepository = this.dataSource.getRepository(SwapIn);
+        assert(swap.lockTx != null);
+
+        const tx = Transaction.fromHex(event.data.transactionData.transaction);
+        const isPayingToExternalAddress = event.data.outputs.length === 0; // nbxplorer does not list outputs if it's spending a tracking utxo
+        const isSpendingFromContract = tx.ins.find(i => i.hash.equals(Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
+        const isPayingToSweepAddress = tx.outs.find(o => {
+            try {
+                return address.fromOutputScript(o.script) === swap.sweepAddress;
+            } catch (e) {
+                return false;
+            }
+        }) != null;
+
+        if (isSpendingFromContract && isPayingToExternalAddress && !isPayingToSweepAddress) {
+            console.log('refund found');
+            swap.status = 'REFUNDED';
             await swapInRepository.save(swap);
         }
     }
@@ -226,7 +270,7 @@ export class SwapInController {
         const swapInRepository = this.dataSource.getRepository(SwapIn);
         const expiredSwaps = await swapInRepository.findBy({
             status: 'CONTRACT_FUNDED',
-            timeoutBlockHeight: LessThanOrEqual(event.data.height!+9),
+            timeoutBlockHeight: LessThanOrEqual(event.data.height!),
         });
         for (const swap of expiredSwaps) {
             this.logger.log(`swap expired ${swap.id}`);
