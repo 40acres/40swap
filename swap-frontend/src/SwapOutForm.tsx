@@ -11,7 +11,7 @@ export const SwapOutForm: Component = () =>  {
     const navigate = useNavigate();
 
     async function startSwap(): Promise<void> {
-        const { swapOutService, ECPair} = applicationContext;
+        const { localSwapStorageService, ECPair} = applicationContext;
 
         const randomBytes = crypto.getRandomValues(new Uint8Array(32));
         const preImage = Buffer.from(randomBytes);
@@ -39,7 +39,8 @@ export const SwapOutForm: Component = () =>  {
             return;
         }
         const swap = getSwapOutResponseSchema.parse(await resp.json());
-        await swapOutService.persistLocally({
+        await localSwapStorageService.persist({
+            type: 'out',
             ...swap,
             ...localSwapDetails,
         });

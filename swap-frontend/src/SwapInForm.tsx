@@ -26,7 +26,8 @@ export const SwapInForm: Component = () => {
         }
 
         const swap = getSwapInResponseSchema.parse(await resp.json());
-        await applicationContext.swapInService.persistLocally({
+        await applicationContext.localSwapStorageService.persist({
+            type: 'in',
             ...swap,
             refundKey: refundKey.privateKey!.toString('hex'),
         });

@@ -8,7 +8,7 @@ import { useParams } from '@solidjs/router';
 
 
 export const SwapOutDetails: Component = () => {
-    const { swapOutService, ECPair } = applicationContext;
+    const { localSwapStorageService, ECPair } = applicationContext;
 
     const params = useParams();
     const { id: swapId } = params;
@@ -18,7 +18,7 @@ export const SwapOutDetails: Component = () => {
 
     createEffect(async () => {
         const swap = currentSwap();
-        const localDetails = await swapOutService.findLocally(swapId);
+        const localDetails = await localSwapStorageService.findById('out', swapId);
         if (swap == null || localDetails == null || claimed) {
             return;
         }

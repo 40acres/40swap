@@ -1,5 +1,5 @@
 import { Component } from 'solid-js';
-import { Container, Navbar, Tab, Tabs } from 'solid-bootstrap';
+import { Container, Nav, Navbar, Tab, Tabs } from 'solid-bootstrap';
 import Fa from 'solid-fa';
 import { faAddressBook } from '@fortawesome/free-solid-svg-icons';
 import './app.scss';
@@ -11,6 +11,7 @@ import { Route, Router, RouteSectionProps } from '@solidjs/router';
 import { Toaster } from 'solid-toast';
 import { SwapInForm } from './SwapInForm.js';
 import { SwapOutForm } from './SwapOutForm.js';
+import { History } from './History.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
     return <>
@@ -19,6 +20,9 @@ const Layout: Component<RouteSectionProps> = (props) => {
                 <Navbar.Brand class="fs-2" href="/">
                     <Fa icon={faAddressBook} size="lg" /> 40Swap
                 </Navbar.Brand>
+                <Nav class="me-auto">
+                    <Nav.Link link href="/history">History</Nav.Link>
+                </Nav>
             </Container>
         </Navbar>
         <Container fluid id='main'>
@@ -49,6 +53,7 @@ const App: Component = () => {
         <Route path="/" component={Home} />
         <Route path="/swap/in/:id" component={SwapInDetails} />
         <Route path="/swap/out/:id" component={SwapOutDetails} />
+        <Route path="/history" component={History} />
     </Router>;
 };
 

@@ -7,7 +7,7 @@ import { applicationContext } from './ApplicationContext.js';
 import { useParams } from '@solidjs/router';
 
 export const SwapInDetails: Component = () => {
-    const { swapInService, ECPair } = applicationContext;
+    const { localSwapStorageService, ECPair } = applicationContext;
 
     const params = useParams();
     const { id: swapId } = params;
@@ -18,7 +18,7 @@ export const SwapInDetails: Component = () => {
 
     async function startRefund(): Promise<void> {
         const swap = currentSwap();
-        const refundPrivateKeyHex = (await swapInService.findLocally(swapId))?.refundKey;
+        const refundPrivateKeyHex = (await localSwapStorageService.findById('in', swapId))?.refundKey;
         if (swap == null || refundPrivateKeyHex == null || refunded) {
             return;
         }
