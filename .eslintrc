@@ -21,6 +21,9 @@
         "@typescript-eslint/ban-ts-comment": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-empty-function": "off",
-        "eqeqeq": ["error", "smart"]
+        "eqeqeq": ["error", "smart"],
+        "@typescript-eslint/no-unused-vars": ["error", {
+            "args": "none"
+        }]
     }
 }

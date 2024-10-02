@@ -41,6 +41,10 @@ const configSchema = z.object({
         cert: z.string(),
         macaroon: z.string(),
     }),
+    mempoolBlockExplorer: z.object({
+        url: z.string().url(),
+        useFeeEstimator: z.boolean().default(true),
+    }),
 });
 
 export type FourtySwapConfiguration = z.infer<typeof configSchema>;

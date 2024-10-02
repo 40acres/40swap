@@ -11,16 +11,21 @@ import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query 
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import Decimal from 'decimal.js';
-import { reverseSwapScript } from './contracts.js';
+import { buildContractSpendBasePsbt, buildTransactionWithFee, reverseSwapScript } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { address, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
+import { address, payments, Psbt, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SwapOut } from './entities/SwapOut.js';
-import { GetSwapOutResponse, PsbtResponse, swapOutRequestSchema, txRequestSchema } from '@40swap/shared';
+import {
+    GetSwapOutResponse,
+    PsbtResponse,
+    signContractSpend,
+    swapOutRequestSchema,
+    txRequestSchema,
+} from '@40swap/shared';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -104,7 +109,7 @@ export class SwapOutController {
         const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
         assert(swap.lockTx != null);
         const lockTx = Transaction.fromBuffer(swap.lockTx);
-        const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress);
+        const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
         return { psbt: claimPsbt.toBase64() };
     }
 
@@ -132,78 +137,53 @@ export class SwapOutController {
         await swapOutRepository.save(swap);
     }
 
-    buildClaimPsbt(swap: SwapOut, spendingTx: Transaction, claimAddress: string): Psbt {
-        return this.buildContractSpendBasePsbt(swap, spendingTx, claimAddress);
-    }
-
-    buildRefundTx(swap: SwapOut, spendingTx: Transaction): Transaction {
+    buildClaimPsbt(swap: SwapOut, spendingTx: Transaction, outputAddress: string, feeRate: number): Psbt {
         const { network } = this.bitcoinConfig;
-        const psbt = this.buildContractSpendBasePsbt(swap, spendingTx, swap.refundAddress);
-        psbt.locktime = swap.timeoutBlockHeight;
-        psbt.signInput(0, ECPair.fromPrivateKey(swap.refundKey), [Transaction.SIGHASH_ALL]);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        psbt.finalizeInput(0, (inputIndex, input, arg2, isSegwit, isP2SH, isP2WSH): {
-            finalScriptSig: Buffer | undefined;
-            finalScriptWitness: Buffer | undefined;
-        } => {
-            assert(input.partialSig != null);
-            const redeemPayment = payments.p2wsh({
-                network,
-                redeem: {
-                    input: script.compile([
-                        input.partialSig[0].signature,
-                        Buffer.from('0x00', 'hex'),
-                    ]),
-                    output: input.witnessScript,
-                },
-            });
-
-            const finalScriptWitness = witnessStackToScriptWitness(
-                redeemPayment.witness ?? []
-            );
-
-            return {
-                finalScriptSig: Buffer.from(''),
-                finalScriptWitness,
-            };
-        });
-        return psbt.extractTransaction();
-    }
-
-    // TODO this is the same as swap in
-    buildContractSpendBasePsbt(swap: SwapOut, spendingTx: Transaction, outputAddress: string): Psbt {
-        const { network } = this.bitcoinConfig;
-
-        const spendingOutput = spendingTx.outs
-            .map((value, index) => ({ ...value, index }))
-            .find(o => {
-                try {
-                    return address.fromOutputScript(o.script, network) === swap.contractAddress;
-                } catch (e) {
-                    return false;
+        return buildTransactionWithFee(
+            feeRate,
+            (feeAmount, isFeeCalculationRun) => {
+                const psbt = buildContractSpendBasePsbt({
+                    swap,
+                    network,
+                    spendingTx,
+                    outputAddress,
+                    feeAmount,
+                });
+                if (isFeeCalculationRun) {
+                    signContractSpend({
+                        psbt,
+                        network,
+                        key: ECPair.fromPrivateKey(swap.refundKey),
+                        preImage: Buffer.alloc(32).fill(0),
+                    });
                 }
-            });
-        assert(spendingOutput != null);
-
-        const psbt = new Psbt({ network });
-        console.log(`spending contract to ${outputAddress}`);
-        psbt.addOutput({
-            address: outputAddress,
-            value: spendingOutput.value - 200, // TODO calculate fee
-        });
-
-        const p2wsh = payments.p2wsh({ redeem: { output: swap.lockScript, network }, network });
-        psbt.addInput({
-            hash: spendingTx.getHash(),
-            index: spendingOutput.index,
-            witnessScript: swap.lockScript,
-            witnessUtxo: {
-                script: p2wsh.output!,
-                value: spendingOutput.value,
+                return psbt;
             },
-            sequence: 0xfffffffd, // locktime does not work without this
-        });
-        return psbt;
+        );
+    }
+
+    buildRefundTx(swap: SwapOut, spendingTx: Transaction, feeRate: number): Transaction {
+        const { network } = this.bitcoinConfig;
+        return buildTransactionWithFee(
+            feeRate,
+            (feeAmount, isFeeCalculationRun) => {
+                const psbt = buildContractSpendBasePsbt({
+                    swap,
+                    network,
+                    spendingTx,
+                    outputAddress: swap.refundAddress,
+                    feeAmount,
+                });
+                psbt.locktime = swap.timeoutBlockHeight;
+                signContractSpend({
+                    psbt,
+                    network,
+                    key: ECPair.fromPrivateKey(swap.refundKey),
+                    preImage: Buffer.alloc(0),
+                });
+                return psbt;
+            }
+        ).extractTransaction();
     }
 
     private mapToResponse(swap: SwapOut): GetSwapOutResponse {
@@ -305,7 +285,7 @@ export class SwapOutController {
             await swapOutRepository.save(swap);
 
             assert(swap.lockTx != null);
-            const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx));
+            const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
             await this.nbxplorer.broadcastTx(refundTx);
         }
     }

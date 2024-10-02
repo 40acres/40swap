@@ -15,3 +15,5 @@ bitcoin:
 nbxplorer:
   baseUrl: http://localhost:32838/v1/cryptos/btc
   fallbackFeeRate: 10
+mempoolBlockExplorer:
+  url: http://localhost:7084
