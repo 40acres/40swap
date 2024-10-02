@@ -188,82 +188,82 @@ services:
       CHANNEL_BACKUP_PATH: /shared/lnd/backup
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
-  mempool-frontend:
-    environment:
-      FRONTEND_HTTP_PORT: "8080"
-      BACKEND_MAINNET_HTTP_HOST: "mempool-backend"
-    image: mempool/frontend:latest
-    container_name: 40swap_mempool_frontend
-    user: "1000:1000"
-    restart: on-failure
-    stop_grace_period: 1m
-    command: "./wait-for mempool-db:3306 --timeout=720 -- nginx -g 'daemon off;'"
-    ports:
-      - 7084:8080
-  mempool-backend:
-    environment:
-      MEMPOOL_BACKEND: "electrum"
-      CORE_RPC_HOST: "bitcoind"
-      CORE_RPC_PORT: "18443"
-      CORE_RPC_USERNAME: "40swap"
-      CORE_RPC_PASSWORD: "pass"
-      DATABASE_ENABLED: "true"
-      DATABASE_HOST: "mempool-db"
-      DATABASE_DATABASE: "mempool"
-      DATABASE_USERNAME: "mempool"
-      DATABASE_PASSWORD: "mempool"
-      STATISTICS_ENABLED: "true"
-      ELECTRUM_HOST: "electrumx"
-      ELECTRUM_PORT: "50001"
-      ELECTRUM_TLS_ENABLED: "false"
-    image: mempool/backend:latest
-    container_name: 40swap_mempool_backend
-    user: "1000:1000"
-    restart: on-failure
-    stop_grace_period: 1m
-    command: "./wait-for-it.sh mempool-db:3306 --timeout=720 --strict -- ./start.sh"
-    depends_on:
-      - bitcoind
-      - mempool-db
-    volumes:
-      - mempool-backend-data:/backend/cache
-  mempool-db:
-    environment:
-      MYSQL_DATABASE: "mempool"
-      MYSQL_USER: "mempool"
-      MYSQL_PASSWORD: "mempool"
-      MYSQL_ROOT_PASSWORD: "admin"
-    image: mariadb:10.5.8
-    container_name: 40swap_mempool_db
-    restart: on-failure
-    stop_grace_period: 1m
-    volumes:
-      - mempool-db-data:/var/lib/mysql
-  electrumx:
-    image: andgohq/electrumx:1.8.7
-    container_name: 40swap_electrumx
-    depends_on:
-      - "bitcoind"
-    command: [ "wait-for-it.sh", "bitcoind:18443", "--", "init" ]
-    ports:
-      - "51002:50002"
-      - "51001:50001"
-    expose:
-      - "50001"
-      - "50002"
-    volumes:
-      - electrumx-data:/data
-    environment:
-      # bitcoind is valid
-      - DAEMON_URL=http://40swap:pass@bitcoind:18443
-      - COIN=BitcoinSegwit
-      - NET=regtest
-      # 127.0.0.1 or electrumx is valid for RPC_HOST
-      - RPC_HOST=electrumx
-      - RPC_PORT=18443
-      - HOST=electrumx
-      - TCP_PORT=50001
-      - SSL_PORT=50002
+#  mempool-frontend:
+#    environment:
+#      FRONTEND_HTTP_PORT: "8080"
+#      BACKEND_MAINNET_HTTP_HOST: "mempool-backend"
+#    image: mempool/frontend:latest
+#    container_name: 40swap_mempool_frontend
+#    user: "1000:1000"
+#    restart: on-failure
+#    stop_grace_period: 1m
+#    command: "./wait-for mempool-db:3306 --timeout=720 -- nginx -g 'daemon off;'"
+#    ports:
+#      - 7084:8080
+#  mempool-backend:
+#    environment:
+#      MEMPOOL_BACKEND: "electrum"
+#      CORE_RPC_HOST: "bitcoind"
+#      CORE_RPC_PORT: "18443"
+#      CORE_RPC_USERNAME: "40swap"
+#      CORE_RPC_PASSWORD: "pass"
+#      DATABASE_ENABLED: "true"
+#      DATABASE_HOST: "mempool-db"
+#      DATABASE_DATABASE: "mempool"
+#      DATABASE_USERNAME: "mempool"
+#      DATABASE_PASSWORD: "mempool"
+#      STATISTICS_ENABLED: "true"
+#      ELECTRUM_HOST: "electrumx"
+#      ELECTRUM_PORT: "50001"
+#      ELECTRUM_TLS_ENABLED: "false"
+#    image: mempool/backend:latest
+#    container_name: 40swap_mempool_backend
+#    user: "1000:1000"
+#    restart: on-failure
+#    stop_grace_period: 1m
+#    command: "./wait-for-it.sh mempool-db:3306 --timeout=720 --strict -- ./start.sh"
+#    depends_on:
+#      - bitcoind
+#      - mempool-db
+#    volumes:
+#      - mempool-backend-data:/backend/cache
+#  mempool-db:
+#    environment:
+#      MYSQL_DATABASE: "mempool"
+#      MYSQL_USER: "mempool"
+#      MYSQL_PASSWORD: "mempool"
+#      MYSQL_ROOT_PASSWORD: "admin"
+#    image: mariadb:10.5.8
+#    container_name: 40swap_mempool_db
+#    restart: on-failure
+#    stop_grace_period: 1m
+#    volumes:
+#      - mempool-db-data:/var/lib/mysql
+#  electrumx:
+#    image: andgohq/electrumx:1.8.7
+#    container_name: 40swap_electrumx
+#    depends_on:
+#      - "bitcoind"
+#    command: [ "wait-for-it.sh", "bitcoind:18443", "--", "init" ]
+#    ports:
+#      - "51002:50002"
+#      - "51001:50001"
+#    expose:
+#      - "50001"
+#      - "50002"
+#    volumes:
+#      - electrumx-data:/data
+#    environment:
+#      # bitcoind is valid
+#      - DAEMON_URL=http://40swap:pass@bitcoind:18443
+#      - COIN=BitcoinSegwit
+#      - NET=regtest
+#      # 127.0.0.1 or electrumx is valid for RPC_HOST
+#      - RPC_HOST=electrumx
+#      - RPC_PORT=18443
+#      - HOST=electrumx
+#      - TCP_PORT=50001
+#      - SSL_PORT=50002
 volumes:
   bitcoind-data:
   lnd-lsp-data:

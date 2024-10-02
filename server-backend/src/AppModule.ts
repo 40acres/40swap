@@ -16,6 +16,7 @@ import { SwapOutController } from './SwapOutController.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { ConfigurationController } from './ConfigurationController.js';
 import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
+import { SwapService } from './SwapService.js';
 
 @Module({
     imports: [
@@ -53,6 +54,7 @@ import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
         LndService,
         BitcoinService,
         MempoolDotSpaceService,
+        SwapService,
         {
             inject: [BitcoinService],
             useFactory: (bitcoinService: BitcoinService) => {
