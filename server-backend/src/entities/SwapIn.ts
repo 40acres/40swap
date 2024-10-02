@@ -1,11 +1,11 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, PrimaryColumn } from 'typeorm';
 import Decimal from 'decimal.js';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import { SwapInStatus } from '@40swap/shared';
 
 @Entity()
 export class SwapIn {
-    @PrimaryGeneratedColumn('uuid')
+    @PrimaryColumn({ type: 'text' })
     id!: string;
 
     @Column({ type: 'text' })

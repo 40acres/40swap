@@ -16,6 +16,7 @@ import { LndService } from './LndService.js';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SwapOutRunner } from './SwapOutRunner.js';
 import { SwapOut } from './entities/SwapOut.js';
+import { base58Id } from './utils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -57,6 +58,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
         const repository = this.dataSource.getRepository(SwapIn);
         const swap = await repository.save({
+            id: base58Id(),
             contractAddress: address,
             invoice: request.invoice,
             lockScript,
@@ -102,6 +104,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const refundAddress = await this.lnd.getNewAddress();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
+            id: base58Id(),
             contractAddress: address,
             inputAmount: new Decimal(request.inputAmount),
             outputAmount: new Decimal(0),

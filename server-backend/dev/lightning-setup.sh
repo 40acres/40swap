@@ -22,9 +22,11 @@ lsp_addr=$(40swap-lsp-lncli newaddress p2wkh | jq -r .address)
 alice_addr=$(40swap-alice-lncli newaddress p2wkh  | jq -r .address)
 user_addr=$(40swap-user-lncli newaddress p2wkh  | jq -r .address)
 
-40swap-bitcoin-cli -named sendtoaddress address=$lsp_addr  amount=50 fee_rate=25
-40swap-bitcoin-cli -named sendtoaddress address=$alice_addr  amount=50 fee_rate=25
-40swap-bitcoin-cli -named sendtoaddress address=$user_addr  amount=50 fee_rate=25
+for run in {1..10}; do
+  40swap-bitcoin-cli -named sendtoaddress address=$lsp_addr  amount=5 fee_rate=25
+  40swap-bitcoin-cli -named sendtoaddress address=$alice_addr  amount=5 fee_rate=25
+  40swap-bitcoin-cli -named sendtoaddress address=$user_addr  amount=5 fee_rate=25
+done
 40swap-bitcoin-cli generatetoaddress 3 $mining_addr
 
 40swap-lsp-lncli connect "$alice_uri"
