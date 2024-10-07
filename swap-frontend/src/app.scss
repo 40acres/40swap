@@ -17,6 +17,7 @@ $input-disabled-color: var(--bs-secondary-color);
 
 h3 {
   text-transform: uppercase;
+  @extend .pb-4;
 }
 
 .form-control {
@@ -38,7 +39,7 @@ textarea {
   }
 }
 
-button {
+.btn {
   padding: 9px;
   text-transform: uppercase;
   font-weight: $font-weight-semibold !important;
@@ -57,3 +58,19 @@ input {
   }
 }
 
+.swap-details-table {
+  tbody > tr:last-child {
+    border-bottom-width: 2px;
+  }
+
+  tr {
+    padding-top: 3rem;
+  }
+
+  th {
+    word-break: keep-all;
+    white-space: nowrap;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+}

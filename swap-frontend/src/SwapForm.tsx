@@ -79,14 +79,14 @@ export const SwapForm: Component = () => {
     }
 
     function getInputAsset(): Asset {
-        if (swapType() === 'in') {
+        if (swapType() === 'out') {
             return 'LIGHTNING_BITCOIN';
         }
         return 'ON_CHAIN_BITCOIN';
     }
 
     function getOutputAsset(): Asset {
-        if (swapType() === 'out') {
+        if (swapType() === 'in') {
             return 'LIGHTNING_BITCOIN';
         }
         return 'ON_CHAIN_BITCOIN';

@@ -16,16 +16,16 @@ const Layout: Component<RouteSectionProps> = (props) => {
         <Navbar class="mb-4" expand="lg" collapseOnSelect>
             <Container>
                 <Navbar.Brand class="fs-2" href="/">
-                    <img src={logo} style="height: 3rem" />
+                    <img src={logo} style="height: 3rem"/>
                 </Navbar.Brand>
                 <Nav class="me-auto">
                     <Nav.Link link href="/history">History</Nav.Link>
                 </Nav>
             </Container>
         </Navbar>
-        <Container fluid id='main'>
+        <div style="width: 600px; padding: 30px" class="mx-auto" id="main">
             {props.children}
-        </Container>
+        </div>
         <Toaster toastOptions={{
             duration: 5000,
             position: 'bottom-right',
@@ -33,17 +33,9 @@ const Layout: Component<RouteSectionProps> = (props) => {
     </>;
 };
 
-const Home: Component = () => {
-    return <>
-        <div style="width: 528px" class="mx-auto p-3">
-            <SwapForm />
-        </div>
-    </>;
-};
-
 const App: Component = () => {
     return <Router root={Layout}>
-        <Route path="/" component={Home} />
+        <Route path="/" component={SwapForm} />
         <Route path="/swap/in/:id" component={SwapInDetails} />
         <Route path="/swap/out/:id" component={SwapOutDetails} />
         <Route path="/history" component={History} />
