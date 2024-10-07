@@ -7,7 +7,7 @@ import { A, useParams } from '@solidjs/router';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { QrCode } from './QrCode.js';
-import lightningLogo from '/assets/lightning-logo.svg';
+import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import successImage from '/assets/success-image.svg';
 import { createTimer } from '@solid-primitives/timer';
 
@@ -130,7 +130,7 @@ export const SwapInDetails: Component = () => {
                 <Switch>
                     <Match when={s().status === 'CREATED'}>
                         <div class="d-flex justify-content-center">
-                            <QrCode data={bip21Address()} image={lightningLogo}/>
+                            <QrCode data={bip21Address()} image={bitcoinLogo}/>
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
                             <a href={bip21Address()} class="btn btn-primary" role="button">Pay</a>
