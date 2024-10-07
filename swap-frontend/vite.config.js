@@ -31,6 +31,10 @@ export default defineConfig({
     resolve: {
         alias: {
             buffer: 'rollup-plugin-node-polyfills/polyfills/buffer-es6',
+            // for bolt11
+            stream: 'rollup-plugin-node-polyfills/polyfills/stream',
+            util: 'rollup-plugin-node-polyfills/polyfills/util',
+            process: 'rollup-plugin-node-polyfills/polyfills/process-es6',
         },
     },
 });

@@ -1,7 +1,7 @@
 import { SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
-import { decode } from '@boltz/bolt11';
+import { decode,  } from 'bolt11';
 import assert from 'node:assert';
 import { reverseSwapScript, swapScript } from './bitcoin-utils.js';
 import { payments } from 'bitcoinjs-lib';
@@ -37,7 +37,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
         const { network } = this.bitcoinConfig;
-        const { tags, satoshis } = decode(request.invoice, { bech32: network.bech32 } );
+        const { tags, satoshis } = decode(request.invoice); // TODO validate network
         const hashTag = tags.find(t => t.tagName === 'payment_hash');
         assert(hashTag);
         assert(typeof hashTag.data === 'string');

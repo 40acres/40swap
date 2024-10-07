@@ -1,8 +1,8 @@
 import { GetSwapInResponse, GetSwapOutResponse } from '@40swap/shared';
 import * as idb from 'idb';
 import { DBSchema, IDBPDatabase } from 'idb';
+import { SwapType } from './utils.js';
 
-type SwapType = 'in'|'out';
 export type PersistedSwapIn = GetSwapInResponse & {
     type: 'in';
     refundKey: string,

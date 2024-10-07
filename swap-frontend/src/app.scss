@@ -1,3 +1,59 @@
-$primary: green;
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap');
+
+$font-family-sans-serif: "IBM Plex Sans Condensed", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !default;
+
+$primary: #6C2DB6;
 $link-decoration: none !default;
+$border-radius: 0;
+$input-border-radius: 0;
+$input-border-radius-lg: 0;
+
+$light: #F6F6F6;
+$input-font-size-lg: 1.5rem;
+$input-disabled-bg: $light;
+$input-disabled-color: var(--bs-secondary-color);
+
 @import "../../node_modules/bootstrap/scss/bootstrap";
+
+h3 {
+  text-transform: uppercase;
+}
+
+.form-control {
+  background-color: $light;
+  border: none;
+}
+
+textarea {
+  @extend .fs-6;
+
+  &::placeholder {
+    text-align: center;
+    padding-top: 50px;
+  }
+
+  &:focus {
+    background-color: $light !important;
+    box-shadow: none !important;
+  }
+}
+
+button {
+  padding: 9px;
+  text-transform: uppercase;
+  font-weight: $font-weight-semibold !important;
+  @extend .w-100;
+}
+
+.inline-input {
+  padding: 0 !important;
+  min-height: auto;
+}
+
+input {
+  &:focus {
+    background-color: $light !important;
+    box-shadow: none !important;
+  }
+}
+

@@ -23,7 +23,8 @@
     "ecpair": "2.1.0",
     "tiny-secp256k1": "^2.2.3",
     "decimal.js": "^10.4.3",
-    "idb": "^8.0.0"
+    "idb": "^8.0.0",
+    "bolt11": "^1.4.1"
   },
   "devDependencies": {
     "solid-devtools": "^0.30.1",

@@ -23,7 +23,7 @@
   "dependencies": {
     "@40swap/shared": "file:../shared",
     "@anatine/zod-nestjs": "^2.0.3",
-    "@boltz/bolt11": "^1.2.7",
+    "bolt11": "^1.4.1",
     "@grpc/grpc-js": "^1.11.1",
     "@grpc/proto-loader": "^0.7.13",
     "@nestjs/common": "^10.3.10",
