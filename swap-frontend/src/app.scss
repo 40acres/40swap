@@ -34,8 +34,8 @@ $input-disabled-color: var(--bs-secondary-color);
 
 #main {
   background-image: url("assets/swap-background.jpeg");
-  background-size: 100vw;
-  background-position-y: -300px;
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
   min-height: 100vh;
 }
