@@ -87,6 +87,7 @@ export class SwapInController {
             timeoutBlockHeight: swap.timeoutBlockHeight,
             status: swap.status,
             inputAmount: swap.inputAmount.toNumber(),
+            createdAt: swap.createdAt.toISOString(),
         };
     }
 

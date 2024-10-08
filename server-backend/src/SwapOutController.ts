@@ -109,6 +109,7 @@ export class SwapOutController {
             outputAmount: swap.outputAmount.toNumber(),
             status: swap.status,
             lockTx: swap.lockTx?.toString('hex'),
+            createdAt: swap.createdAt.toISOString(),
         };
     }
 

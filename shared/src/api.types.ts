@@ -40,6 +40,7 @@ export const getSwapInResponseSchema = z.object({
     timeoutBlockHeight: z.number(),
     status: swapInStatusSchema,
     inputAmount: z.number().positive(),
+    createdAt: z.string(),
 });
 export type GetSwapInResponse = z.infer<typeof getSwapInResponseSchema>;
 
@@ -59,6 +60,7 @@ export const getSwapOutResponseSchema = z.object({
     lockTx: z.string().optional(),
     outputAmount: z.number(),
     status: swapOutStatusSchema,
+    createdAt: z.string(),
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 

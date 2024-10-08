@@ -19,6 +19,9 @@ export interface FourtySwapDbSchema extends DBSchema {
     'swap': {
         key: string,
         value: PersistedSwapIn|PersistedSwapOut,
+        indexes: {
+            'by-created-at': string,
+        },
     };
 }
 
@@ -29,7 +32,8 @@ export class LocalSwapStorageService {
     constructor() {
         this.db = idb.openDB<FourtySwapDbSchema>('40swap', 1, {
             upgrade(db) {
-                db.createObjectStore('swap', { keyPath: 'swapId'});
+                const store = db.createObjectStore('swap', { keyPath: 'swapId'});
+                store.createIndex('by-created-at', 'createdAt', { unique: false });
             },
         });
     }
@@ -47,7 +51,11 @@ export class LocalSwapStorageService {
     }
 
     async findAllLocally(): Promise<(PersistedSwapIn|PersistedSwapOut)[]> {
-        return await (await this.db).getAll('swap');
+        return (await (await this.db).getAllFromIndex('swap', 'by-created-at')).reverse();
+    }
+
+    async delete(id: string): Promise<void> {
+        return (await this.db).delete('swap', id);
     }
 
 }

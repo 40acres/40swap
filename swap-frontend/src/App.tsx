@@ -1,4 +1,4 @@
-import { Component } from 'solid-js';
+import { Component, ParentComponent } from 'solid-js';
 import { Container, Nav, Navbar } from 'solid-bootstrap';
 import './app.scss';
 import { render } from 'solid-js/web';
@@ -23,9 +23,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
                 </Nav>
             </Container>
         </Navbar>
-        <div style="width: 600px; padding: 30px" class="mx-auto" id="main">
-            {props.children}
-        </div>
+        {props.children}
         <Toaster toastOptions={{
             duration: 5000,
             position: 'bottom-right',
@@ -33,12 +31,24 @@ const Layout: Component<RouteSectionProps> = (props) => {
     </>;
 };
 
+const NarrowContainer: ParentComponent = (props) => {
+    return <div style="width: 600px; padding: 30px" class="mx-auto" id="main">
+        {props.children}
+    </div>;
+};
+
+const WideContainer: ParentComponent = (props) => {
+    return <Container>
+        {props.children}
+    </Container>;
+};
+
 const App: Component = () => {
     return <Router root={Layout}>
-        <Route path="/" component={SwapForm} />
-        <Route path="/swap/in/:id" component={SwapInDetails} />
-        <Route path="/swap/out/:id" component={SwapOutDetails} />
-        <Route path="/history" component={History} />
+        <Route path="/" component={() => <NarrowContainer><SwapForm /></NarrowContainer>} />
+        <Route path="/swap/in/:id" component={() => <NarrowContainer><SwapInDetails /></NarrowContainer>} />
+        <Route path="/swap/out/:id" component={() => <NarrowContainer><SwapOutDetails /></NarrowContainer>} />
+        <Route path="/history" component={() => <WideContainer><History /></WideContainer>} />
     </Router>;
 };
 

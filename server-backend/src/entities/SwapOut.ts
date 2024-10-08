@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
 import { SwapOutStatus } from '@40swap/shared';
@@ -46,4 +46,7 @@ export class SwapOut {
 
     @Column({ type: 'text' })
     status!: SwapOutStatus;
+
+    @CreateDateColumn({ type: 'timestamptz' })
+    createdAt!: Date;
 }

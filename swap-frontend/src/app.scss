@@ -74,3 +74,17 @@ input {
     font-weight: 500;
   }
 }
+
+.swap-history-table {
+  tr {
+    padding-top: 3rem;
+  }
+
+  th {
+    word-break: keep-all;
+    white-space: nowrap;
+    text-transform: uppercase;
+    font-weight: 500;
+    background-color: $primary-bg-subtle;
+  }
+}
