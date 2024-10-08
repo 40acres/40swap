@@ -1,5 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap');
 
+@font-face {
+  font-family: Degular;
+  src: url("assets/degular-font/Degular-Regular.otf") format("opentype");
+}
+
+@font-face {
+  font-family: Degular;
+  font-weight: bold;
+  src: url("assets/degular-font/Degular-Bold.otf") format("opentype");
+}
+
+@font-face {
+  font-family: Degular;
+  font-weight: 500;
+  src: url("assets/degular-font/Degular-Medium.otf") format("opentype");
+}
+
 $font-family-sans-serif: "IBM Plex Sans Condensed", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !default;
 
 $primary: #6C2DB6;
@@ -14,6 +31,37 @@ $input-disabled-bg: $light;
 $input-disabled-color: var(--bs-secondary-color);
 
 @import "../../node_modules/bootstrap/scss/bootstrap";
+
+#main {
+  background-image: url("assets/swap-background.jpeg");
+  background-size: 100vw;
+  background-position-y: -300px;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+}
+
+.content {
+  background-color: white;
+  padding: 40px;
+  border-radius: 1rem;
+  margin-top: 60px;
+  min-height: 60vh;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+}
+
+.nav-link {
+  font-family: "Degular", sans-serif !important;
+  color: rgba(52, 46, 81, 1) !important;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+footer {
+  font-family: "Degular", sans-serif !important;
+  color: rgba(52, 46, 81, 1) !important;
+  min-height: 200px !important;
+  background: linear-gradient(rgba(231, 235, 247, 1), rgba(255, 255, 255, 1)) !important;
+}
 
 h3 {
   text-transform: uppercase;
