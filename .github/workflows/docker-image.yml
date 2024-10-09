@@ -41,7 +41,7 @@ jobs:
       uses: docker/build-push-action@v5.0.0
       with:
         context: .
-        file: frontend/docker/Dockerfile
+        file: swap-frontend/docker/Dockerfile
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-fe.outputs.tags }}
         labels: ${{ steps.meta-fe.outputs.labels }}
@@ -59,7 +59,7 @@ jobs:
       uses: docker/build-push-action@v5.0.0
       with:
         context: .
-        file: backend/docker/Dockerfile
+        file: backend-server/docker/Dockerfile
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-be.outputs.tags }}
         labels: ${{ steps.meta-be.outputs.labels }}
