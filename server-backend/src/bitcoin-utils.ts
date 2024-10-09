@@ -74,8 +74,6 @@ export function buildContractSpendBasePsbt({ swap, network, spendingTx, outputAd
     assert(spendingOutput != null);
 
     const psbt = new Psbt({ network });
-    console.log(`spending value ${spendingOutput.value}`);
-    console.log(`fee ${feeAmount}`);
     // TODO minimum amount / dust limit
     psbt.addOutput({
         address: outputAddress,

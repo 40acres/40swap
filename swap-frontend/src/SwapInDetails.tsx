@@ -1,7 +1,7 @@
 import { Component, createMemo, createResource, createSignal, Match, Show, Switch } from 'solid-js';
 import { GetSwapInResponse, getSwapInResponseSchema, psbtResponseSchema, signContractSpend, TxRequest } from '@40swap/shared';
-import { Alert, Button, Form, Table } from 'solid-bootstrap';
-import { Psbt } from 'bitcoinjs-lib';
+import { Button, Form, Table } from 'solid-bootstrap';
+import { address, networks, Psbt } from 'bitcoinjs-lib';
 import { applicationContext } from './ApplicationContext.js';
 import { A, useParams } from '@solidjs/router';
 import Fa from 'solid-fa';
@@ -9,11 +9,15 @@ import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { QrCode } from './QrCode.js';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import successImage from '/assets/success-image.svg';
+import failureImage from '/assets/failure-image.svg';
 import { createTimer } from '@solid-primitives/timer';
+import { Spinner } from './Spinner.js';
+import { ActionButton } from './ActionButton.js';
 
 export const SwapInDetails: Component = () => {
     const { localSwapStorageService, ECPair } = applicationContext;
 
+    const [bitcoinConfig] = createResource(() => applicationContext.config);
     const params = useParams();
     const { id: swapId } = params;
     const [remoteSwap, { refetch }] = createResource(swapId, id => getSwap(id) );
@@ -24,7 +28,20 @@ export const SwapInDetails: Component = () => {
     );
     const [refundAddress, setRefundAddress] = createSignal('');
 
-    createTimer(refetch, () => currentSwap()?.status !== 'CLAIMED' ? 1000 : false, setInterval);
+    function isInvalidRefundAddress(): boolean {
+        if (refundAddress() === '') {
+            return false;
+        }
+        const network = bitcoinConfig()?.bitcoinNetwork ?? networks.bitcoin;
+        try {
+            address.toOutputScript(refundAddress(), network);
+            return false;
+        } catch (e) {
+            return true;
+        }
+    }
+
+    createTimer(refetch, () => ['CLAIMED', 'REFUNDED'].includes(currentSwap()?.status ?? '') ? false : 1000, setInterval);
 
     let refunded = false;
 
@@ -79,14 +96,23 @@ export const SwapInDetails: Component = () => {
     }
 
     return <>
-        <Show when={currentSwap()?.status === 'CLAIMED'}
-            fallback={<h3 class="fw-bold">Swap bitcoin to lightning</h3>}>
-            <h3 class="text-center" style="text-transform: none">You have successfully swapped Bitcoin to Lightning!</h3>
-        </Show>
+        <Switch
+            fallback={<h3 class="fw-bold">Swap bitcoin to lightning</h3>}
+        >
+            <Match when={currentSwap()?.status === 'CLAIMED'}>
+                <h3 class="text-center" style="text-transform: none">You have successfully swapped Bitcoin to Lightning!</h3>
+            </Match>
+            <Match when={currentSwap()?.status === 'REFUNDED'}>
+                <h3 class="text-center" style="text-transform: none">Transaction failed. Please try again.</h3>
+            </Match>
+        </Switch>
 
         <div class="d-flex flex-column gap-3">
             <Show when={currentSwap()?.status === 'CLAIMED'}>
                 <img src={successImage} style="height: 212px" />
+            </Show>
+            <Show when={currentSwap()?.status === 'REFUNDED'}>
+                <img src={failureImage} style="height: 212px" />
             </Show>
             <Show when={currentSwap()}>{s => <>
                 <Table class="swap-details-table">
@@ -124,10 +150,39 @@ export const SwapInDetails: Component = () => {
                                     <td>{s().inputAmount}</td>{/* TODO output amount */}
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'CONTRACT_FUNDED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Contract funded, waiting for 40swap to pay the invoice</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'INVOICE_PAID'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Lightning invoice paid, claiming on-chain tx</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>On-chain contract expired. Please, initiate a refund</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'REFUNDED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Failed. The funds have been refunded to you</td>
+                                </tr>
+                            </Match>
                         </Switch>
                     </tbody>
                 </Table>
-                <Switch>
+                <Switch fallback={
+                    <div class="d-flex flex-column align-items-center pt-5 gap-4">
+                        <Spinner/>
+                        <div class="text-muted">Completing the swap</div>
+                    </div>
+                }>
                     <Match when={s().status === 'CREATED'}>
                         <div class="d-flex justify-content-center">
                             <QrCode data={bip21Address()} image={bitcoinLogo}/>
@@ -142,29 +197,21 @@ export const SwapInDetails: Component = () => {
                             </Button>
                         </div>
                     </Match>
-                    <Match when={s().status === 'CLAIMED'}>
-                        <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack} /> Start new swap</A>
-                    </Match>
-                </Switch>
-                <Switch>
-                    <Match when={s().status === 'CONTRACT_FUNDED'}>
-                        <div>Contract funded</div>
-                    </Match>
-                    <Match when={s().status === 'INVOICE_PAID'}>
-                        <div>Invoice paid</div>
+                    <Match when={s().status === 'CLAIMED' || s().status === 'REFUNDED'}>
+                        <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack}/> Start new swap</A>
                     </Match>
                     <Match when={s().status === 'CONTRACT_EXPIRED'}>
                         <div>
-                            Expired
                             <Form.Group class="mb-3">
-                                <Form.Label>Address to receive refund:</Form.Label>
-                                <Form.Control type="text" onInput={e => setRefundAddress(e.target.value)}/>
+                                <Form.Control type="text" placeholder="Enter bitcoin address to receive refund"
+                                    value={refundAddress()}
+                                    onChange={e => setRefundAddress(e.target.value)}
+                                    onKeyUp={e => setRefundAddress(e.currentTarget.value)}
+                                    isInvalid={isInvalidRefundAddress()}
+                                />
                             </Form.Group>
-                            <Button onClick={startRefund}>Refund</Button>
+                            <ActionButton action={() => startRefund()} disabled={refundAddress() === '' || isInvalidRefundAddress()}>Get refund</ActionButton>
                         </div>
-                    </Match>
-                    <Match when={s().status === 'REFUNDED'}>
-                        <Alert variant="info">Refunded</Alert>
                     </Match>
                 </Switch>
             </>}</Show>

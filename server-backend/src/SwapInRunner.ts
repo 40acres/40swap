@@ -1,7 +1,7 @@
 import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { Logger } from '@nestjs/common';
 import { SwapIn } from './entities/SwapIn.js';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import assert from 'node:assert';
 import Decimal from 'decimal.js';
 import { address, Transaction } from 'bitcoinjs-lib';
@@ -71,15 +71,16 @@ export class SwapInRunner {
             const txAddress = match[1];
             if (txAddress === this.swap.contractAddress) {
                 if (this.swap.status === 'CREATED') {
-                    await this.processContractFundingTx(this.swap, event);
+                    await this.processContractFundingTx(event);
                 } else if (this.swap.status === 'CONTRACT_EXPIRED') {
-                    await this.processContractSpendingTx(this.swap, event);
+                    await this.processContractSpendingTx(event);
                 }
             }
         }
     }
 
-    private async processContractFundingTx(swap: SwapIn, event: NBXplorerNewTransactionEvent): Promise<void> {
+    private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
+        const { swap } = this;
         // TODO: the output is also found by buildClaimTx(), needs refactor
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
@@ -95,7 +96,8 @@ export class SwapInRunner {
         await this.onStatusChange('CONTRACT_FUNDED');
     }
 
-    private async processContractSpendingTx(swap: SwapIn, event: NBXplorerNewTransactionEvent): Promise<void> {
+    private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
+        const { swap } = this;
         assert(swap.lockTx != null);
 
         const tx = Transaction.fromHex(event.data.transactionData.transaction);
@@ -110,21 +112,18 @@ export class SwapInRunner {
         }) != null;
 
         if (isSpendingFromContract && isPayingToExternalAddress && !isPayingToSweepAddress) {
-            console.log('refund found');
             swap.status = 'REFUNDED';
-            await this.repository.save(swap);
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('REFUNDED');
         }
     }
 
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
-        const expiredSwaps = await this.repository.findBy({
-            status: 'CONTRACT_FUNDED',
-            timeoutBlockHeight: LessThanOrEqual(event.data.height!),
-        });
-        for (const swap of expiredSwaps) {
-            this.logger.log(`swap expired ${swap.id}`);
+        const { swap } = this;
+        if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
-            await this.repository.save(swap);
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('CONTRACT_EXPIRED');
         }
     }
 

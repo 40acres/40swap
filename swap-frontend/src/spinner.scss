@@ -1,0 +1,11 @@
+.spinner {
+  animation: rotation 2s steps(8) infinite;
+}
+@keyframes rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
