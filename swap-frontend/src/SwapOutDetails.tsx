@@ -1,5 +1,5 @@
 import { Component, createEffect, createMemo, createResource, Match, Show, Switch } from 'solid-js';
-import { Alert, Button, Table } from 'solid-bootstrap';
+import { Button, Table } from 'solid-bootstrap';
 import { GetSwapOutResponse, getSwapOutResponseSchema, psbtResponseSchema, signContractSpend, TxRequest } from '@40swap/shared';
 import { Psbt } from 'bitcoinjs-lib';
 import { applicationContext } from './ApplicationContext.js';
@@ -10,6 +10,8 @@ import { QrCode } from './QrCode.js';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createTimer } from '@solid-primitives/timer';
+import { Spinner } from './Spinner.js';
+import failureImage from './assets/failure-image.svg';
 
 
 export const SwapOutDetails: Component = () => {
@@ -85,6 +87,9 @@ export const SwapOutDetails: Component = () => {
             <Show when={currentSwap()?.status === 'CLAIMED'}>
                 <img src={successImage} style="height: 212px" />
             </Show>
+            <Show when={currentSwap()?.status === 'REFUNDED'}>
+                <img src={failureImage} style="height: 212px" />
+            </Show>
             <Show when={currentSwap()}>{s => <>
                 <Table class="swap-details-table">
                     <tbody>
@@ -100,6 +105,24 @@ export const SwapOutDetails: Component = () => {
                                 </tr>
                                 {/* TODO show amount to be paid */}
                             </Match>
+                            <Match when={s().status === 'INVOICE_PAYMENT_INTENT_RECEIVED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Received lightning payment. Publishing lock-up transaction</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_FUNDED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Funds locked-up on-chain. Claiming funds to your receiving address</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>On-chain contract expired. Refunding to 40swap</td>
+                                </tr>
+                            </Match>
                             <Match when={s().status === 'CLAIMED'}>
                                 <tr>
                                     <th>Status:</th>
@@ -114,12 +137,22 @@ export const SwapOutDetails: Component = () => {
                                     <td>{s().outputAmount}</td>
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'REFUNDED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Failed. The funds have been refunded to 40swap</td>
+                                </tr>
+                            </Match>
                         </Switch>
                     </tbody>
                 </Table>
-            </>}</Show>
-            <Show when={currentSwap()}>{s => <>
-                <Switch>
+
+                <Switch fallback={
+                    <div class="d-flex flex-column align-items-center pt-5 gap-4">
+                        <Spinner/>
+                        <div class="text-muted">Completing the swap</div>
+                    </div>
+                }>
                     <Match when={s().status === 'CREATED'}>
                         <div class="d-flex justify-content-center">
                             <QrCode data={lightningLink()} image={lightningLogo}/>
@@ -131,20 +164,8 @@ export const SwapOutDetails: Component = () => {
                             </Button>
                         </div>
                     </Match>
-                    <Match when={s().status === 'CLAIMED'}>
+                    <Match when={s().status === 'CLAIMED' || s().status === 'REFUNDED'}>
                         <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack} /> Start new swap</A>
-                    </Match>
-                    <Match when={s().status === 'INVOICE_PAYMENT_INTENT_RECEIVED'}>
-                        <div>Sending the money on-chain</div>
-                    </Match>
-                    <Match when={s().status === 'CONTRACT_FUNDED'}>
-                        <div>Claiming swap to your receiving address</div>
-                    </Match>
-                    <Match when={s().status === 'CONTRACT_EXPIRED'}>
-                        Expired. Refunding to 40 swap.
-                    </Match>
-                    <Match when={s().status === 'REFUNDED'}>
-                        <Alert variant="danger">Failed</Alert>
                     </Match>
                 </Switch>
             </>}</Show>

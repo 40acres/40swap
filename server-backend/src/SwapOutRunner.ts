@@ -1,12 +1,7 @@
 import { Logger } from '@nestjs/common';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import {
-    NBXplorerBlockEvent,
-    NBXplorerNewTransactionEvent,
-    NbxplorerService,
-    NBXplorerTransaction,
-} from './NbxplorerService.js';
+import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService, NBXplorerTransaction } from './NbxplorerService.js';
 import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
@@ -61,7 +56,7 @@ export class SwapOutRunner {
             }
             console.log(`invoice state ${invoice.state}`);
             swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
-            await this.repository.save(this.swap);
+            this.swap = await this.repository.save(this.swap);
             this.onStatusChange('INVOICE_PAYMENT_INTENT_RECEIVED');
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             const invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
@@ -73,7 +68,7 @@ export class SwapOutRunner {
             }
             swap.lockTx = Buffer.from(lockTx.transaction, 'hex');
             swap.status = 'CONTRACT_FUNDED';
-            await this.repository.save(swap);
+            this.swap = await this.repository.save(swap);
             this.onStatusChange('CONTRACT_FUNDED');
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
@@ -83,14 +78,12 @@ export class SwapOutRunner {
     }
 
     async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
+        const { swap } = this;
         const addressRegex = /ADDRESS:(.*)/;
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
             const txAddress = match[1];
-            const swap = await this.repository.findOneBy({
-                contractAddress: txAddress,
-            });
-            if (swap != null) {
+            if (swap.contractAddress === txAddress) {
                 if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {
                     await this.processContractFundingTx(event);
                 } else {
@@ -131,13 +124,13 @@ export class SwapOutRunner {
                 assert(preimage != null);
                 swap.preImage = preimage;
                 swap.claimTxId = event.data.transactionData.transactionHash;
-                await this.repository.save(swap);
+                this.swap = await this.repository.save(swap);
 
                 console.log('settling invoice');
                 await this.lnd.settleInvoice(preimage);
 
                 swap.status = 'CLAIMED';
-                await this.repository.save(swap);
+                this.swap = await this.repository.save(swap);
                 this.onStatusChange('CLAIMED');
             } else {
                 console.log('could not find preimage in claim tx');
@@ -150,20 +143,17 @@ export class SwapOutRunner {
             }
 
             swap.status = 'REFUNDED';
-            await this.repository.save(swap);
+            this.swap = await this.repository.save(swap);
             this.onStatusChange('REFUNDED');
         }
     }
 
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
-        const expiredSwaps = await this.repository.findBy({
-            status: 'CONTRACT_FUNDED',
-            timeoutBlockHeight: LessThanOrEqual(event.data.height!),
-        });
-        for (const swap of expiredSwaps) {
+        const { swap } = this;
+        if (swap.status === 'CONTRACT_FUNDED' && swap.timeoutBlockHeight <= event.data.height) {
             this.logger.log(`swap expired ${swap.id}`);
             swap.status = 'CONTRACT_EXPIRED';
-            await this.repository.save(swap);
+            this.swap = await this.repository.save(swap);
             this.onStatusChange('CONTRACT_EXPIRED');
         }
     }
