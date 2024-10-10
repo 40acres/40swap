@@ -1,19 +1,17 @@
-import { Component, createEffect, createSignal, Show } from 'solid-js';
+import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { Form } from 'solid-bootstrap';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import lightningLogo from '/assets/lightning-logo.svg';
 import swapPlacesImg from '/assets/swap-places.svg';
 import { Asset, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
-import { createResource } from 'solid-js';
 import { decode } from 'bolt11';
-import { toast } from 'solid-toast';
 import { applicationContext } from './ApplicationContext.js';
-import { getSwapInResponseSchema, getSwapOutResponseSchema, SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { useNavigate } from '@solidjs/router';
 import Decimal from 'decimal.js';
 import { address, networks } from 'bitcoinjs-lib';
 import { ActionButton } from './ActionButton.js';
+import { toast } from 'solid-toast';
 
 const AssetDetails = {
     'ON_CHAIN_BITCOIN': {
@@ -33,6 +31,7 @@ type FormData = {
 };
 
 export const SwapForm: Component = () => {
+    const { swapInService, swapOutService } = applicationContext;
     const navigate = useNavigate();
     const [swapType, setSwapType] = createSignal<SwapType>('in');
     const [form, setForm] = createStore<FormData>({
@@ -144,71 +143,17 @@ export const SwapForm: Component = () => {
         if (hasErrors()) {
             return;
         }
-        if (swapType() === 'in') {
-            const refundKey = applicationContext.ECPair.makeRandom();
-            const resp = await fetch('/api/swap/in', {
-                method: 'POST',
-                body: JSON.stringify({
-                    invoice: form.lightningInvoice,
-                    refundPublicKey: refundKey.publicKey.toString('hex'),
-                } satisfies SwapInRequest),
-                headers: {
-                    'content-type': 'application/json',
-                },
-            });
-            if (resp.status >= 300) {
-                toast.error(`Unknown error creating swap-in. ${JSON.stringify(await resp.json())}`);
-                return;
+        try {
+            if (swapType() === 'in') {
+                const swap = await swapInService.createSwap(form.lightningInvoice);
+                navigate(`/swap/in/${swap.swapId}`);
+            } else if (swapType() === 'out') {
+                const swap = await swapOutService.createSwap(form.bitcoinAddress, inputAmount());
+                navigate(`/swap/out/${swap.swapId}`);
             }
-
-            const swap = getSwapInResponseSchema.parse(await resp.json());
-            await applicationContext.localSwapStorageService.persist({
-                type: 'in',
-                ...swap,
-                refundKey: refundKey.privateKey!.toString('hex'),
-            });
-            navigate(`/swap/in/${swap.swapId}`);
-        } else if (swapType() === 'out') {
-            const { localSwapStorageService, ECPair} = applicationContext;
-
-            const randomBytes = crypto.getRandomValues(new Uint8Array(32));
-            const preImage = Buffer.from(randomBytes);
-            const claimKey = ECPair.makeRandom();
-            const localSwapDetails = {
-                preImage: preImage.toString('hex'),
-                hash: (await sha256(preImage)).toString('hex'),
-                claimKey: claimKey.privateKey!.toString('hex'),
-                sweepAddress: form.bitcoinAddress,
-            };
-
-            const resp = await fetch('/api/swap/out', {
-                method: 'POST',
-                body: JSON.stringify({
-                    inputAmount: new Decimal(inputAmount()!).toDecimalPlaces(8).toNumber(),
-                    claimPubKey: claimKey.publicKey.toString('hex'),
-                    preImageHash: localSwapDetails.hash,
-                } satisfies SwapOutRequest),
-                headers: {
-                    'content-type': 'application/json',
-                },
-            });
-            if (resp.status >= 300) {
-                alert(`Unknown error creating the job. ${JSON.stringify(await resp.json())}`);
-                return;
-            }
-            const swap = getSwapOutResponseSchema.parse(await resp.json());
-            await localSwapStorageService.persist({
-                type: 'out',
-                ...swap,
-                ...localSwapDetails,
-            });
-
-            navigate(`/swap/out/${swap.swapId}`);
+        } catch (e) {
+            toast.error('Unknown error');
         }
-    }
-
-    async function sha256(message: Buffer): Promise<Buffer> {
-        return Buffer.from(await crypto.subtle.digest('SHA-256', message));
     }
 
     return <>

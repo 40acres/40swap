@@ -1,7 +1,6 @@
-import { Component, createMemo, createResource, createSignal, Match, Show, Switch } from 'solid-js';
-import { GetSwapInResponse, getSwapInResponseSchema, psbtResponseSchema, signContractSpend, TxRequest } from '@40swap/shared';
+import { Component, createEffect, createMemo, createResource, createSignal, Match, Show, Switch } from 'solid-js';
 import { Button, Form, Table } from 'solid-bootstrap';
-import { address, networks, Psbt } from 'bitcoinjs-lib';
+import { address, networks } from 'bitcoinjs-lib';
 import { applicationContext } from './ApplicationContext.js';
 import { A, useParams } from '@solidjs/router';
 import Fa from 'solid-fa';
@@ -13,20 +12,27 @@ import failureImage from '/assets/failure-image.svg';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
+import { jsonEquals } from './utils.js';
+import { toast } from 'solid-toast';
 
 export const SwapInDetails: Component = () => {
-    const { localSwapStorageService, ECPair } = applicationContext;
+    const { swapInService, localSwapStorageService } = applicationContext;
 
     const [bitcoinConfig] = createResource(() => applicationContext.config);
     const params = useParams();
     const { id: swapId } = params;
-    const [remoteSwap, { refetch }] = createResource(swapId, id => getSwap(id) );
-    const currentSwap = createMemo(
-        remoteSwap,
-        null,
-        { equals: (prev, next) => JSON.stringify(prev) === JSON.stringify(next)},
-    );
+    const [remoteSwap, { refetch }] = createResource(swapId, id => swapInService.getSwap(id) );
+    const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
     const [refundAddress, setRefundAddress] = createSignal('');
+
+    createTimer(refetch, () => ['CLAIMED', 'REFUNDED'].includes(currentSwap()?.status ?? '') ? false : 1000, setInterval);
+
+    createEffect(async () => {
+        const swap = currentSwap();
+        if (swap != null) {
+            await localSwapStorageService.update({ type: 'in', ...swap });
+        }
+    });
 
     function isInvalidRefundAddress(): boolean {
         if (refundAddress() === '') {
@@ -41,59 +47,22 @@ export const SwapInDetails: Component = () => {
         }
     }
 
-    createTimer(refetch, () => ['CLAIMED', 'REFUNDED'].includes(currentSwap()?.status ?? '') ? false : 1000, setInterval);
-
+    // TODO move to local storage
     let refunded = false;
-
     async function startRefund(): Promise<void> {
         const swap = currentSwap();
-        const refundPrivateKeyHex = (await localSwapStorageService.findById('in', swapId))?.refundKey;
-        if (swap == null || refundPrivateKeyHex == null || refunded) {
+        if (swap == null || refunded) {
             return;
         }
-        const refundPrivateKey = Buffer.from(refundPrivateKeyHex, 'hex');
-        if (swap.status !== 'CONTRACT_EXPIRED') {
-            alert(`invalid state ${swap.status}`);
-        }
-        refunded = true;
-        const network = (await applicationContext.config).bitcoinNetwork;
-        const resp = await fetch(`/api/swap/in/${swap.swapId}/refund-psbt?` + new URLSearchParams({
-            address: refundAddress(),
-        }));
-        if (resp.status >= 300) {
-            alert(`Unknown error getting refund psbt. ${JSON.stringify(await resp.json())}`);
-            return;
-        }
-        const psbt = Psbt.fromBase64(psbtResponseSchema.parse(await resp.json()).psbt, { network });
-        // TODO verify outputs
-        signContractSpend({
-            psbt,
-            network,
-            key: ECPair.fromPrivateKey(refundPrivateKey),
-            preImage: Buffer.alloc(0),
-        });
-        const tx = psbt.extractTransaction();
-        const resp2 = await fetch(`/api/swap/in/${swap.swapId}/refund-tx`, {
-            method: 'POST',
-            body: JSON.stringify({
-                tx: tx.toHex(),
-            } satisfies TxRequest),
-            headers: {
-                'content-type': 'application/json',
-            },
-        });
-        if (resp2.status >= 300) {
-            alert(`Unknown error broadcasting refund tx. ${JSON.stringify(await resp.json())}`);
-            return;
+        try {
+            await swapInService.getRefund(swap, refundAddress());
+            refunded = true;
+        } catch (e) {
+            toast.error('Unknown error');
         }
     }
 
     const bip21Address = (): string => `bitcoin:${currentSwap()?.address}?amount=${currentSwap()?.inputAmount}`;
-
-    async function getSwap(id: string): Promise<GetSwapInResponse> {
-        const resp = await fetch(`/api/swap/in/${id}`);
-        return getSwapInResponseSchema.parse(await resp.json());
-    }
 
     return <>
         <Switch

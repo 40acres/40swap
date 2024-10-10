@@ -1,7 +1,5 @@
 import { Component, createEffect, createMemo, createResource, Match, Show, Switch } from 'solid-js';
 import { Button, Table } from 'solid-bootstrap';
-import { GetSwapOutResponse, getSwapOutResponseSchema, psbtResponseSchema, signContractSpend, TxRequest } from '@40swap/shared';
-import { Psbt } from 'bitcoinjs-lib';
 import { applicationContext } from './ApplicationContext.js';
 import { A, useParams } from '@solidjs/router';
 import successImage from './assets/success-image.svg';
@@ -12,71 +10,46 @@ import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import failureImage from './assets/failure-image.svg';
+import { jsonEquals } from './utils.js';
+import { toast } from 'solid-toast';
 
 
 export const SwapOutDetails: Component = () => {
-    const { localSwapStorageService, ECPair } = applicationContext;
+    const { swapOutService, localSwapStorageService } = applicationContext;
 
     const params = useParams();
     const { id: swapId } = params;
 
-    const [remoteSwap, { refetch }] = createResource(swapId, id => getSwap(id));
-    const currentSwap = createMemo(
-        remoteSwap,
-        null,
-        { equals: (prev, next) => JSON.stringify(prev) === JSON.stringify(next)},
-    );
+    const [remoteSwap, { refetch }] = createResource(swapId, id => swapOutService.getSwap(id));
+    const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
     createTimer(refetch, () => currentSwap()?.status !== 'CLAIMED' ? 1000 : false, setInterval);
 
     const lightningLink = (): string => `lightning:${currentSwap()?.invoice}`;
+
+    // TODO move to local storage
     let claimed = false;
     createEffect(async () => {
         const swap = currentSwap();
-        const localDetails = await localSwapStorageService.findById('out', swapId);
-        if (swap == null || localDetails == null || claimed) {
+        if (swap == null || claimed) {
             return;
         }
         if (swap.status === 'CONTRACT_FUNDED') {
-            if (swap.lockTx == null) {
-                return;
-            }
-            const resp = await fetch(`/api/swap/out/${swap.swapId}/claim-psbt?` + new URLSearchParams({
-                address: localDetails.sweepAddress,
-            }));
-            if (resp.status >= 300) {
-                alert(`error claiming: ${await resp.text()}`);
-            }
-
-            const network = (await applicationContext.config).bitcoinNetwork;
-            const psbt = Psbt.fromBase64(psbtResponseSchema.parse(await resp.json()).psbt, { network });
-            // TODO validate output
-            signContractSpend({
-                psbt,
-                network,
-                key: ECPair.fromPrivateKey(Buffer.from(localDetails.claimKey, 'hex')),
-                preImage: Buffer.from(localDetails.preImage, 'hex'),
-            });
-            const claimTx = psbt.extractTransaction();
-            const resp2 = await fetch(`/api/swap/out/${swap.swapId}/claim`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    tx: claimTx.toHex(),
-                } satisfies TxRequest),
-                headers: {
-                    'content-type': 'application/json',
-                },
-            });
-            claimed = true;
-            if (resp2.status >= 300) {
-                alert(`error claiming: ${await resp.text()}`);
+            try {
+                await swapOutService.claim(swap);
+                claimed = true;
+            } catch (e) {
+                console.log('unhandled error', e);
+                toast.error('Unknown error');
             }
         }
     });
 
-    async function getSwap(id: string): Promise<GetSwapOutResponse> {
-        const resp = await fetch(`/api/swap/out/${id}`);
-        return getSwapOutResponseSchema.parse(await resp.json());
-    }
+    createEffect(async () => {
+        const swap = currentSwap();
+        if (swap != null) {
+            await localSwapStorageService.update({ type: 'out', ...swap });
+        }
+    });
 
     return <>
         <Show when={currentSwap()?.status === 'CLAIMED'}

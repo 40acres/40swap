@@ -25,6 +25,8 @@ export interface FourtySwapDbSchema extends DBSchema {
     };
 }
 
+export type PersistedSwapKey = Pick<PersistedSwapIn|PersistedSwapOut, 'type'|'swapId'>;
+
 export class LocalSwapStorageService {
 
     private db: Promise<IDBPDatabase<FourtySwapDbSchema>>;
@@ -39,7 +41,15 @@ export class LocalSwapStorageService {
     }
 
     async persist(swap: PersistedSwapIn|PersistedSwapOut): Promise<void> {
-        (await this.db).put('swap', swap);
+        await (await this.db).add('swap', swap);
+    }
+
+    async update<T extends PersistedSwapIn|PersistedSwapOut>(swap: Partial<T> & PersistedSwapKey): Promise<void> {
+        const existing = await this.findById(swap.type, swap.swapId);
+        if (existing == null) {
+            throw new Error();
+        }
+        await (await this.db).put('swap', { ...existing, ...swap });
     }
 
     async findById<T extends SwapType>(type: T, swapId: PersistedSwapIn['swapId']): Promise<(T extends 'in' ? PersistedSwapIn : PersistedSwapOut)|null> {
