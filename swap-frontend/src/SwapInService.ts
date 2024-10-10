@@ -42,12 +42,20 @@ export class SwapInService {
         await this.publishRefundTx(swap.swapId, tx);
     }
 
-    async getSwap(id: string): Promise<GetSwapInResponse> {
+    async getSwap(id: string): Promise<PersistedSwapIn> {
         const resp = await fetch(`/api/swap/in/${id}`);
         if (resp.status >= 300) {
             throw new Error(`Unknown error retrieving swap. ${await resp.text()}`);
         }
-        return getSwapInResponseSchema.parse(await resp.json());
+        const remoteSwap = getSwapInResponseSchema.parse(await resp.json());
+        const localswap = await this.localSwapStorageService.findById('in', id);
+        if (localswap == null) {
+            throw new Error('swap does not exist in local DB');
+        }
+        return {
+            ...localswap,
+            ...remoteSwap,
+        };
     }
 
     async createSwap(invoice: string): Promise<PersistedSwapIn> {

@@ -30,7 +30,7 @@ export const SwapInDetails: Component = () => {
     createEffect(async () => {
         const swap = currentSwap();
         if (swap != null) {
-            await localSwapStorageService.update({ type: 'in', ...swap });
+            await localSwapStorageService.update(swap);
         }
     });
 
@@ -47,16 +47,15 @@ export const SwapInDetails: Component = () => {
         }
     }
 
-    // TODO move to local storage
-    let refunded = false;
     async function startRefund(): Promise<void> {
         const swap = currentSwap();
-        if (swap == null || refunded) {
+        if (swap == null || swap.refundRequestDate != null) {
             return;
         }
         try {
             await swapInService.getRefund(swap, refundAddress());
-            refunded = true;
+            await localSwapStorageService.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
+            refetch();
         } catch (e) {
             toast.error('Unknown error');
         }
@@ -134,7 +133,11 @@ export const SwapInDetails: Component = () => {
                             <Match when={s().status === 'CONTRACT_EXPIRED'}>
                                 <tr>
                                     <th>Status:</th>
-                                    <td>On-chain contract expired. Please, initiate a refund</td>
+                                    <td>{
+                                        s().refundRequestDate == null ?
+                                            'On-chain contract expired. Please, initiate a refund' :
+                                            'On-chain contract expired. Refund is in-progress'
+                                    }</td>
                                 </tr>
                             </Match>
                             <Match when={s().status === 'REFUNDED'}>
@@ -169,7 +172,7 @@ export const SwapInDetails: Component = () => {
                     <Match when={s().status === 'CLAIMED' || s().status === 'REFUNDED'}>
                         <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack}/> Start new swap</A>
                     </Match>
-                    <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                    <Match when={s().status === 'CONTRACT_EXPIRED' && s().refundRequestDate == null}>
                         <div>
                             <Form.Group class="mb-3">
                                 <Form.Control type="text" placeholder="Enter bitcoin address to receive refund"

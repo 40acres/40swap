@@ -26,17 +26,16 @@ export const SwapOutDetails: Component = () => {
 
     const lightningLink = (): string => `lightning:${currentSwap()?.invoice}`;
 
-    // TODO move to local storage
-    let claimed = false;
     createEffect(async () => {
         const swap = currentSwap();
-        if (swap == null || claimed) {
+        if (swap == null || swap.claimRequestDate != null) {
             return;
         }
         if (swap.status === 'CONTRACT_FUNDED') {
             try {
                 await swapOutService.claim(swap);
-                claimed = true;
+                await localSwapStorageService.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date()});
+                refetch();
             } catch (e) {
                 console.log('unhandled error', e);
                 toast.error('Unknown error');
@@ -47,7 +46,7 @@ export const SwapOutDetails: Component = () => {
     createEffect(async () => {
         const swap = currentSwap();
         if (swap != null) {
-            await localSwapStorageService.update({ type: 'out', ...swap });
+            await localSwapStorageService.update(swap);
         }
     });
 

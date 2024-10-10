@@ -6,6 +6,7 @@ import { SwapType } from './utils.js';
 export type PersistedSwapIn = GetSwapInResponse & {
     type: 'in';
     refundKey: string,
+    refundRequestDate?: Date,
 };
 export type PersistedSwapOut = GetSwapOutResponse & {
     type: 'out';
@@ -13,6 +14,7 @@ export type PersistedSwapOut = GetSwapOutResponse & {
     hash: string,
     claimKey: string,
     sweepAddress: string,
+    claimRequestDate?: Date,
 };
 
 export interface FourtySwapDbSchema extends DBSchema {
