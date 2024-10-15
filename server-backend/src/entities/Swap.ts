@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, PrimaryColumn } from 'typeorm';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
+import { SwapOutcome } from '@40swap/shared';
 
 export class Swap {
     @PrimaryColumn({ type: 'text' })
@@ -38,6 +39,9 @@ export class Swap {
 
     @Column({ type: 'bytea'})
     unlockPrivKey!: Buffer;
+
+    @Column({ type: 'text', nullable: true })
+    outcome: SwapOutcome|null = null;
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date;

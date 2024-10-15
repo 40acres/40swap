@@ -46,7 +46,7 @@ export class SwapInRunner {
         if (status === 'CONTRACT_FUNDED') {
             this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice);
             this.swap.status = 'INVOICE_PAID';
-            await this.repository.save(this.swap);
+            this.swap = await this.repository.save(this.swap);
             this.onStatusChange('INVOICE_PAID');
         } else if (status === 'INVOICE_PAID') {
             const claimTx = this.buildClaimTx(
@@ -56,10 +56,11 @@ export class SwapInRunner {
             );
             await this.nbxplorer.broadcastTx(claimTx);
             // TODO change status by listening to the blockchain
-            this.swap.status = 'CLAIMED';
-            await this.repository.save(this.swap);
-            this.onStatusChange('CLAIMED');
-        } else if (status === 'CLAIMED') {
+            this.swap.status = 'DONE';
+            this.swap.outcome = 'SUCCESS';
+            this.swap = await this.repository.save(this.swap);
+            this.onStatusChange('DONE');
+        } else if (status === 'DONE') {
             this.notifyFinished();
         }
     }
@@ -123,9 +124,10 @@ export class SwapInRunner {
                 console.log(`swap in bad state ${swap.status}`);
                 return;
             }
-            swap.status = 'REFUNDED';
+            swap.status = 'DONE';
+            swap.outcome = 'REFUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('REFUNDED');
+            await this.onStatusChange('DONE');
         }
     }
 

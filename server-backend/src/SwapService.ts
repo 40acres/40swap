@@ -71,6 +71,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             lockTx: null,
             unlockTx: null,
             preImage: null,
+            outcome: null,
         } satisfies Omit<SwapIn, 'createdAt'|'modifiedAt'>);
         const runner = new SwapInRunner(
             swap,
@@ -121,6 +122,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             unlockTx: null,
             preImage: null,
             lockTx: null,
+            outcome: null,
         } satisfies Omit<SwapOut, 'createdAt'|'modifiedAt'>);
         const runner = new SwapOutRunner(
             swap,

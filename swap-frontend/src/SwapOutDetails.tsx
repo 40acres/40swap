@@ -22,7 +22,7 @@ export const SwapOutDetails: Component = () => {
 
     const [remoteSwap, { refetch }] = createResource(swapId, id => swapOutService.getSwap(id));
     const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
-    createTimer(refetch, () => currentSwap()?.status !== 'CLAIMED' ? 1000 : false, setInterval);
+    createTimer(refetch, () => currentSwap()?.status !== 'DONE' ? 1000 : false, setInterval);
 
     const lightningLink = (): string => `lightning:${currentSwap()?.invoice}`;
 
@@ -51,15 +51,15 @@ export const SwapOutDetails: Component = () => {
     });
 
     return <>
-        <Show when={currentSwap()?.status === 'CLAIMED'}
+        <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}
             fallback={<h3 class="fw-bold">Swap lightning to bitcoin</h3>}>
             <h3 class="text-center" style="text-transform: none">You have successfully swapped Lightning to Bitcoin!</h3>
         </Show>
         <div class="d-flex flex-column gap-3">
-            <Show when={currentSwap()?.status === 'CLAIMED'}>
+            <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
                 <img src={successImage} style="height: 212px" />
             </Show>
-            <Show when={currentSwap()?.status === 'REFUNDED'}>
+            <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
                 <img src={failureImage} style="height: 212px" />
             </Show>
             <Show when={currentSwap()}>{s => <>
@@ -95,7 +95,7 @@ export const SwapOutDetails: Component = () => {
                                     <td>On-chain contract expired. Refunding to 40swap</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CLAIMED'}>
+                            <Match when={s().status === 'DONE' && s().outcome === 'SUCCESS'}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Success</td>
@@ -109,7 +109,7 @@ export const SwapOutDetails: Component = () => {
                                     <td>{s().outputAmount}</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'REFUNDED'}>
+                            <Match when={s().status === 'DONE' && s().outcome === 'REFUNDED'}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Failed. The funds have been refunded to 40swap</td>
@@ -136,7 +136,7 @@ export const SwapOutDetails: Component = () => {
                             </Button>
                         </div>
                     </Match>
-                    <Match when={s().status === 'CLAIMED' || s().status === 'REFUNDED'}>
+                    <Match when={s().status === 'DONE'}>
                         <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack} /> Start new swap</A>
                     </Match>
                 </Switch>

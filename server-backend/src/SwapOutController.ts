@@ -110,6 +110,7 @@ export class SwapOutController {
             lockTx: swap.lockTx?.toString('hex'),
             createdAt: swap.createdAt.toISOString(),
             inputAmount: swap.inputAmount.toNumber(),
+            outcome: swap.outcome ?? undefined,
         };
     }
 

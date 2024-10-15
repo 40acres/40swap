@@ -90,6 +90,7 @@ export class SwapInController {
             createdAt: swap.createdAt.toISOString(),
             outputAmount: swap.outputAmount.toNumber(),
             lockTx: swap.lockTx?.toString('hex'),
+            outcome: swap.outcome ?? undefined,
         };
     }
 

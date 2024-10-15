@@ -6,10 +6,9 @@ const SWAP_IN_STATUSES = [
     'CREATED',
     'CONTRACT_FUNDED',
     'INVOICE_PAID',
-    'CLAIMED',
+    'DONE',
     // if it expires after CONTRACT_FUNDED
     'CONTRACT_EXPIRED',
-    'REFUNDED',
 ] as const;
 const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
 export type SwapInStatus = z.infer<typeof swapInStatusSchema>;
@@ -19,13 +18,20 @@ const SWAP_OUT_STATUSES = [
     'CREATED',
     'INVOICE_PAYMENT_INTENT_RECEIVED',
     'CONTRACT_FUNDED',
-    'CLAIMED',
+    'DONE',
     // if it expires after CONTRACT_FUNDED
     'CONTRACT_EXPIRED',
-    'REFUNDED',
 ] as const;
 const swapOutStatusSchema = z.enum(SWAP_OUT_STATUSES);
 export type SwapOutStatus = z.infer<typeof swapOutStatusSchema>;
+
+const SWAP_OUTCOMES = [
+    'SUCCESS',
+    'REFUNDED',
+    'EXPIRED',
+] as const;
+const swapOutcomesSchema = z.enum(SWAP_OUTCOMES);
+export type SwapOutcome = z.infer<typeof swapOutcomesSchema>;
 
 export const swapInRequestSchema = z.object({
     invoice: z.string(),
@@ -42,6 +48,7 @@ const swapResponseSchema = z.object({
     inputAmount: z.number().positive(),
     outputAmount: z.number(),
     createdAt: z.string(),
+    outcome: swapOutcomesSchema.optional(),
 });
 
 export const getSwapInResponseSchema = swapResponseSchema.extend({

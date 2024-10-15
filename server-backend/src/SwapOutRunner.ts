@@ -129,9 +129,10 @@ export class SwapOutRunner {
                 console.log('settling invoice');
                 await this.lnd.settleInvoice(preimage);
 
-                swap.status = 'CLAIMED';
+                swap.status = 'DONE';
+                swap.outcome = 'SUCCESS';
                 this.swap = await this.repository.save(swap);
-                this.onStatusChange('CLAIMED');
+                this.onStatusChange('DONE');
             } else {
                 console.log('could not find preimage in claim tx');
             }
@@ -142,9 +143,10 @@ export class SwapOutRunner {
                 return;
             }
 
-            swap.status = 'REFUNDED';
+            swap.status = 'DONE';
+            swap.outcome = 'REFUNDED';
             this.swap = await this.repository.save(swap);
-            this.onStatusChange('REFUNDED');
+            this.onStatusChange('DONE');
         }
     }
 
