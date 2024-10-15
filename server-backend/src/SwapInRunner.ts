@@ -65,14 +65,15 @@ export class SwapInRunner {
     }
 
     async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
+        const { swap } = this;
         const addressRegex = /ADDRESS:(.*)/;
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
             const txAddress = match[1];
-            if (txAddress === this.swap.contractAddress) {
-                if (this.swap.status === 'CREATED') {
+            if (swap.contractAddress === txAddress) {
+                if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {
                     await this.processContractFundingTx(event);
-                } else if (this.swap.status === 'CONTRACT_EXPIRED') {
+                } else {
                     await this.processContractSpendingTx(event);
                 }
             }
@@ -81,6 +82,10 @@ export class SwapInRunner {
 
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
+        if (this.swap.status !== 'CREATED') {
+            console.log(`swap in bad state ${swap.status}`);
+            return;
+        }
         // TODO: the output is also found by buildClaimTx(), needs refactor
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
@@ -100,10 +105,10 @@ export class SwapInRunner {
         const { swap } = this;
         assert(swap.lockTx != null);
 
-        const tx = Transaction.fromHex(event.data.transactionData.transaction);
+        const unlockTx = Transaction.fromHex(event.data.transactionData.transaction);
         const isPayingToExternalAddress = event.data.outputs.length === 0; // nbxplorer does not list outputs if it's spending a tracking utxo
-        const isSpendingFromContract = tx.ins.find(i => i.hash.equals(Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
-        const isPayingToSweepAddress = tx.outs.find(o => {
+        const isSpendingFromContract = unlockTx.ins.find(i => i.hash.equals(Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
+        const isPayingToSweepAddress = unlockTx.outs.find(o => {
             try {
                 return address.fromOutputScript(o.script) === swap.sweepAddress;
             } catch (e) {
@@ -111,7 +116,13 @@ export class SwapInRunner {
             }
         }) != null;
 
+        swap.unlockTx = unlockTx.toBuffer();
+        this.swap = await this.repository.save(swap);
         if (isSpendingFromContract && isPayingToExternalAddress && !isPayingToSweepAddress) {
+            if (this.swap.status !== 'CONTRACT_EXPIRED') {
+                console.log(`swap in bad state ${swap.status}`);
+                return;
+            }
             swap.status = 'REFUNDED';
             this.swap = await this.repository.save(swap);
             await this.onStatusChange('REFUNDED');
@@ -141,7 +152,7 @@ export class SwapInRunner {
                 });
                 signContractSpend({
                     psbt,
-                    key: ECPair.fromPrivateKey(swap.privKey),
+                    key: ECPair.fromPrivateKey(swap.unlockPrivKey),
                     network: this.bitcoinConfig.network,
                     preImage: swap.preImage!,
                 });

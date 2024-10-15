@@ -53,7 +53,6 @@ export class SwapOutController {
     async claimSwap(@Body() request: TxRequestDto, @Param('id') id: string): Promise<void> {
         // TODO validate claim tx and set output amount
         const tx = Transaction.fromHex(request.tx);
-        await this.dataSource.getRepository(SwapOut).update(id, { claimTxId: tx.getHash().toString('hex') });
         await this.nbxplorer.broadcastTx(tx);
     }
 
@@ -90,7 +89,7 @@ export class SwapOutController {
                     signContractSpend({
                         psbt,
                         network,
-                        key: ECPair.fromPrivateKey(swap.refundKey),
+                        key: ECPair.fromPrivateKey(swap.unlockPrivKey),
                         preImage: Buffer.alloc(32).fill(0),
                     });
                 }
@@ -110,6 +109,7 @@ export class SwapOutController {
             status: swap.status,
             lockTx: swap.lockTx?.toString('hex'),
             createdAt: swap.createdAt.toISOString(),
+            inputAmount: swap.inputAmount.toNumber(),
         };
     }
 

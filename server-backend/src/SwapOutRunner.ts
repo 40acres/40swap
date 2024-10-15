@@ -100,17 +100,19 @@ export class SwapOutRunner {
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         assert(swap.lockTx != null);
-        const swapTx = Transaction.fromBuffer(swap.lockTx);
-        const tx = Transaction.fromHex(event.data.transactionData.transaction);
+        const lockTx = Transaction.fromBuffer(swap.lockTx);
+        const unlockTx = Transaction.fromHex(event.data.transactionData.transaction);
 
-        const isSendingToRefundAddress = tx.outs.find(o => {
+        swap.unlockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+        this.swap = await this.repository.save(swap);
+
+        const isSendingToRefundAddress = unlockTx.outs.find(o => {
             try {
-                return address.fromOutputScript(o.script, this.bitcoinConfig.network) === swap.refundAddress;
+                return address.fromOutputScript(o.script, this.bitcoinConfig.network) === swap.sweepAddress;
             } catch (e) {
                 return false;
             }
         }) != null;
-
 
         if (!isSendingToRefundAddress) {
             console.log(`found claim tx ${JSON.stringify(event, null, 2)}`);
@@ -118,13 +120,11 @@ export class SwapOutRunner {
                 console.log(`swap in bad state ${swap.status}`);
                 return;
             }
-            const input = tx.ins.find(i => Buffer.from(i.hash).equals(swapTx.getHash()));
+            const input = unlockTx.ins.find(i => Buffer.from(i.hash).equals(lockTx.getHash()));
             if (input != null) {
                 const preimage = input.witness[1];
                 assert(preimage != null);
                 swap.preImage = preimage;
-                swap.claimTxId = event.data.transactionData.transactionHash;
-                this.swap = await this.repository.save(swap);
 
                 console.log('settling invoice');
                 await this.lnd.settleInvoice(preimage);
@@ -167,14 +167,14 @@ export class SwapOutRunner {
                     swap,
                     network,
                     spendingTx,
-                    outputAddress: swap.refundAddress,
+                    outputAddress: swap.sweepAddress,
                     feeAmount,
                 });
                 psbt.locktime = swap.timeoutBlockHeight;
                 signContractSpend({
                     psbt,
                     network,
-                    key: ECPair.fromPrivateKey(swap.refundKey),
+                    key: ECPair.fromPrivateKey(swap.unlockPrivKey),
                     preImage: Buffer.alloc(0),
                 });
                 return psbt;

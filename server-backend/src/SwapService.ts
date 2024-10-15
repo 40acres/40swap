@@ -62,13 +62,16 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             contractAddress: address,
             invoice: request.invoice,
             lockScript,
-            privKey: claimKey.privateKey!,
+            unlockPrivKey: claimKey.privateKey!,
             inputAmount: new Decimal(satoshis).div(1e8).toDecimalPlaces(8),
             outputAmount: new Decimal(satoshis).div(1e8).toDecimalPlaces(8),
             status: 'CREATED',
             sweepAddress: await this.lnd.getNewAddress(),
             timeoutBlockHeight,
-        });
+            lockTx: null,
+            unlockTx: null,
+            preImage: null,
+        } satisfies Omit<SwapIn, 'createdAt'|'modifiedAt'>);
         const runner = new SwapInRunner(
             swap,
             repository,
@@ -101,7 +104,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         assert(address != null);
         await this.nbxplorer.trackAddress(address);
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.bitcoinConfig.swapLockBlockDelta;
-        const refundAddress = await this.lnd.getNewAddress();
+        const sweepAddress = await this.lnd.getNewAddress();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
@@ -110,12 +113,15 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             outputAmount: new Decimal(0),
             lockScript,
             status: 'CREATED',
-            preImageHash: preImageHash,
+            preImageHash,
             invoice,
             timeoutBlockHeight,
-            refundAddress,
-            refundKey: refundKey.privateKey,
-        });
+            sweepAddress,
+            unlockPrivKey: refundKey.privateKey!,
+            unlockTx: null,
+            preImage: null,
+            lockTx: null,
+        } satisfies Omit<SwapOut, 'createdAt'|'modifiedAt'>);
         const runner = new SwapOutRunner(
             swap,
             repository,

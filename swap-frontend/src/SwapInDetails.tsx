@@ -61,7 +61,7 @@ export const SwapInDetails: Component = () => {
         }
     }
 
-    const bip21Address = (): string => `bitcoin:${currentSwap()?.address}?amount=${currentSwap()?.inputAmount}`;
+    const bip21Address = (): string => `bitcoin:${currentSwap()?.contractAddress}?amount=${currentSwap()?.inputAmount}`;
 
     return <>
         <Switch
@@ -101,7 +101,7 @@ export const SwapInDetails: Component = () => {
                                 </tr>
                                 <tr>
                                     <th>Send to:</th>
-                                    <td class="text-break">{s().address}</td>
+                                    <td class="text-break">{s().contractAddress}</td>
                                 </tr>
                             </Match>
                             <Match when={s().status === 'CLAIMED'}>
@@ -164,7 +164,7 @@ export const SwapInDetails: Component = () => {
                             <Button onclick={() => navigator.clipboard.writeText(s().inputAmount.toString())}>
                                 <Fa icon={faCopy}/> Copy amount
                             </Button>
-                            <Button onclick={() => navigator.clipboard.writeText(s().address.toString())}>
+                            <Button onclick={() => navigator.clipboard.writeText(s().contractAddress.toString())}>
                                 <Fa icon={faCopy}/> Copy address
                             </Button>
                         </div>

@@ -82,12 +82,14 @@ export class SwapInController {
     private mapToResponse(swap: SwapIn): GetSwapInResponse {
         return {
             swapId: swap.id,
-            address: swap.contractAddress,
+            contractAddress: swap.contractAddress,
             redeemScript: swap.lockScript.toString('hex'),
             timeoutBlockHeight: swap.timeoutBlockHeight,
             status: swap.status,
             inputAmount: swap.inputAmount.toNumber(),
             createdAt: swap.createdAt.toISOString(),
+            outputAmount: swap.outputAmount.toNumber(),
+            lockTx: swap.lockTx?.toString('hex'),
         };
     }
 
@@ -108,7 +110,7 @@ export class SwapInController {
                     signContractSpend({
                         psbt,
                         network,
-                        key: ECPair.fromPrivateKey(swap.privKey),
+                        key: ECPair.fromPrivateKey(swap.unlockPrivKey),
                         preImage: Buffer.alloc(0),
                     });
                 }

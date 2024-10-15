@@ -33,14 +33,19 @@ export const swapInRequestSchema = z.object({
 });
 export type SwapInRequest = z.infer<typeof swapInRequestSchema>;
 
-export const getSwapInResponseSchema = z.object({
+const swapResponseSchema = z.object({
     swapId: z.string(),
-    address: z.string(),
+    contractAddress: z.string(),
     redeemScript: z.string(),
     timeoutBlockHeight: z.number(),
-    status: swapInStatusSchema,
+    lockTx: z.string().optional(),
     inputAmount: z.number().positive(),
+    outputAmount: z.number(),
     createdAt: z.string(),
+});
+
+export const getSwapInResponseSchema = swapResponseSchema.extend({
+    status: swapInStatusSchema,
 });
 export type GetSwapInResponse = z.infer<typeof getSwapInResponseSchema>;
 
@@ -51,16 +56,9 @@ export const swapOutRequestSchema = z.object({
 });
 export type SwapOutRequest = z.infer<typeof swapOutRequestSchema>;
 
-export const getSwapOutResponseSchema = z.object({
-    swapId: z.string(),
+export const getSwapOutResponseSchema = swapResponseSchema.extend({
     invoice: z.string(),
-    redeemScript: z.string(),
-    timeoutBlockHeight: z.number(),
-    contractAddress: z.string(),
-    lockTx: z.string().optional(),
-    outputAmount: z.number(),
     status: swapOutStatusSchema,
-    createdAt: z.string(),
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 
