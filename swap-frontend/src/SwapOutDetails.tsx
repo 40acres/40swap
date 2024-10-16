@@ -115,6 +115,24 @@ export const SwapOutDetails: Component = () => {
                                     <td>Failed. The funds have been refunded to 40swap</td>
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'CONTRACT_FUNDED_UNCONFIRMED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Funds locked on-chain, waiting for confirmation</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_REFUNDED_UNCONFIRMED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>40swap requested a refund, waiting for on-chain confirmation</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_CLAIMED_UNCONFIRMED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>The on-chain funds have been sent to you, waiting for confirmation</td>
+                                </tr>
+                            </Match>
                         </Switch>
                     </tbody>
                 </Table>

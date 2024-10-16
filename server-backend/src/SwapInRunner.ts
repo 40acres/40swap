@@ -55,11 +55,6 @@ export class SwapInRunner {
                 await this.bitcoinService.getMinerFeeRate('low_prio'),
             );
             await this.nbxplorer.broadcastTx(claimTx);
-            // TODO change status by listening to the blockchain
-            this.swap.status = 'DONE';
-            this.swap.outcome = 'SUCCESS';
-            this.swap = await this.repository.save(this.swap);
-            this.onStatusChange('DONE');
         } else if (status === 'DONE') {
             this.notifyFinished();
         }
@@ -83,10 +78,6 @@ export class SwapInRunner {
 
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
-        if (this.swap.status !== 'CREATED') {
-            console.log(`swap in bad state ${swap.status}`);
-            return;
-        }
         // TODO: the output is also found by buildClaimTx(), needs refactor
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
@@ -95,11 +86,21 @@ export class SwapInRunner {
             this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
             return;
         }
-        swap.status = 'CONTRACT_FUNDED';
-        swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
-        swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
-        this.swap = await this.repository.save(swap);
-        await this.onStatusChange('CONTRACT_FUNDED');
+        if (this.swap.status === 'CREATED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
+            if (event.data.transactionData.height != null) {
+                swap.lockTxHeight = event.data.transactionData.height;
+            }
+            swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
+            swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+
+            if (this.swap.status === 'CREATED') {
+                swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
+                this.swap = await this.repository.save(swap);
+                await this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
+            } else {
+                this.swap = await this.repository.save(swap);
+            }
+        }
     }
 
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
@@ -111,23 +112,31 @@ export class SwapInRunner {
         const isSpendingFromContract = unlockTx.ins.find(i => i.hash.equals(Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
         const isPayingToSweepAddress = unlockTx.outs.find(o => {
             try {
-                return address.fromOutputScript(o.script) === swap.sweepAddress;
+                return address.fromOutputScript(o.script, this.bitcoinConfig.network) === swap.sweepAddress;
             } catch (e) {
                 return false;
             }
         }) != null;
 
-        swap.unlockTx = unlockTx.toBuffer();
-        this.swap = await this.repository.save(swap);
-        if (isSpendingFromContract && isPayingToExternalAddress && !isPayingToSweepAddress) {
-            if (this.swap.status !== 'CONTRACT_EXPIRED') {
-                console.log(`swap in bad state ${swap.status}`);
-                return;
+        if (isSpendingFromContract && isPayingToExternalAddress) {
+            swap.unlockTx = unlockTx.toBuffer();
+            if (event.data.transactionData.height != null) {
+                swap.unlockTxHeight = event.data.transactionData.height;
             }
-            swap.status = 'DONE';
-            swap.outcome = 'REFUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
+            if (isPayingToSweepAddress) {
+                if (this.swap.status === 'INVOICE_PAID') {
+                    swap.status = 'CONTRACT_CLAIMED_UNCONFIRMED';
+                    this.swap = await this.repository.save(swap);
+                    await this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
+                }
+            } else {
+                if (this.swap.status === 'CONTRACT_EXPIRED') {
+                    swap.status = 'CONTRACT_REFUNDED_UNCONFIRMED';
+                    this.swap = await this.repository.save(swap);
+                    await this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
+                }
+            }
         }
     }
 
@@ -137,6 +146,20 @@ export class SwapInRunner {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
             await this.onStatusChange('CONTRACT_EXPIRED');
+        } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
+            swap.status = 'CONTRACT_FUNDED';
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('CONTRACT_FUNDED');
+        } else if (swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
+            swap.status = 'DONE';
+            swap.outcome = 'REFUNDED';
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('DONE');
+        } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
+            swap.status = 'DONE';
+            swap.outcome = 'SUCCESS';
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('DONE');
         }
     }
 
@@ -162,5 +185,4 @@ export class SwapInRunner {
             },
         ).extractTransaction();
     }
-
 }

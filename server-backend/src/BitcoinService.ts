@@ -49,4 +49,8 @@ export class BitcoinService {
             return await this.nbxplorer.getFeeRate(confirmationTarget);
         }
     }
+
+    public hasEnoughConfirmations(txHeight: number, blockchainHeight: number): boolean {
+        return txHeight > 0 && blockchainHeight - txHeight + 1  >= this.configurationDetails.requiredConfirmations;
+    }
 }

@@ -146,6 +146,24 @@ export const SwapInDetails: Component = () => {
                                     <td>Failed. The funds have been refunded to you</td>
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'CONTRACT_FUNDED_UNCONFIRMED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>On-chain payment detected, waiting for confirmation</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_REFUNDED_UNCONFIRMED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>The refund to you has been sent, waiting for on-chain confirmation</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_CLAIMED_UNCONFIRMED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation</td>
+                                </tr>
+                            </Match>
                         </Switch>
                     </tbody>
                 </Table>

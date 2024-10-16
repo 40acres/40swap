@@ -21,9 +21,12 @@ export class LndService {
                 if (err) {
                     this.logger.error(`error paying invoice ${err}`);
                     reject(err);
-                } else {
+                } else if (value?.paymentPreimage != null) {
                     this.logger.log(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
-                    resolve(value!.paymentPreimage!);
+                    resolve(value.paymentPreimage!);
+                } else {
+                    this.logger.warn('no preimage after sendPayment');
+                    reject();
                 }
             });
         });

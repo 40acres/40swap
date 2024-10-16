@@ -4,10 +4,13 @@ import { networks } from 'bitcoinjs-lib';
 const SWAP_IN_STATUSES = [
     // happy path
     'CREATED',
+    'CONTRACT_FUNDED_UNCONFIRMED',
     'CONTRACT_FUNDED',
     'INVOICE_PAID',
+    'CONTRACT_CLAIMED_UNCONFIRMED',
     'DONE',
     // if it expires after CONTRACT_FUNDED
+    'CONTRACT_REFUNDED_UNCONFIRMED',
     'CONTRACT_EXPIRED',
 ] as const;
 const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
@@ -17,10 +20,13 @@ const SWAP_OUT_STATUSES = [
     // happy path
     'CREATED',
     'INVOICE_PAYMENT_INTENT_RECEIVED',
+    'CONTRACT_FUNDED_UNCONFIRMED',
     'CONTRACT_FUNDED',
+    'CONTRACT_CLAIMED_UNCONFIRMED',
     'DONE',
     // if it expires after CONTRACT_FUNDED
     'CONTRACT_EXPIRED',
+    'CONTRACT_REFUNDED_UNCONFIRMED',
 ] as const;
 const swapOutStatusSchema = z.enum(SWAP_OUT_STATUSES);
 export type SwapOutStatus = z.infer<typeof swapOutStatusSchema>;

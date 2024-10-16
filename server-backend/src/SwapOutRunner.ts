@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService, NBXplorerTransaction } from './NbxplorerService.js';
+import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
@@ -12,6 +12,7 @@ import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import Decimal from 'decimal.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -60,16 +61,8 @@ export class SwapOutRunner {
             this.onStatusChange('INVOICE_PAYMENT_INTENT_RECEIVED');
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             const invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
-            const lockTxId = await this.lnd.sendCoinsOnChain(swap.contractAddress!, invoice.value as unknown as number);
-            let lockTx: NBXplorerTransaction|null = null;
-            while (lockTx == null) {
-                await sleep(1000);
-                lockTx = await this.nbxplorer.getTx(lockTxId);
-            }
-            swap.lockTx = Buffer.from(lockTx.transaction, 'hex');
-            swap.status = 'CONTRACT_FUNDED';
-            this.swap = await this.repository.save(swap);
-            this.onStatusChange('CONTRACT_FUNDED');
+            await this.lnd.sendCoinsOnChain(swap.contractAddress!, invoice.value as unknown as number);
+            // TODO log
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
             const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
@@ -93,8 +86,32 @@ export class SwapOutRunner {
         }
     }
 
+    // TODO refactor. It is very similar to SwapInRunner
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
-        console.log(`found lock tx sent by us ${JSON.stringify(event, null, 2)}`);
+        const { swap } = this;
+        const output = event.data.outputs.find(o => o.address === swap.contractAddress);
+        assert(output != null);
+        // TODO enable check when we have the amounts in order
+        // const expectedAmount = new Decimal(output.value).div(1e8);
+        // if (!expectedAmount.equals(swap.outputAmount)) {
+        //     this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
+        //     return;
+        // }
+        if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
+            if (event.data.transactionData.height != null) {
+                swap.lockTxHeight = event.data.transactionData.height;
+            }
+            swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
+            swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+
+            if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
+                swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
+                this.swap = await this.repository.save(swap);
+                await this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
+            } else {
+                this.swap = await this.repository.save(swap);
+            }
+        }
     }
 
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
@@ -104,6 +121,9 @@ export class SwapOutRunner {
         const unlockTx = Transaction.fromHex(event.data.transactionData.transaction);
 
         swap.unlockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+        if (event.data.transactionData.height != null) {
+            swap.unlockTxHeight = event.data.transactionData.height;
+        }
         this.swap = await this.repository.save(swap);
 
         const isSendingToRefundAddress = unlockTx.outs.find(o => {
@@ -114,49 +134,55 @@ export class SwapOutRunner {
             }
         }) != null;
 
-        if (!isSendingToRefundAddress) {
-            console.log(`found claim tx ${JSON.stringify(event, null, 2)}`);
-            if (swap.status !== 'CONTRACT_FUNDED') {
-                console.log(`swap in bad state ${swap.status}`);
-                return;
+        if (isSendingToRefundAddress) {
+            if (this.swap.status === 'CONTRACT_EXPIRED') {
+                swap.status = 'CONTRACT_REFUNDED_UNCONFIRMED';
+                this.swap = await this.repository.save(swap);
+                await this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
             }
+        } else {
             const input = unlockTx.ins.find(i => Buffer.from(i.hash).equals(lockTx.getHash()));
             if (input != null) {
                 const preimage = input.witness[1];
                 assert(preimage != null);
                 swap.preImage = preimage;
-
-                console.log('settling invoice');
-                await this.lnd.settleInvoice(preimage);
-
-                swap.status = 'DONE';
-                swap.outcome = 'SUCCESS';
                 this.swap = await this.repository.save(swap);
-                this.onStatusChange('DONE');
+
+                if (swap.status === 'CONTRACT_FUNDED') {
+                    swap.status = 'CONTRACT_CLAIMED_UNCONFIRMED';
+                    this.swap = await this.repository.save(swap);
+                    this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
+                }
             } else {
                 console.log('could not find preimage in claim tx');
             }
-        } else {
-            console.log(`found refund tx ${JSON.stringify(event, null, 2)}`);
-            if (swap.status !== 'CONTRACT_EXPIRED') {
-                console.log(`swap in bad state ${swap.status}`);
-                return;
-            }
-
-            swap.status = 'DONE';
-            swap.outcome = 'REFUNDED';
-            this.swap = await this.repository.save(swap);
-            this.onStatusChange('DONE');
         }
     }
 
+    // TODO refactor. This is very similar to SwapInRunner
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         const { swap } = this;
-        if (swap.status === 'CONTRACT_FUNDED' && swap.timeoutBlockHeight <= event.data.height) {
-            this.logger.log(`swap expired ${swap.id}`);
+        if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
-            this.onStatusChange('CONTRACT_EXPIRED');
+            await this.onStatusChange('CONTRACT_EXPIRED');
+        } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
+            swap.status = 'CONTRACT_FUNDED';
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('CONTRACT_FUNDED');
+        } else if (swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
+            swap.status = 'DONE';
+            swap.outcome = 'REFUNDED';
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('DONE');
+        } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
+            assert(swap.preImage != null);
+            console.log('settling invoice');
+            await this.lnd.settleInvoice(swap.preImage);
+            swap.status = 'DONE';
+            swap.outcome = 'SUCCESS';
+            this.swap = await this.repository.save(swap);
+            await this.onStatusChange('DONE');
         }
     }
 

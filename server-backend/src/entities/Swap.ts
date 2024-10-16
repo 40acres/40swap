@@ -31,8 +31,14 @@ export class Swap {
     @Column({ type: 'bytea', nullable: true })
     lockTx: Buffer|null  = null;
 
+    @Column({ type: 'integer' })
+    lockTxHeight!: number;
+
     @Column({ type: 'bytea', nullable: true })
     unlockTx: Buffer|null  = null;
+
+    @Column({ type: 'integer' })
+    unlockTxHeight!: number;
 
     @Column({ type: 'text' })
     sweepAddress!: string;

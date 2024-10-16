@@ -11,7 +11,7 @@ import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
-import { DataSource, In, Not } from 'typeorm';
+import { DataSource, Not } from 'typeorm';
 import { LndService } from './LndService.js';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SwapOutRunner } from './SwapOutRunner.js';
@@ -72,6 +72,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             unlockTx: null,
             preImage: null,
             outcome: null,
+            lockTxHeight: 0,
+            unlockTxHeight: 0,
         } satisfies Omit<SwapIn, 'createdAt'|'modifiedAt'>);
         const runner = new SwapInRunner(
             swap,
@@ -123,6 +125,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             preImage: null,
             lockTx: null,
             outcome: null,
+            lockTxHeight: 0,
+            unlockTxHeight: 0,
         } satisfies Omit<SwapOut, 'createdAt'|'modifiedAt'>);
         const runner = new SwapOutRunner(
             swap,
@@ -159,10 +163,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const swapInRepository = this.dataSource.getRepository(SwapIn);
         const swapOutRepository = this.dataSource.getRepository(SwapOut);
         const resumableSwapIns = await swapInRepository.findBy({
-            status: Not(In(['CLAIMED', 'REFUNDED'])),
+            status: Not('DONE'),
         });
         const resumableSwapOuts = await swapOutRepository.findBy({
-            status: Not(In(['CLAIMED', 'REFUNDED'])),
+            status: Not('DONE'),
         });
         for (const swap of [...resumableSwapIns, ...resumableSwapOuts]) {
             const runner =  swap instanceof SwapIn ? new SwapInRunner(
