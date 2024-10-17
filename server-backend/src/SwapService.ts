@@ -1,6 +1,6 @@
 import { getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
-import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
 import assert from 'node:assert';
 import { reverseSwapScript, swapScript } from './bitcoin-utils.js';
@@ -26,7 +26,7 @@ const ECPair = ECPairFactory(ecc);
 export class SwapService implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly logger = new Logger(SwapService.name);
     private readonly runningSwaps: Map<string, SwapInRunner|SwapOutRunner>;
-    private readonly feePercentage: Decimal;
+    private readonly swapConfig: FourtySwapConfiguration['swap'];
 
     constructor(
         private bitcoinConfig: BitcoinConfigurationDetails,
@@ -37,7 +37,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         config: ConfigService<FourtySwapConfiguration>,
     ) {
         this.runningSwaps = new Map();
-        this.feePercentage = new Decimal(config.getOrThrow('swap.feePercentage', { infer: true }));
+        this.swapConfig = config.getOrThrow('swap', { infer: true });
     }
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
@@ -49,6 +49,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         assert(satoshis != null);
         const paymentHash = hashTag.data;
 
+        const outputAmount = new Decimal(satoshis).div(1e8).toDecimalPlaces(8);
+        if (outputAmount.lt(this.swapConfig.minimumAmount) || outputAmount.gt(this.swapConfig.maximumAmount)) {
+            throw new BadRequestException('invalid amount');
+        }
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.bitcoinConfig.swapLockBlockDelta;
         const claimKey = ECPair.makeRandom();
         const lockScript = swapScript(
@@ -61,7 +65,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         assert(address);
         await this.nbxplorer.trackAddress(address);
 
-        const outputAmount = new Decimal(satoshis).div(1e8).toDecimalPlaces(8);
         const repository = this.dataSource.getRepository(SwapIn);
         const swap = await repository.save({
             id: base58Id(),
@@ -69,7 +72,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             invoice: request.invoice,
             lockScript,
             unlockPrivKey: claimKey.privateKey!,
-            inputAmount: getSwapInInputAmount(outputAmount, this.feePercentage).toDecimalPlaces(8),
+            inputAmount: getSwapInInputAmount(outputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             outputAmount,
             status: 'CREATED',
             sweepAddress: await this.lnd.getNewAddress(),
@@ -98,6 +101,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const { network } = this.bitcoinConfig;
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = new Decimal(request.inputAmount);
+        if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
+            throw new BadRequestException('invalid amount');
+        }
+
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
@@ -120,7 +127,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             id: base58Id(),
             contractAddress: address,
             inputAmount,
-            outputAmount: getSwapOutOutputAmount(inputAmount, this.feePercentage).toDecimalPlaces(8),
+            outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             lockScript,
             status: 'CREATED',
             preImageHash,

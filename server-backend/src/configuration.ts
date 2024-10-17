@@ -47,6 +47,8 @@ const configSchema = z.object({
     }),
     swap: z.object({
         feePercentage: z.number().nonnegative(),
+        minimumAmount: z.number().positive(),
+        maximumAmount: z.number().positive(),
     }),
 });
 

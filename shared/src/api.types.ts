@@ -78,6 +78,8 @@ export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 export const frontendConfigurationSchema = z.object({
     bitcoinNetwork: z.enum(['bitcoin', 'regtest', 'testnet']).transform(n => networks[n]),
     feePercentage: z.number(),
+    minimumAmount: z.number(),
+    maximumAmount: z.number(),
 });
 export type FrontendConfiguration = z.infer<typeof frontendConfigurationSchema>;
 export type FrontendConfigurationServer = z.input<typeof frontendConfigurationSchema>;

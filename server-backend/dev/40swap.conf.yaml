@@ -19,3 +19,5 @@ mempoolBlockExplorer:
   url: http://localhost:7084
 swap:
   feePercentage: 0.5
+  minimumAmount: 0.00200000
+  maximumAmount: 0.05000000

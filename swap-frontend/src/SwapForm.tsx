@@ -9,10 +9,12 @@ import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
 import { useNavigate } from '@solidjs/router';
 import Decimal from 'decimal.js';
-import { address, networks } from 'bitcoinjs-lib';
+import { address } from 'bitcoinjs-lib';
 import { ActionButton } from './ActionButton.js';
 import { toast } from 'solid-toast';
 import { getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import Fa from 'solid-fa';
+import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
 const AssetDetails = {
     'ON_CHAIN_BITCOIN': {
@@ -40,10 +42,11 @@ export const SwapForm: Component = () => {
         bitcoinAddress: '',
         inputAmount: 0,
     });
-    const [formErrors, setFormErrors] = createStore<{ [key in keyof FormData]: boolean }>({
+    const [formErrors, setFormErrors] = createStore<{ [key in keyof FormData]: boolean } & { outputAmount: boolean }>({
         lightningInvoice: false,
         bitcoinAddress: false,
         inputAmount: false,
+        outputAmount: false,
     });
     const [config] = createResource(() => applicationContext.config);
     const [validated, setValidated] = createSignal(false);
@@ -108,15 +111,19 @@ export const SwapForm: Component = () => {
         return 'ON_CHAIN_BITCOIN';
     }
 
-    function isValid(field: keyof FormData): boolean {
+    function isValid(field: keyof FormData | 'outputAmount'): boolean {
         return validated() && !formErrors[field];
     }
 
-    function isInvalid(field: keyof FormData): boolean {
+    function isInvalid(field: keyof FormData | 'outputAmount'): boolean {
         return validated() && formErrors[field];
     }
 
     async function validate(): Promise<void> {
+        const conf = config();
+        if (conf == null) {
+            return;
+        }
         if(swapType() === 'in') {
             try {
                 decode(form.lightningInvoice);
@@ -124,15 +131,17 @@ export const SwapForm: Component = () => {
             } catch (e) {
                 setFormErrors('lightningInvoice', true);
             }
+            setFormErrors('outputAmount', outputAmount() < conf.minimumAmount || outputAmount() > conf.maximumAmount);
+            setFormErrors('inputAmount', false);
         } else {
             try {
-                const network = config()?.bitcoinNetwork ?? networks.bitcoin;
-                address.toOutputScript(form.bitcoinAddress, network);
+                address.toOutputScript(form.bitcoinAddress, conf.bitcoinNetwork);
                 setFormErrors('bitcoinAddress', false);
             } catch (e) {
                 setFormErrors('bitcoinAddress', true);
             }
-            setFormErrors('inputAmount', inputAmount() <= 0);
+            setFormErrors('inputAmount', inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount);
+            setFormErrors('outputAmount', false);
         }
         setValidated(true);
     }
@@ -144,7 +153,7 @@ export const SwapForm: Component = () => {
     });
 
     function hasErrors(): boolean {
-        return formErrors.lightningInvoice || formErrors.bitcoinAddress || formErrors.inputAmount;
+        return formErrors.lightningInvoice || formErrors.bitcoinAddress || formErrors.inputAmount || formErrors.outputAmount;
     }
 
     function isSendable(): boolean {
@@ -203,7 +212,11 @@ export const SwapForm: Component = () => {
                     </div>
                     <hr/>
                     <div class="fs-6">You get</div>
-                    <div><input class="form-control form-control-lg inline-input" value={outputAmount()} disabled/></div>
+                    <div>
+                        <input class="form-control form-control-lg inline-input" value={outputAmount()} disabled
+                            classList={{ 'is-valid': isValid('outputAmount'), 'is-invalid': isInvalid('outputAmount') }}
+                        />
+                    </div>
                 </div>
             </div>
             <Show when={swapType() === 'in'}>
@@ -224,6 +237,9 @@ export const SwapForm: Component = () => {
             </Show>
             <div class="text-muted text-end small">Fee ({config()?.feePercentage}%): {currencyFormat(fee())}</div>
             <ActionButton action={createSwap} disabled={!isSendable() || hasErrors()}>Create swap</ActionButton>
+            <div class="text-muted text-center small border border-primary rounded-3 p-2">
+                <Fa icon={faInfoCircle} /> Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)} | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
+            </div>
         </div>
     </>;
 };
