@@ -45,6 +45,9 @@ const configSchema = z.object({
         url: z.string().url(),
         useFeeEstimator: z.boolean().default(true),
     }),
+    swap: z.object({
+        feePercentage: z.number().nonnegative(),
+    }),
 });
 
 export type FourtySwapConfiguration = z.infer<typeof configSchema>;

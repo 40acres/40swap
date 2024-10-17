@@ -3,7 +3,7 @@ import { Form } from 'solid-bootstrap';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import lightningLogo from '/assets/lightning-logo.svg';
 import swapPlacesImg from '/assets/swap-places.svg';
-import { Asset, SwapType } from './utils.js';
+import { Asset, currencyFormat, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
@@ -12,6 +12,7 @@ import Decimal from 'decimal.js';
 import { address, networks } from 'bitcoinjs-lib';
 import { ActionButton } from './ActionButton.js';
 import { toast } from 'solid-toast';
+import { getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
 
 const AssetDetails = {
     'ON_CHAIN_BITCOIN': {
@@ -44,14 +45,10 @@ export const SwapForm: Component = () => {
         bitcoinAddress: false,
         inputAmount: false,
     });
-    const [bitcoinConfig] = createResource(() => applicationContext.config);
+    const [config] = createResource(() => applicationContext.config);
     const [validated, setValidated] = createSignal(false);
 
     function outputAmount(): number {
-        return inputAmount();
-    }
-
-    function inputAmount(): number {
         if (swapType() === 'in') {
             if (form.lightningInvoice !== '') {
                 try {
@@ -65,8 +62,28 @@ export const SwapForm: Component = () => {
             }
             return 0;
         } else {
+            const conf = config();
+            if (conf == null) {
+                return 0;
+            }
+            return getSwapOutOutputAmount(new Decimal(inputAmount()), new Decimal(conf.feePercentage)).toNumber();
+        }
+    }
+
+    function inputAmount(): number {
+        if (swapType() === 'in') {
+            const conf = config();
+            if (conf == null) {
+                return 0;
+            }
+            return getSwapInInputAmount(new Decimal(outputAmount()), new Decimal(conf.feePercentage)).toNumber();
+        } else {
             return form.inputAmount;
         }
+    }
+
+    function fee(): number {
+        return new Decimal(inputAmount()).minus(outputAmount()).toDecimalPlaces(8).toNumber();
     }
 
     function flipSwapType(): void {
@@ -109,7 +126,7 @@ export const SwapForm: Component = () => {
             }
         } else {
             try {
-                const network = bitcoinConfig()?.bitcoinNetwork ?? networks.bitcoin;
+                const network = config()?.bitcoinNetwork ?? networks.bitcoin;
                 address.toOutputScript(form.bitcoinAddress, network);
                 setFormErrors('bitcoinAddress', false);
             } catch (e) {
@@ -158,7 +175,7 @@ export const SwapForm: Component = () => {
 
     return <>
         <h3 class="fw-bold">Create a Swap</h3>
-        <div class="d-flex flex-column gap-2">
+        <div class="d-flex flex-column gap-3">
             <div class="d-flex gap-2">
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
                     <div class="fw-medium">
@@ -205,6 +222,7 @@ export const SwapForm: Component = () => {
                     isValid={isValid('bitcoinAddress')} isInvalid={isInvalid('bitcoinAddress')}
                 />
             </Show>
+            <div class="text-muted text-end small">Fee ({config()?.feePercentage}%): {currencyFormat(fee())}</div>
             <ActionButton action={createSwap} disabled={!isSendable() || hasErrors()}>Create swap</ActionButton>
         </div>
     </>;

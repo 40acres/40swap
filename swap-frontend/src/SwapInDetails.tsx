@@ -12,13 +12,13 @@ import failureImage from '/assets/failure-image.svg';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
-import { jsonEquals } from './utils.js';
+import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
 
 export const SwapInDetails: Component = () => {
     const { swapInService, localSwapStorageService } = applicationContext;
 
-    const [bitcoinConfig] = createResource(() => applicationContext.config);
+    const [config] = createResource(() => applicationContext.config);
     const params = useParams();
     const { id: swapId } = params;
     const [remoteSwap, { refetch }] = createResource(swapId, id => swapInService.getSwap(id) );
@@ -38,7 +38,7 @@ export const SwapInDetails: Component = () => {
         if (refundAddress() === '') {
             return false;
         }
-        const network = bitcoinConfig()?.bitcoinNetwork ?? networks.bitcoin;
+        const network = config()?.bitcoinNetwork ?? networks.bitcoin;
         try {
             address.toOutputScript(refundAddress(), network);
             return false;
@@ -111,11 +111,11 @@ export const SwapInDetails: Component = () => {
                                 </tr>
                                 <tr>
                                     <th>Amount sent:</th>
-                                    <td>{s().inputAmount}</td>
+                                    <td>{currencyFormat(s().inputAmount)}</td>
                                 </tr>
                                 <tr>
                                     <th>Amount received:</th>
-                                    <td>{s().inputAmount}</td>{/* TODO output amount */}
+                                    <td>{currencyFormat(s().outputAmount)}</td>
                                 </tr>
                             </Match>
                             <Match when={s().status === 'CONTRACT_FUNDED'}>

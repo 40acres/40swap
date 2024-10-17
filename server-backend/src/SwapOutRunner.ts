@@ -60,8 +60,7 @@ export class SwapOutRunner {
             this.swap = await this.repository.save(this.swap);
             this.onStatusChange('INVOICE_PAYMENT_INTENT_RECEIVED');
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
-            const invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
-            await this.lnd.sendCoinsOnChain(swap.contractAddress!, invoice.value as unknown as number);
+            await this.lnd.sendCoinsOnChain(swap.contractAddress!, swap.outputAmount.mul(1e8).toNumber());
             // TODO log
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
@@ -91,17 +90,15 @@ export class SwapOutRunner {
         const { swap } = this;
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
-        // TODO enable check when we have the amounts in order
-        // const expectedAmount = new Decimal(output.value).div(1e8);
-        // if (!expectedAmount.equals(swap.outputAmount)) {
-        //     this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
-        //     return;
-        // }
+        const expectedAmount = new Decimal(output.value).div(1e8);
+        if (!expectedAmount.equals(swap.outputAmount)) {
+            this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
+            return;
+        }
         if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
             if (event.data.transactionData.height != null) {
                 swap.lockTxHeight = event.data.transactionData.height;
             }
-            swap.inputAmount = new Decimal(output.value).div(1e8).toDecimalPlaces(8);
             swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
 
             if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {

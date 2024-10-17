@@ -17,3 +17,5 @@ nbxplorer:
   fallbackFeeRate: 10
 mempoolBlockExplorer:
   url: http://localhost:7084
+swap:
+  feePercentage: 0.5

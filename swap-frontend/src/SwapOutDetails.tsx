@@ -10,7 +10,7 @@ import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import failureImage from './assets/failure-image.svg';
-import { jsonEquals } from './utils.js';
+import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
 
 
@@ -102,11 +102,11 @@ export const SwapOutDetails: Component = () => {
                                 </tr>
                                 <tr>
                                     <th>Amount sent:</th>
-                                    <td>{s().outputAmount}</td>{/* TODO input amount */}
+                                    <td>{currencyFormat(s().inputAmount)}</td>
                                 </tr>
                                 <tr>
                                     <th>Amount received:</th>
-                                    <td>{s().outputAmount}</td>
+                                    <td>{currencyFormat(s().outputAmount)}</td>
                                 </tr>
                             </Match>
                             <Match when={s().status === 'DONE' && s().outcome === 'REFUNDED'}>

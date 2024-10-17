@@ -11,7 +11,8 @@ export class ConfigurationController {
     @Get()
     public async getConfiguration(): Promise<FrontendConfigurationServer> {
         return {
-            bitcoinNetwork: this.config.getOrThrow('bitcoin.network', { infer: true}),
+            bitcoinNetwork: this.config.getOrThrow('bitcoin.network', { infer: true }),
+            feePercentage: this.config.getOrThrow('swap.feePercentage', { infer: true }),
         };
     }
 }

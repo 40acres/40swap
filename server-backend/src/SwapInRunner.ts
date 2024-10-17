@@ -81,9 +81,9 @@ export class SwapInRunner {
         // TODO: the output is also found by buildClaimTx(), needs refactor
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
-        const expectedAmount = new Decimal(output.value).div(1e8);
-        if (!expectedAmount.equals(swap.outputAmount)) {
-            this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
+        const receivedAmount = new Decimal(output.value).div(1e8);
+        if (!receivedAmount.equals(swap.inputAmount)) {
+            this.logger.error(`amount mismatch. Failed swap. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()}`);
             return;
         }
         if (this.swap.status === 'CREATED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
