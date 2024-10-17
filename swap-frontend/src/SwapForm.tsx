@@ -112,7 +112,9 @@ export const SwapForm: Component = () => {
     }
 
     function isValid(field: keyof FormData | 'outputAmount'): boolean {
-        return validated() && !formErrors[field];
+        // if we wanted to show the valid markers, uncomment this line
+        // return validated() && !formErrors[field];
+        return false;
     }
 
     function isInvalid(field: keyof FormData | 'outputAmount'): boolean {
