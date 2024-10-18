@@ -7,8 +7,8 @@ import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { QrCode } from './QrCode.js';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
-import successImage from '/assets/success-image.svg';
-import failureImage from '/assets/failure-image.svg';
+import successImage from '/assets/success-image.png';
+import failureImage from '/assets/failure-image.png';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
@@ -78,10 +78,10 @@ export const SwapInDetails: Component = () => {
 
         <div class="d-flex flex-column gap-3">
             <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
-                <img src={successImage} style="height: 212px" />
+                <img src={successImage} class="align-self-center" />
             </Show>
             <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
-                <img src={failureImage} style="height: 212px" />
+                <img src={failureImage} class="align-self-center" />
             </Show>
             <Show when={currentSwap()}>{s => <>
                 <Table class="swap-details-table">

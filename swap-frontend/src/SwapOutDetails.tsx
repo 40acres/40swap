@@ -2,14 +2,14 @@ import { Component, createEffect, createMemo, createResource, Match, Show, Switc
 import { Button, Table } from 'solid-bootstrap';
 import { applicationContext } from './ApplicationContext.js';
 import { A, useParams } from '@solidjs/router';
-import successImage from './assets/success-image.svg';
+import successImage from './assets/success-image.png';
 import lightningLogo from './assets/lightning-logo.svg';
 import { QrCode } from './QrCode.js';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
-import failureImage from './assets/failure-image.svg';
+import failureImage from './assets/failure-image.png';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
 
@@ -57,10 +57,10 @@ export const SwapOutDetails: Component = () => {
         </Show>
         <div class="d-flex flex-column gap-3">
             <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
-                <img src={successImage} style="height: 212px" />
+                <img src={successImage} class="align-self-center" />
             </Show>
             <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
-                <img src={failureImage} style="height: 212px" />
+                <img src={failureImage} class="align-self-center" />
             </Show>
             <Show when={currentSwap()}>{s => <>
                 <Table class="swap-details-table">
