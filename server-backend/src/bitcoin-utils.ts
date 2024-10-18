@@ -74,10 +74,14 @@ export function buildContractSpendBasePsbt({ swap, network, spendingTx, outputAd
     assert(spendingOutput != null);
 
     const psbt = new Psbt({ network });
-    // TODO minimum amount / dust limit
+
+    const value = spendingOutput.value - feeAmount;
+    if (value <= 1000) { // dust
+        throw new Error(`amount is too low: ${value}`);
+    }
     psbt.addOutput({
         address: outputAddress,
-        value: spendingOutput.value - feeAmount,
+        value,
     });
 
     const p2wsh = payments.p2wsh({ redeem: { output: swap.lockScript, network }, network });

@@ -75,7 +75,6 @@ export const SwapOutDetails: Component = () => {
                                     <th>Status:</th>
                                     <td>Waiting for your lightning payment</td>
                                 </tr>
-                                {/* TODO show amount to be paid */}
                             </Match>
                             <Match when={s().status === 'INVOICE_PAYMENT_INTENT_RECEIVED'}>
                                 <tr>

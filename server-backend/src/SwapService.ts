@@ -42,7 +42,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
         const { network } = this.bitcoinConfig;
-        const { tags, satoshis } = decode(request.invoice); // TODO validate network
+        const { tags, satoshis, network: invoiceNetwork } = decode(request.invoice);
+        if (invoiceNetwork == null || invoiceNetwork.bech32 !== network.bech32) {
+            throw new BadRequestException('invalid bitcoin network');
+        }
         const hashTag = tags.find(t => t.tagName === 'payment_hash');
         assert(hashTag);
         assert(typeof hashTag.data === 'string');
