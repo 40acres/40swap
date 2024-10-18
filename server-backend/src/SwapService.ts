@@ -109,6 +109,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
+            expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
 
         const refundKey = ECPair.makeRandom();

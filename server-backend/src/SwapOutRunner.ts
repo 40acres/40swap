@@ -77,16 +77,7 @@ export class SwapOutRunner {
     async onStatusChange(status: SwapOutStatus): Promise<void> {
         const { swap } = this;
         if (status === 'CREATED') {
-            let invoice: Invoice__Output|undefined;
-            while (invoice?.state !== 'ACCEPTED') { // TODO handle error
-                invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
-                await sleep(1000);
-            }
-            // TODO handle expiry
-            console.log(`invoice state ${invoice.state}`);
-            swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
-            this.swap = await this.repository.save(this.swap);
-            this.onStatusChange('INVOICE_PAYMENT_INTENT_RECEIVED');
+            this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             await this.lnd.sendCoinsOnChain(swap.contractAddress!, swap.outputAmount.mul(1e8).toNumber());
             // TODO log
@@ -94,6 +85,26 @@ export class SwapOutRunner {
             assert(swap.lockTx != null);
             const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
             await this.nbxplorer.broadcastTx(refundTx);
+        }
+    }
+
+    private async waitForLightningPaymentIntent(): Promise<void> {
+        const { swap } = this;
+        let invoice: Invoice__Output|undefined;
+        while (swap.status === 'CREATED') { // it will stop if swap expires
+            invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
+            if (invoice.state === 'ACCEPTED') {
+                swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
+                this.swap = await this.repository.save(this.swap);
+                this.onStatusChange('INVOICE_PAYMENT_INTENT_RECEIVED');
+                return;
+            } else if (invoice.state === 'CANCELED') {
+                // the swap will expire
+                this.logger.log('invoice CANCELLED');
+                return;
+            }
+            this.logger.debug(`invoice state ${invoice.state}`);
+            await sleep(1000);
         }
     }
 

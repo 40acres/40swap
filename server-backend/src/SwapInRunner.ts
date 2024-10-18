@@ -68,7 +68,14 @@ export class SwapInRunner {
 
     private async onStatusChange(status: SwapInStatus): Promise<void> {
         if (status === 'CONTRACT_FUNDED') {
-            this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice);
+            try {
+                this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice);
+            } catch (e) {
+                // we don't do anything, just let the contract expire and handle it as a refund
+                // TODO retry
+                this.logger.log('the lightning payment failed', e);
+                return;
+            }
             this.swap.status = 'INVOICE_PAID';
             this.swap = await this.repository.save(this.swap);
             this.onStatusChange('INVOICE_PAID');

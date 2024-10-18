@@ -17,16 +17,17 @@ export class LndService {
         return new Promise((resolve, reject) => {
             this.lightning.sendPaymentSync({
                 paymentRequest: invoice,
+
             }, (err, value) => {
                 if (err) {
-                    this.logger.error(`error paying invoice ${err}`);
+                    this.logger.debug(`error paying invoice ${err}`);
                     reject(err);
                 } else if (value?.paymentPreimage != null) {
-                    this.logger.log(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
+                    this.logger.debug(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
                     resolve(value.paymentPreimage!);
                 } else {
-                    this.logger.warn('no preimage after sendPayment');
-                    reject();
+                    this.logger.debug(`error paying invoice ${value?.paymentError}`);
+                    reject(new Error(`error paying invoice ${value?.paymentError}`));
                 }
             });
         });
@@ -47,12 +48,12 @@ export class LndService {
         });
     }
 
-    async addHodlInvoice({ hash, amount }: { hash: Buffer, amount: number }): Promise<string> {
+    async addHodlInvoice({ hash, amount, expiry }: { hash: Buffer, amount: number, expiry: number }): Promise<string> {
         return new Promise((resolve, reject) => {
             this.invoices.addHoldInvoice({
                 hash,
                 value: amount,
-
+                expiry,
             }, (err, value) => {
                 if (err != null) {
                     reject(err);
