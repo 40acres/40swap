@@ -57,6 +57,7 @@ export const SwapInDetails: Component = () => {
             await localSwapStorageService.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
             refetch();
         } catch (e) {
+            console.error(e);
             toast.error('Unknown error');
         }
     }

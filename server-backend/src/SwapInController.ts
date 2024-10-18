@@ -63,14 +63,18 @@ export class SwapInController {
 
     @Post('/:id/refund-tx')
     async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto): Promise<void> {
+        const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
+        assert(swap.lockTx != null);
         try {
-            // TODO validate
-            const tx = Transaction.fromHex(txRequest.tx);
-            await this.nbxplorer.broadcastTx(tx);
+            const lockTx = Transaction.fromBuffer(swap.lockTx);
+            const refundTx = Transaction.fromHex(txRequest.tx);
+            if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                throw new BadRequestException('invalid refund tx');
+            }
+            await this.nbxplorer.broadcastTx(refundTx);
         } catch (e) {
             throw new BadRequestException('invalid bitcoin tx');
         }
-
     }
 
     @Get('/:id')

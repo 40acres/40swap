@@ -20,7 +20,7 @@ export class SwapInService {
         private ECPair: ECPairAPI,
     ) {}
 
-    async getRefund(swap: GetSwapInResponse, address: string): Promise<void> {
+    async getRefund(swap: PersistedSwapIn, address: string): Promise<void> {
         const network = (await this.config).bitcoinNetwork;
         const refundPrivateKeyHex = (await this.localSwapStorageService.findById('in', swap.swapId))?.refundKey;
         if (refundPrivateKeyHex == null) {
@@ -31,15 +31,31 @@ export class SwapInService {
             throw new Error(`invalid state ${swap.status}`);
         }
         const psbt = await this.getRefundPsbt(swap.swapId, address);
-        // TODO verify outputs
+        if (!this.isValidRefundTx(psbt, address)) {
+            throw new Error('Error building refund transactions');
+        }
         signContractSpend({
             psbt,
             network,
             key: this.ECPair.fromPrivateKey(refundPrivateKey),
             preImage: Buffer.alloc(0),
         });
+        if (psbt.getFeeRate() > 1000) {
+            throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
+        }
         const tx = psbt.extractTransaction();
         await this.publishRefundTx(swap.swapId, tx);
+    }
+
+    isValidRefundTx(psbt: Psbt, address: string): boolean {
+        const outs = psbt.txOutputs;
+        if (outs.length !== 1) {
+            return false;
+        }
+        if (outs[0].address !== address) {
+            return false;
+        }
+        return true;
     }
 
     async getSwap(id: string): Promise<PersistedSwapIn> {
