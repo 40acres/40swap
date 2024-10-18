@@ -32,7 +32,7 @@ export const Header: Component = () => {
                     <img src={logo} style="height: 3rem"/>
                 </Navbar.Brand>
                 <Navbar.Toggle class="d-sm-block d-md-none" onClick={() => setShowOffCanvas(true)} />
-                <Nav class="justify-content-end gap-5 d-sm-none d-md-flex">
+                <Nav class="justify-content-end gap-5 d-none d-md-flex">
                     <NavLinks />
                 </Nav>
                 <Offcanvas show={showOffCanvas()} onHide={setShowOffCanvas(false)}>

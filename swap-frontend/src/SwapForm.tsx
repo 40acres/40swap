@@ -2,7 +2,7 @@ import { Component, createEffect, createResource, createSignal, Show } from 'sol
 import { Form } from 'solid-bootstrap';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import lightningLogo from '/assets/lightning-logo.svg';
-import swapPlacesImg from '/assets/swap-places.svg';
+import flipImg from '/assets/flip.png';
 import { Asset, currencyFormat, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';
@@ -218,7 +218,7 @@ export const SwapForm: Component = () => {
                     </div>
                 </div>
                 <div style="margin: auto -28px; z-index: 0" onClick={flipSwapType}>
-                    <img style="height: 48px" src={swapPlacesImg} />
+                    <img src={flipImg} />
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
                     <div class="fw-medium">
