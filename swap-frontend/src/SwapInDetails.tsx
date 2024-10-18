@@ -164,6 +164,12 @@ export const SwapInDetails: Component = () => {
                                     <td>40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation</td>
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'DONE' && s().outcome === 'EXPIRED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Expired</td>
+                                </tr>
+                            </Match>
                         </Switch>
                     </tbody>
                 </Table>

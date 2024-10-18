@@ -4,6 +4,7 @@ import path from 'path';
 import { homedir } from 'os';
 import assert from 'assert';
 import { z } from 'zod';
+import moment from 'moment';
 
 const YAML_CONFIG_FILENAME = '40swap.conf.yaml';
 
@@ -49,6 +50,9 @@ const configSchema = z.object({
         feePercentage: z.number().nonnegative(),
         minimumAmount: z.number().positive(),
         maximumAmount: z.number().positive(),
+        expiryDuration: z.string()
+            .transform(d => moment.duration(d))
+            .refine(d => d.toISOString() !== 'P0D'),
     }),
 });
 

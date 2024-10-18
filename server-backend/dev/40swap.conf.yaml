@@ -21,3 +21,4 @@ swap:
   feePercentage: 0.5
   minimumAmount: 0.00200000
   maximumAmount: 0.05000000
+  expiryDuration: PT30M

@@ -13,6 +13,8 @@ import { sleep } from './utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import Decimal from 'decimal.js';
+import moment from 'moment/moment.js';
+import { FourtySwapConfiguration } from './configuration.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -20,6 +22,7 @@ export class SwapOutRunner {
     private readonly logger = new Logger(SwapOutRunner.name);
     private runningPromise: Promise<void>;
     private notifyFinished!: () => void;
+    private expiryPoller: NodeJS.Timeout|undefined;
 
     constructor(
         private swap: SwapOut,
@@ -28,6 +31,7 @@ export class SwapOutRunner {
         private bitcoinService: BitcoinService,
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
+        private swapConfig: FourtySwapConfiguration['swap'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -35,6 +39,10 @@ export class SwapOutRunner {
     }
 
     async run(): Promise<void> {
+        this.expiryPoller = setInterval(
+            () => this.checkExpiry(),
+            moment.duration(1, 'minute').asMilliseconds(),
+        );
         if (this.swap.status === 'CREATED') {
             this.onStatusChange('CREATED');
         }
@@ -47,6 +55,25 @@ export class SwapOutRunner {
         return this.runningPromise;
     }
 
+    private async checkExpiry(): Promise<void> {
+        const { swap } = this;
+        if (swap.status === 'CREATED') {
+            const expired = moment(swap.createdAt).isBefore(moment().subtract(this.swapConfig.expiryDuration));
+            if (expired) {
+                this.logger.log('swap expired');
+                try {
+                    await this.lnd.cancelInvoice(swap.preImageHash);
+                } catch (e) {
+                    this.logger.warn('Error cancelling invoice after expiry', e);
+                }
+                swap.status = 'DONE';
+                swap.outcome = 'EXPIRED';
+                this.swap = await this.repository.save(swap);
+                await this.stop();
+            }
+        }
+    }
+
     async onStatusChange(status: SwapOutStatus): Promise<void> {
         const { swap } = this;
         if (status === 'CREATED') {
@@ -55,6 +82,7 @@ export class SwapOutRunner {
                 invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
                 await sleep(1000);
             }
+            // TODO handle expiry
             console.log(`invoice state ${invoice.state}`);
             swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
             this.swap = await this.repository.save(this.swap);

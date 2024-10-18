@@ -91,6 +91,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.bitcoinService,
             this.nbxplorer,
             this.lnd,
+            this.swapConfig,
         );
         this.logger.log(`Starting swap ${swap.id}`);
         this.runAndMonitor(swap, runner);
@@ -149,6 +150,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.bitcoinService,
             this.nbxplorer,
             this.lnd,
+            this.swapConfig,
         );
         this.runAndMonitor(swap, runner);
         return swap;
@@ -190,6 +192,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.bitcoinService,
                 this.nbxplorer,
                 this.lnd,
+                this.swapConfig,
             ) : new SwapOutRunner(
                 swap,
                 swapOutRepository,
@@ -197,6 +200,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.bitcoinService,
                 this.nbxplorer,
                 this.lnd,
+                this.swapConfig,
             );
             this.logger.log(`Resuming swap ${swap.id}`);
             this.runAndMonitor(swap, runner);

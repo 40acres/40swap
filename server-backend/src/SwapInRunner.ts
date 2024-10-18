@@ -11,6 +11,9 @@ import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-u
 import { signContractSpend, SwapInStatus } from '@40swap/shared';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import moment from 'moment';
+import { FourtySwapConfiguration } from './configuration.js';
+import { clearInterval } from 'node:timers';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -18,6 +21,7 @@ export class SwapInRunner {
     private readonly logger = new Logger(SwapInRunner.name);
     private runningPromise: Promise<void>;
     private notifyFinished!: () => void;
+    private expiryPoller: NodeJS.Timeout|undefined;
 
     constructor(
         private swap: SwapIn,
@@ -26,6 +30,7 @@ export class SwapInRunner {
         private bitcoinService: BitcoinService,
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
+        private swapConfig: FourtySwapConfiguration['swap'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -33,13 +38,32 @@ export class SwapInRunner {
     }
 
     async run(): Promise<void> {
+        this.expiryPoller = setInterval(
+            () => this.checkExpiry(),
+            moment.duration(1, 'minute').asMilliseconds(),
+        );
         return this.runningPromise;
     }
 
     stop(): Promise<void> {
         // TODO handle pause
         this.notifyFinished();
+        clearInterval(this.expiryPoller);
         return this.runningPromise;
+    }
+
+    private async checkExpiry(): Promise<void> {
+        const { swap } = this;
+        if (swap.status === 'CREATED') {
+            const expired = moment(swap.createdAt).isBefore(moment().subtract(this.swapConfig.expiryDuration));
+            if (expired) {
+                this.logger.log('swap expired');
+                swap.status = 'DONE';
+                swap.outcome = 'EXPIRED';
+                this.swap = await this.repository.save(swap);
+                await this.stop();
+            }
+        }
     }
 
     private async onStatusChange(status: SwapInStatus): Promise<void> {

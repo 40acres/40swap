@@ -90,6 +90,18 @@ export class LndService {
         });
     }
 
+    async cancelInvoice(paymentHash: Buffer): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.invoices.cancelInvoice({ paymentHash }, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
     async sendCoinsOnChain(addr: string, amount: number): Promise<string> {
         return new Promise((resolve, reject) => {
             this.lightning.sendCoins({ amount, addr, targetConf: 2 }, (err, value) => {

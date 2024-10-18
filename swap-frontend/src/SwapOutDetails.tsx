@@ -133,6 +133,12 @@ export const SwapOutDetails: Component = () => {
                                     <td>The on-chain funds have been sent to you, waiting for confirmation</td>
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'DONE' && s().outcome === 'EXPIRED'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Expired</td>
+                                </tr>
+                            </Match>
                         </Switch>
                     </tbody>
                 </Table>
