@@ -48,6 +48,7 @@ export const SwapForm: Component = () => {
         inputAmount: false,
         outputAmount: false,
     });
+    const [errorMessage, setErrorMessage] = createSignal('');
     const [config] = createResource(() => applicationContext.config);
     const [validated, setValidated] = createSignal(false);
 
@@ -126,24 +127,35 @@ export const SwapForm: Component = () => {
         if (conf == null) {
             return;
         }
+        setErrorMessage('');
         if(swapType() === 'in') {
+            const isInvalidOutputAmount = outputAmount() < conf.minimumAmount || outputAmount() > conf.maximumAmount;
+            setFormErrors('outputAmount', isInvalidOutputAmount);
+            if (isInvalidOutputAmount) {
+                setErrorMessage('Invalid amount');
+            }
+            setFormErrors('inputAmount', false);
             try {
                 decode(form.lightningInvoice);
                 setFormErrors('lightningInvoice', false);
             } catch (e) {
                 setFormErrors('lightningInvoice', true);
+                setErrorMessage('Invalid invoice');
             }
-            setFormErrors('outputAmount', outputAmount() < conf.minimumAmount || outputAmount() > conf.maximumAmount);
-            setFormErrors('inputAmount', false);
         } else {
+            const isInvalidInputAmount = inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount;
+            setFormErrors('inputAmount', isInvalidInputAmount);
+            if (isInvalidInputAmount) {
+                setErrorMessage('Invalid amount');
+            }
+            setFormErrors('outputAmount', false);
             try {
                 address.toOutputScript(form.bitcoinAddress, conf.bitcoinNetwork);
                 setFormErrors('bitcoinAddress', false);
             } catch (e) {
                 setFormErrors('bitcoinAddress', true);
+                setErrorMessage('Invalid bitcoin address');
             }
-            setFormErrors('inputAmount', inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount);
-            setFormErrors('outputAmount', false);
         }
         setValidated(true);
     }
@@ -242,6 +254,11 @@ export const SwapForm: Component = () => {
             <div class="text-muted text-center small border border-primary rounded-3 p-2">
                 <Fa icon={faInfoCircle} /> Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)} | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
             </div>
+            <Show when={errorMessage() !== ''}>
+                <div class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" style="border-style: dashed !important">
+                    <Fa icon={faInfoCircle} /> {errorMessage()}
+                </div>
+            </Show>
         </div>
     </>;
 };
