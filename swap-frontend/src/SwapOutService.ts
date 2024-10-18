@@ -31,15 +31,31 @@ export class SwapOutService {
         const { claimKey, preImage, sweepAddress } = localDetails;
         const network = (await this.config).bitcoinNetwork;
         const psbt = await this.getClaimPsbt(swap.swapId, sweepAddress);
-        // TODO validate output
+        if (!this.isValidClaimTx(psbt, sweepAddress)) {
+            throw new Error('Error building refund transactions');
+        }
         signContractSpend({
             psbt,
             network,
             key: this.ECPair.fromPrivateKey(Buffer.from(claimKey, 'hex')),
             preImage: Buffer.from(preImage, 'hex'),
         });
+        if (psbt.getFeeRate() > 1000) {
+            throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
+        }
         const claimTx = psbt.extractTransaction();
         await this.publishClaimTx(swap.swapId, claimTx);
+    }
+
+    isValidClaimTx(psbt: Psbt, address: string): boolean {
+        const outs = psbt.txOutputs;
+        if (outs.length !== 1) {
+            return false;
+        }
+        if (outs[0].address !== address) {
+            return false;
+        }
+        return true;
     }
 
     async getSwap(id: string): Promise<PersistedSwapOut> {

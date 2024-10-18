@@ -1,4 +1,3 @@
-import { LndService } from './LndService.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
@@ -9,13 +8,7 @@ import * as ecc from 'tiny-secp256k1';
 import { address, Psbt, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut.js';
-import {
-    GetSwapOutResponse,
-    PsbtResponse,
-    signContractSpend,
-    swapOutRequestSchema,
-    txRequestSchema,
-} from '@40swap/shared';
+import { GetSwapOutResponse, PsbtResponse, signContractSpend, swapOutRequestSchema, txRequestSchema } from '@40swap/shared';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
 
@@ -29,7 +22,6 @@ export class SwapOutController {
     private readonly logger = new Logger(SwapOutController.name);
 
     constructor(
-        private lnd: LndService,
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
         private bitcoinConfig: BitcoinConfigurationDetails,
@@ -50,10 +42,19 @@ export class SwapOutController {
     }
 
     @Post('/:id/claim')
-    async claimSwap(@Body() request: TxRequestDto, @Param('id') id: string): Promise<void> {
-        // TODO validate claim tx and set output amount
-        const tx = Transaction.fromHex(request.tx);
-        await this.nbxplorer.broadcastTx(tx);
+    async claimSwap(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
+        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        assert(swap.lockTx != null);
+        try {
+            const lockTx = Transaction.fromBuffer(swap.lockTx);
+            const refundTx = Transaction.fromHex(txRequest.tx);
+            if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                throw new BadRequestException('invalid refund tx');
+            }
+            await this.nbxplorer.broadcastTx(refundTx);
+        } catch (e) {
+            throw new BadRequestException('invalid bitcoin tx');
+        }
     }
 
     @Get('/:id/claim-psbt')
