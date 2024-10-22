@@ -12,6 +12,7 @@ const SEARCH_PATHS = [
     'dev',
     homedir(),
     '/etc',
+    '/etc/40swap',
 ];
 
 const configSchema = z.object({
