@@ -6,8 +6,6 @@ db:
   username: '40swap'
   password: '40swap'
   database: '40swap'
-  synchronize: true
-  migrationsRun: false
 bitcoin:
   network: regtest
   requiredConfirmations: 3
