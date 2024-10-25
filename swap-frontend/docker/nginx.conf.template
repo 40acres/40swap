@@ -1,0 +1,22 @@
+server {
+        listen 80;
+        listen [::]:80;
+        server_name ${DOMAIN};
+
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+        gzip_min_length 1000;
+
+
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+
+        location /assets {
+            root /usr/share/nginx/html;
+        }
+
+        location /api {
+            proxy_pass http://${BACKEND_HOST};
+        }
+}

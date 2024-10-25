@@ -14,4 +14,5 @@ RUN $NPM_COMMAND run build
 
 FROM nginx:1.27.2 as prod
 
+COPY swap-frontend/docker/nginx.conf.template /etc/nginx/templates/40swap.conf.template
 COPY --from=source /home/node/40swap/swap-frontend/dist /usr/share/nginx/html/
