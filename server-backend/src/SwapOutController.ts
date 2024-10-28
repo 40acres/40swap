@@ -19,8 +19,6 @@ class TxRequestDto extends createZodDto(txRequestSchema) {}
 
 @Controller('/swap/out')
 export class SwapOutController {
-    private readonly logger = new Logger(SwapOutController.name);
-
     constructor(
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,

@@ -38,10 +38,12 @@ export class SwapInRunner {
     }
 
     async run(): Promise<void> {
-        this.expiryPoller = setInterval(
-            () => this.checkExpiry(),
-            moment.duration(1, 'minute').asMilliseconds(),
-        );
+        if (this.swap.status === 'CREATED') {
+            this.expiryPoller = setInterval(
+                () => this.checkExpiry(),
+                moment.duration(1, 'minute').asMilliseconds(),
+            );
+        }
         return this.runningPromise;
     }
 
@@ -57,23 +59,26 @@ export class SwapInRunner {
         if (swap.status === 'CREATED') {
             const expired = moment(swap.createdAt).isBefore(moment().subtract(this.swapConfig.expiryDuration));
             if (expired) {
-                this.logger.log('swap expired');
+                this.logger.log(`Swap expired (id=${this.swap.id})`);
                 swap.status = 'DONE';
                 swap.outcome = 'EXPIRED';
                 this.swap = await this.repository.save(swap);
                 await this.stop();
             }
+        } else {
+            clearInterval(this.expiryPoller);
         }
     }
 
     private async onStatusChange(status: SwapInStatus): Promise<void> {
+        this.logger.log(`Swap in changed to status ${status} (id=${this.swap.id})`);
         if (status === 'CONTRACT_FUNDED') {
             try {
                 this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice);
             } catch (e) {
                 // we don't do anything, just let the contract expire and handle it as a refund
                 // TODO retry
-                this.logger.log('the lightning payment failed', e);
+                this.logger.log(`The lightning payment failed (id=${this.swap.id})`, e);
                 return;
             }
             this.swap.status = 'INVOICE_PAID';
@@ -114,7 +119,8 @@ export class SwapInRunner {
         assert(output != null);
         const receivedAmount = new Decimal(output.value).div(1e8);
         if (!receivedAmount.equals(swap.inputAmount)) {
-            this.logger.error(`amount mismatch. Failed swap. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()}`);
+            // eslint-disable-next-line max-len
+            this.logger.error(`Amount mismatch. Failed swap. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
             return;
         }
         if (this.swap.status === 'CREATED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {

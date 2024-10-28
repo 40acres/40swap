@@ -15,6 +15,7 @@ import * as ecc from 'tiny-secp256k1';
 import Decimal from 'decimal.js';
 import moment from 'moment/moment.js';
 import { FourtySwapConfiguration } from './configuration.js';
+import { clearInterval } from 'node:timers';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -39,11 +40,11 @@ export class SwapOutRunner {
     }
 
     async run(): Promise<void> {
-        this.expiryPoller = setInterval(
-            () => this.checkExpiry(),
-            moment.duration(1, 'minute').asMilliseconds(),
-        );
         if (this.swap.status === 'CREATED') {
+            this.expiryPoller = setInterval(
+                () => this.checkExpiry(),
+                moment.duration(1, 'minute').asMilliseconds(),
+            );
             this.onStatusChange('CREATED');
         }
         return this.runningPromise;
@@ -52,6 +53,7 @@ export class SwapOutRunner {
     stop(): Promise<void> {
         // TODO handle pause
         this.notifyFinished();
+        clearInterval(this.expiryPoller);
         return this.runningPromise;
     }
 
@@ -60,22 +62,25 @@ export class SwapOutRunner {
         if (swap.status === 'CREATED') {
             const expired = moment(swap.createdAt).isBefore(moment().subtract(this.swapConfig.expiryDuration));
             if (expired) {
-                this.logger.log('swap expired');
+                this.logger.log(`Swap expired (id=${this.swap.id})`);
                 try {
                     await this.lnd.cancelInvoice(swap.preImageHash);
                 } catch (e) {
-                    this.logger.warn('Error cancelling invoice after expiry', e);
+                    this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id})`, e);
                 }
                 swap.status = 'DONE';
                 swap.outcome = 'EXPIRED';
                 this.swap = await this.repository.save(swap);
                 await this.stop();
             }
+        } else {
+            clearInterval(this.expiryPoller);
         }
     }
 
     async onStatusChange(status: SwapOutStatus): Promise<void> {
         const { swap } = this;
+        this.logger.log(`Swap out changed to status ${status} (id=${this.swap.id})`);
         if (status === 'CREATED') {
             this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
@@ -100,10 +105,10 @@ export class SwapOutRunner {
                 return;
             } else if (invoice.state === 'CANCELED') {
                 // the swap will expire
-                this.logger.log('invoice CANCELLED');
+                this.logger.log(`Invoice CANCELLED (id=${this.swap.id})`);
                 return;
             }
-            this.logger.debug(`invoice state ${invoice.state}`);
+            this.logger.debug(`Invoice state ${invoice.state} (id=${this.swap.id})`);
             await sleep(1000);
         }
     }
@@ -131,7 +136,7 @@ export class SwapOutRunner {
         assert(output != null);
         const expectedAmount = new Decimal(output.value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
-            this.logger.error(`amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()}`);
+            this.logger.error(`Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`);
             return;
         }
         if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
@@ -190,7 +195,7 @@ export class SwapOutRunner {
                     this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
                 }
             } else {
-                console.log('could not find preimage in claim tx');
+                this.logger.warn(`Could not find preimage in claim tx ${event.data.transactionData.transactionHash} (id=${this.swap.id})`);
             }
         }
     }
@@ -213,7 +218,7 @@ export class SwapOutRunner {
             await this.onStatusChange('DONE');
         } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             assert(swap.preImage != null);
-            console.log('settling invoice');
+            this.logger.log(`Settling invoice (id=${this.swap.id})`);
             await this.lnd.settleInvoice(swap.preImage);
             swap.status = 'DONE';
             swap.outcome = 'SUCCESS';

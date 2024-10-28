@@ -13,7 +13,7 @@ export class LndService {
     ) {}
 
     async sendPayment(invoice: string): Promise<Buffer> {
-        this.logger.log('paying invoice');
+        this.logger.debug(`paying invoice ${invoice}`);
         return new Promise((resolve, reject) => {
             this.lightning.sendPaymentSync({
                 paymentRequest: invoice,

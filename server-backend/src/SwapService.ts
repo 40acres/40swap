@@ -96,7 +96,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.lnd,
             this.swapConfig,
         );
-        this.logger.log(`Starting swap ${swap.id}`);
         this.runAndMonitor(swap, runner);
         return swap;
     }
@@ -161,9 +160,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     private async runAndMonitor(swap: SwapIn|SwapOut, runner: SwapInRunner|SwapOutRunner): Promise<void> {
+        this.logger.log(`Starting swap (id=${swap.id})`);
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
-        this.logger.log(`Swap ${swap.id} finished`);
+        this.logger.log(`Swap finished (id=${swap.id})`);
         this.runningSwaps.delete(swap.id);
     }
 
@@ -206,14 +206,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.lnd,
                 this.swapConfig,
             );
-            this.logger.log(`Resuming swap ${swap.id}`);
+            this.logger.log(`Resuming swap (id=${swap.id})`);
             this.runAndMonitor(swap, runner);
         }
     }
 
     async onApplicationShutdown(): Promise<void> {
         for (const [id, runner] of this.runningSwaps.entries()) {
-            this.logger.log(`Pausing swap ${id}`);
+            this.logger.log(`Pausing swap (id=${id})`);
             await runner.stop();
         }
     }

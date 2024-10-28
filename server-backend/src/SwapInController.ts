@@ -27,8 +27,6 @@ class TxRequestDto extends createZodDto(txRequestSchema) {}
 @Controller('/swap/in')
 @UsePipes(ZodValidationPipe)
 export class SwapInController {
-    private readonly logger = new Logger(SwapInController.name);
-
     constructor(
         private lnd: LndService,
         private nbxplorer: NbxplorerService,
