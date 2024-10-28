@@ -1,7 +1,7 @@
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';

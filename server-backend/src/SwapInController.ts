@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, UsePipes } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, UsePipes } from '@nestjs/common';
 import { createZodDto, ZodValidationPipe } from '@anatine/zod-nestjs';
 import assert from 'node:assert';
 import { ECPairFactory } from 'ecpair';
@@ -9,13 +9,7 @@ import { DataSource } from 'typeorm';
 import { SwapIn } from './entities/SwapIn.js';
 import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
-import {
-    GetSwapInResponse,
-    PsbtResponse,
-    signContractSpend,
-    swapInRequestSchema,
-    txRequestSchema,
-} from '@40swap/shared';
+import { GetSwapInResponse, PsbtResponse, signContractSpend, swapInRequestSchema, txRequestSchema } from '@40swap/shared';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
 
