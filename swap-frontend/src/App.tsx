@@ -28,7 +28,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
 };
 
 const NarrowContainer: ParentComponent = (props) => {
-    return <div style="width: 600px" class="mx-auto content">
+    return <div style="max-width: 600px" class="mx-auto content">
         {props.children}
     </div>;
 };

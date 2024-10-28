@@ -201,7 +201,7 @@ export const SwapForm: Component = () => {
         <div class="d-flex flex-column gap-3">
             <div class="d-flex gap-2">
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
-                    <div class="fw-medium">
+                    <div class="fw-medium text-nowrap">
                         <img src={AssetDetails[getInputAsset()].icon} /><span class="ps-1 text-uppercase">{AssetDetails[getInputAsset()].displayName}</span>
                     </div>
                     <hr />
@@ -221,7 +221,7 @@ export const SwapForm: Component = () => {
                     <img src={flipImg} />
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
-                    <div class="fw-medium">
+                    <div class="fw-medium text-nowrap">
                         <img src={AssetDetails[getOutputAsset()].icon}/><span class="ps-1 text-uppercase">{AssetDetails[getOutputAsset()].displayName}</span>
                     </div>
                     <hr/>
