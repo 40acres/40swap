@@ -96,7 +96,8 @@ export class SwapInController {
             feeRate,
             (feeAmount, isFeeCalculationRun) => {
                 const psbt = buildContractSpendBasePsbt({
-                    swap,
+                    contractAddress: swap.contractAddress,
+                    lockScript: swap.lockScript,
                     network,
                     spendingTx,
                     outputAddress,

@@ -77,8 +77,11 @@ export class SwapOutController {
         return buildTransactionWithFee(
             feeRate,
             (feeAmount, isFeeCalculationRun) => {
+                assert(swap.lockScript != null);
+                assert(swap.contractAddress != null);
                 const psbt = buildContractSpendBasePsbt({
-                    swap,
+                    contractAddress: swap.contractAddress,
+                    lockScript: swap.lockScript,
                     network,
                     spendingTx,
                     outputAddress,
@@ -101,9 +104,9 @@ export class SwapOutController {
         return {
             swapId: swap.id,
             timeoutBlockHeight: swap.timeoutBlockHeight,
-            redeemScript: swap.lockScript.toString('hex'),
+            redeemScript: swap.lockScript?.toString('hex'),
             invoice: swap.invoice,
-            contractAddress: swap.contractAddress,
+            contractAddress: swap.contractAddress ?? undefined,
             outputAmount: swap.outputAmount.toNumber(),
             status: swap.status,
             lockTx: swap.lockTx?.toString('hex'),

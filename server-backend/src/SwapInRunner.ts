@@ -74,7 +74,8 @@ export class SwapInRunner {
         this.logger.log(`Swap in changed to status ${status} (id=${this.swap.id})`);
         if (status === 'CONTRACT_FUNDED') {
             try {
-                this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice);
+                const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
+                this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice, cltvLimit);
             } catch (e) {
                 // we don't do anything, just let the contract expire and handle it as a refund
                 // TODO retry
@@ -179,7 +180,7 @@ export class SwapInRunner {
 
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         const { swap } = this;
-        if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
+        if ((swap.status === 'CONTRACT_FUNDED' || swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
             await this.onStatusChange('CONTRACT_EXPIRED');
@@ -206,7 +207,8 @@ export class SwapInRunner {
             feeRate,
             (feeAmount, isFeeCalculationRun) => {
                 const psbt = buildContractSpendBasePsbt({
-                    swap,
+                    contractAddress: swap.contractAddress,
+                    lockScript: swap.lockScript,
                     network,
                     spendingTx,
                     outputAddress: swap.sweepAddress,

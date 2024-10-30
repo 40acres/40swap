@@ -3,7 +3,7 @@ import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
 import assert from 'node:assert';
-import { reverseSwapScript, swapScript } from './bitcoin-utils.js';
+import { swapScript } from './bitcoin-utils.js';
 import { payments } from 'bitcoinjs-lib';
 import { SwapIn } from './entities/SwapIn.js';
 import Decimal from 'decimal.js';
@@ -56,12 +56,13 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (outputAmount.lt(this.swapConfig.minimumAmount) || outputAmount.gt(this.swapConfig.maximumAmount)) {
             throw new BadRequestException('invalid amount');
         }
-        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.bitcoinConfig.swapLockBlockDelta;
+        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
         const claimKey = ECPair.makeRandom();
+        const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
         const lockScript = swapScript(
             Buffer.from(paymentHash, 'hex'),
             claimKey.publicKey,
-            Buffer.from(request.refundPublicKey, 'hex'),
+            counterpartyPubKey,
             timeoutBlockHeight,
         );
         const { address } = payments.p2wsh({network, redeem: { output: lockScript, network }});
@@ -75,6 +76,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             invoice: request.invoice,
             lockScript,
             unlockPrivKey: claimKey.privateKey!,
+            counterpartyPubKey,
             inputAmount: getSwapInInputAmount(outputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             outputAmount,
             status: 'CREATED',
@@ -101,7 +103,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapOut(request: SwapOutRequest): Promise<SwapOut> {
-        const { network } = this.bitcoinConfig;
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = new Decimal(request.inputAmount);
         if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
@@ -115,30 +116,21 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         });
 
         const refundKey = ECPair.makeRandom();
-        const lockScript = reverseSwapScript(
-            Buffer.from(request.preImageHash, 'hex'),
-            Buffer.from(request.claimPubKey, 'hex'),
-            refundKey.publicKey,
-            10,
-        );
-        const { address } = payments.p2wsh({network, redeem: { output: lockScript, network }});
-        assert(address != null);
-        await this.nbxplorer.trackAddress(address);
-        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.bitcoinConfig.swapLockBlockDelta;
         const sweepAddress = await this.lnd.getNewAddress();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
-            contractAddress: address,
+            contractAddress: null,
             inputAmount,
             outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
-            lockScript,
+            lockScript: null,
             status: 'CREATED',
             preImageHash,
             invoice,
-            timeoutBlockHeight,
+            timeoutBlockHeight: 0,
             sweepAddress,
             unlockPrivKey: refundKey.privateKey!,
+            counterpartyPubKey: Buffer.from(request.claimPubKey, 'hex'),
             unlockTx: null,
             preImage: null,
             lockTx: null,

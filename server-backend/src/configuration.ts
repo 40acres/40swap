@@ -31,7 +31,6 @@ const configSchema = z.object({
     bitcoin: z.object({
         network: z.enum(['bitcoin', 'regtest', 'testnet']),
         requiredConfirmations: z.number().int().nonnegative(),
-        swapLockBlockDelta: z.number().int().positive().default(24 * 60 * 10),
     }),
     nbxplorer:  z.object({
         baseUrl: z.string().url(),
@@ -51,6 +50,10 @@ const configSchema = z.object({
         feePercentage: z.number().nonnegative(),
         minimumAmount: z.number().positive(),
         maximumAmount: z.number().positive(),
+        lockBlockDelta: z.object({
+            in: z.number().int().positive(),
+            out: z.number().int().positive(),
+        }),
         expiryDuration: z.string()
             .transform(d => moment.duration(d))
             .refine(d => d.toISOString() !== 'P0D'),

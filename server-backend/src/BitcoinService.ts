@@ -8,7 +8,6 @@ import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 export class BitcoinConfigurationDetails {
     readonly network!: Network;
     readonly requiredConfirmations!: number;
-    readonly swapLockBlockDelta!: number;
 }
 
 @Injectable()
@@ -28,7 +27,6 @@ export class BitcoinService {
         this.configurationDetails = {
             network,
             requiredConfirmations: this.config.requiredConfirmations,
-            swapLockBlockDelta: this.config.swapLockBlockDelta,
         };
     }
 

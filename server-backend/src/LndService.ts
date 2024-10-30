@@ -12,12 +12,13 @@ export class LndService {
         @Inject('lnd-invoices') private invoices: InvoicesClient,
     ) {}
 
-    async sendPayment(invoice: string): Promise<Buffer> {
-        this.logger.debug(`paying invoice ${invoice}`);
+    async sendPayment(invoice: string, cltvLimit: number): Promise<Buffer> {
+        this.logger.debug(`paying invoice ${invoice} with cltvLimit=${cltvLimit}`);
         return new Promise((resolve, reject) => {
             this.lightning.sendPaymentSync({
                 paymentRequest: invoice,
-
+                cltvLimit,
+                finalCltvDelta: 20,
             }, (err, value) => {
                 if (err) {
                     this.logger.debug(`error paying invoice ${err}`);
@@ -54,6 +55,7 @@ export class LndService {
                 hash,
                 value: amount,
                 expiry,
+                cltvExpiry: 18,
             }, (err, value) => {
                 if (err != null) {
                     reject(err);

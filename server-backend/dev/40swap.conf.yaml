@@ -9,7 +9,6 @@ db:
 bitcoin:
   network: regtest
   requiredConfirmations: 3
-  swapLockBlockDelta: 10
 nbxplorer:
   baseUrl: http://localhost:32838/v1/cryptos/btc
   fallbackFeeRate: 10
@@ -20,3 +19,6 @@ swap:
   minimumAmount: 0.00200000
   maximumAmount: 0.01300000
   expiryDuration: PT30M
+  lockBlockDelta:
+    in: 432
+    out: 20

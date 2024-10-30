@@ -52,11 +52,9 @@ export function buildTransactionWithFee(
     return buildFn(Math.ceil((txWithoutAmount.virtualSize() + txWithoutAmount.ins.length) * satsPerVbyte), false);
 }
 
-export function buildContractSpendBasePsbt({ swap, network, spendingTx, outputAddress, feeAmount }: {
-    swap: {
-        contractAddress: string,
-        lockScript: Buffer,
-    },
+export function buildContractSpendBasePsbt({ contractAddress, lockScript, network, spendingTx, outputAddress, feeAmount }: {
+    contractAddress: string,
+    lockScript: Buffer,
     network: Network,
     spendingTx: Transaction,
     outputAddress: string,
@@ -66,7 +64,7 @@ export function buildContractSpendBasePsbt({ swap, network, spendingTx, outputAd
         .map((value, index) => ({ ...value, index }))
         .find(o => {
             try {
-                return address.fromOutputScript(o.script, network) === swap.contractAddress;
+                return address.fromOutputScript(o.script, network) === contractAddress;
             } catch (e) {
                 return false;
             }
@@ -84,11 +82,11 @@ export function buildContractSpendBasePsbt({ swap, network, spendingTx, outputAd
         value,
     });
 
-    const p2wsh = payments.p2wsh({ redeem: { output: swap.lockScript, network }, network });
+    const p2wsh = payments.p2wsh({ redeem: { output: lockScript, network }, network });
     psbt.addInput({
         hash: spendingTx.getHash(),
         index: spendingOutput.index,
-        witnessScript: swap.lockScript,
+        witnessScript: lockScript,
         witnessUtxo: {
             script: p2wsh.output!,
             value: spendingOutput.value,

@@ -72,6 +72,8 @@ export type SwapOutRequest = z.infer<typeof swapOutRequestSchema>;
 export const getSwapOutResponseSchema = swapResponseSchema.extend({
     invoice: z.string(),
     status: swapOutStatusSchema,
+    redeemScript: z.string().optional(),
+    contractAddress: z.string().optional(),
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 
