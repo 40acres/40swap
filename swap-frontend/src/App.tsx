@@ -10,6 +10,7 @@ import { Toaster } from 'solid-toast';
 import { History } from './History.js';
 import { SwapForm } from './SwapForm.js';
 import { Header } from './Header.js';
+import { Footer } from './Footer.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
     return <>
@@ -19,7 +20,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
             </header>
             {props.children}
         </div>
-        <footer>TBD</footer>
+        <Footer />
         <Toaster toastOptions={{
             duration: 5000,
             position: 'bottom-right',

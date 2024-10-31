@@ -34,10 +34,7 @@ $small-font-size: .80em;
 @import "../../node_modules/bootstrap/scss/bootstrap";
 
 #main {
-  background-image: url("assets/swap-background.jpeg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: linear-gradient(rgba(231, 235, 247, 1), rgba(241, 241, 241, 1)) !important;
   min-height: 100vh;
   padding-bottom: 60px;
 }
@@ -62,10 +59,34 @@ $small-font-size: .80em;
 }
 
 footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: start;
   font-family: "Degular", sans-serif !important;
   color: rgba(52, 46, 81, 1) !important;
   min-height: 200px !important;
-  background: linear-gradient(rgba(231, 235, 247, 1), rgba(255, 255, 255, 1)) !important;
+  background: linear-gradient(rgba(231, 235, 247, 1), rgba(241, 241, 241, 1)) !important;
+  padding: 75px 108px;
+  @extend .gap-4;
+
+  > div {
+    max-width: 392px;
+  }
+
+  @include media-breakpoint-down(sm) {
+    flex-direction: column;
+    padding: 20px;
+    align-items: center;
+    text-align: center;
+
+    > div {
+      max-width: none;
+      align-items: center;
+      padding-top: 20px;
+      padding-bottom: 40px;
+    }
+  }
 }
 
 h3 {

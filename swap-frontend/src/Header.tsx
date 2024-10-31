@@ -14,7 +14,7 @@ const NavLinks: Component = () => <>
         <Nav.Link link href="/faq">FAQ</Nav.Link>
     </Nav.Item>
     <Nav.Item>
-        <Nav.Link link href="/contact">Contact</Nav.Link>
+        <Nav.Link href="https://www.40swap.com/#contact-form">Contact</Nav.Link>
     </Nav.Item>
 </>;
 
@@ -26,7 +26,7 @@ export const Header: Component = () => {
     return <>
         <Navbar class="mb-4 pt-4" expand="md" collapseOnSelect>
             <Container>
-                <Navbar.Brand class="fs-2" href="/">
+                <Navbar.Brand class="fs-2" href="https://www.40swap.com">
                     <img src={logo} style="height: 3rem"/>
                 </Navbar.Brand>
                 <Navbar.Toggle class="d-sm-block d-md-none" onClick={() => setShowOffCanvas(true)} />
