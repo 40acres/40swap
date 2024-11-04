@@ -11,6 +11,7 @@ import { History } from './History.js';
 import { SwapForm } from './SwapForm.js';
 import { Header } from './Header.js';
 import { Footer } from './Footer.js';
+import { Faq } from './Faq.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
     return <>
@@ -46,6 +47,7 @@ const App: Component = () => {
         <Route path="/swap/in/:id" component={() => <NarrowContainer><SwapInDetails /></NarrowContainer>} />
         <Route path="/swap/out/:id" component={() => <NarrowContainer><SwapOutDetails /></NarrowContainer>} />
         <Route path="/history" component={() => <WideContainer><History /></WideContainer>} />
+        <Route path="/faq" component={() => <WideContainer><Faq /></WideContainer>} />
         <Route path="/*" component={() => <WideContainer><h3 class="text-center">Page not found</h3></WideContainer>} />
     </Router>;
 };
