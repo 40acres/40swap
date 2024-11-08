@@ -12,6 +12,7 @@ import { SwapForm } from './SwapForm.js';
 import { Header } from './Header.js';
 import { Footer } from './Footer.js';
 import { Faq } from './Faq.js';
+import { SupportWidget } from './SupportWidget.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
     return <>
@@ -43,7 +44,7 @@ const WideContainer: ParentComponent = (props) => {
 
 const App: Component = () => {
     return <Router root={Layout}>
-        <Route path="/" component={() => <NarrowContainer><SwapForm /></NarrowContainer>} />
+        <Route path="/" component={() => <><NarrowContainer><SwapForm /></NarrowContainer><SupportWidget /></>} />
         <Route path="/swap/in/:id" component={() => <NarrowContainer><SwapInDetails /></NarrowContainer>} />
         <Route path="/swap/out/:id" component={() => <NarrowContainer><SwapOutDetails /></NarrowContainer>} />
         <Route path="/history" component={() => <WideContainer><History /></WideContainer>} />

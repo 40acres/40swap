@@ -3,13 +3,25 @@
 shopt -s expand_aliases
 source ./dev-aliases.sh
 
+wait_for_chain_sync() {
+  while [ $(40swap-lsp-lncli getinfo | jq '.synced_to_chain') != "true" ]
+  do
+    sleep 0.3
+  done
+  while [ $(40swap-alice-lncli getinfo | jq '.synced_to_chain') != "true" ]
+  do
+    sleep 0.3
+  done
+  while [ $(40swap-user-lncli getinfo | jq '.synced_to_chain') != "true" ]
+  do
+    sleep 0.3
+  done
+}
+
 mining_addr=$(40swap-bitcoin-cli getnewaddress)
 40swap-bitcoin-cli generatetoaddress 10 $mining_addr
 
-while [ $(40swap-lsp-lncli getinfo | jq '.synced_to_chain') != "true" ]
-do
-  sleep 0.3
-done
+wait_for_chain_sync
 
 lsp_pubkey=$(40swap-lsp-lncli getinfo |jq -r '.identity_pubkey')
 lsp_uri=$(40swap-lsp-lncli getinfo |jq -r '.uris[0]')
@@ -33,19 +45,26 @@ done
 40swap-lsp-lncli connect "$user_uri"
 40swap-alice-lncli connect "$user_uri"
 
+wait_for_chain_sync
 # opening channels one way
+wait_for_chain_sync
 40swap-lsp-lncli openchannel $alice_pubkey 5000000
+wait_for_chain_sync
 40swap-alice-lncli openchannel $user_pubkey 5000000
 40swap-bitcoin-cli generatetoaddress 3 $mining_addr
 
 # opening channels the other way
+wait_for_chain_sync
 40swap-user-lncli openchannel $alice_pubkey 5000000
+wait_for_chain_sync
 40swap-alice-lncli openchannel $lsp_pubkey 5000000
 40swap-bitcoin-cli generatetoaddress 3 $mining_addr
 
 # this is just to bootstrap the graph
+wait_for_chain_sync
 chan3=$(40swap-lsp-lncli openchannel $user_pubkey 5000000 | jq -r .funding_txid)
 40swap-bitcoin-cli generatetoaddress 3 $mining_addr
+wait_for_chain_sync
 40swap-lsp-lncli closechannel $chan3
 40swap-bitcoin-cli generatetoaddress 3 $mining_addr
 40swap-lsp-lncli disconnect $user_pubkey

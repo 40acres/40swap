@@ -34,16 +34,29 @@ $small-font-size: .80em;
 @import "../../node_modules/bootstrap/scss/bootstrap";
 
 #main {
-  background: linear-gradient(rgba(231, 235, 247, 1), rgba(241, 241, 241, 1)) !important;
-  min-height: 100vh;
-  padding-bottom: 60px;
+  background: linear-gradient(#FFFFFF, #E7EBF7) !important;
+  padding-bottom: 1px; // there seems to be a chrome bug. Without padding, the background does not render on the margins
+}
+
+.support-widget {
+  color: white;
+  background: linear-gradient(#6C2DB8, #4D73D8);
+  text-align: center;
+  padding: 3rem 2rem 3rem 2rem;
+  font-family: "Degular", sans-serif !important;
+
+  a {
+    color: white;
+    text-decoration: underline;
+  }
 }
 
 .content {
   background-color: white;
   border-radius: 1rem;
   margin-top: 60px;
-  min-height: 60vh;
+  margin-bottom: 60px;
+  min-height: 600px;
   box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
   padding: 40px;
   @include media-breakpoint-down(sm) {
@@ -59,15 +72,18 @@ $small-font-size: .80em;
 }
 
 footer {
+  background-color: #E7EBF7;
+}
+
+.footer {
   display: flex;
   flex-direction: row;
-  justify-content: center;
+  justify-content: space-between;
   align-items: start;
   font-family: "Degular", sans-serif !important;
   color: rgba(52, 46, 81, 1) !important;
   min-height: 200px !important;
-  background: linear-gradient(rgba(231, 235, 247, 1), rgba(241, 241, 241, 1)) !important;
-  padding: 75px 108px;
+  padding: 75px 0 75px 0;
   @extend .gap-4;
 
   > div {

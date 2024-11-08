@@ -2,21 +2,7 @@ import { Component, createSignal } from 'solid-js';
 import { Container, Nav, Navbar, Offcanvas } from 'solid-bootstrap';
 import logo from '/assets/brand.svg';
 import { useBeforeLeave } from '@solidjs/router';
-
-const NavLinks: Component = () => <>
-    <Nav.Item>
-        <Nav.Link link href="/">Swap</Nav.Link>
-    </Nav.Item>
-    <Nav.Item>
-        <Nav.Link link href="/history">History</Nav.Link>
-    </Nav.Item>
-    <Nav.Item>
-        <Nav.Link link href="/faq">FAQ</Nav.Link>
-    </Nav.Item>
-    <Nav.Item>
-        <Nav.Link href="https://www.40swap.com/#contact-form">Contact</Nav.Link>
-    </Nav.Item>
-</>;
+import { NavLinks } from './NavLinks.js';
 
 export const Header: Component = () => {
     const [showOffCanvas, setShowOffCanvas] = createSignal(false);
