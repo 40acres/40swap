@@ -19,6 +19,7 @@
 
 $font-family-sans-serif: "IBM Plex Sans Condensed", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !default;
 
+$body-color: #342E51;
 $primary: #6C2DB6;
 $link-decoration: none !default;
 $border-radius: 0;
@@ -57,10 +58,15 @@ $small-font-size: .80em;
   margin-top: 60px;
   margin-bottom: 60px;
   min-height: 600px;
-  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
   padding: 40px;
   @include media-breakpoint-down(sm) {
     padding: 20px;
+  }
+
+  h3 {
+    text-transform: uppercase;
+    @extend .pb-4;
   }
 }
 
@@ -81,7 +87,7 @@ footer {
   justify-content: space-between;
   align-items: start;
   font-family: "Degular", sans-serif !important;
-  color: rgba(52, 46, 81, 1) !important;
+  color: #201C32 !important;
   min-height: 200px !important;
   padding: 75px 0 75px 0;
   @extend .gap-4;
@@ -103,11 +109,6 @@ footer {
       padding-bottom: 40px;
     }
   }
-}
-
-h3 {
-  text-transform: uppercase;
-  @extend .pb-4;
 }
 
 .form-control {
@@ -177,4 +178,21 @@ input {
     font-weight: 500;
     background-color: $primary-bg-subtle;
   }
+}
+
+#faq {
+  font-family: "Degular", sans-serif !important;
+}
+
+.faq-item {
+  border-width: 0.5px 0 0 0;
+  border-style: solid;
+  border-color: $body-color;
+  @extend .p-3;
+}
+
+.faq-item:last-of-type {
+  border-bottom: 0.5px;
+  border-style: solid;
+  border-color: $body-color;
 }

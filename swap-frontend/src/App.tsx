@@ -17,9 +17,7 @@ import { SupportWidget } from './SupportWidget.js';
 const Layout: Component<RouteSectionProps> = (props) => {
     return <>
         <div id="main">
-            <header>
-                <Header />
-            </header>
+            <Header />
             {props.children}
         </div>
         <Footer />
@@ -48,7 +46,7 @@ const App: Component = () => {
         <Route path="/swap/in/:id" component={() => <NarrowContainer><SwapInDetails /></NarrowContainer>} />
         <Route path="/swap/out/:id" component={() => <NarrowContainer><SwapOutDetails /></NarrowContainer>} />
         <Route path="/history" component={() => <WideContainer><History /></WideContainer>} />
-        <Route path="/faq" component={() => <WideContainer><Faq /></WideContainer>} />
+        <Route path="/faq" component={() => <><Faq /><SupportWidget /></>} />
         <Route path="/*" component={() => <WideContainer><h3 class="text-center">Page not found</h3></WideContainer>} />
     </Router>;
 };

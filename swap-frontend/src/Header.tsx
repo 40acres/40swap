@@ -9,10 +9,10 @@ export const Header: Component = () => {
 
     useBeforeLeave(e => setShowOffCanvas(false));
 
-    return <>
+    return <header>
         <Navbar class="mb-4 pt-4" expand="md" collapseOnSelect>
             <Container>
-                <Navbar.Brand class="fs-2" href="https://www.40swap.com">
+                <Navbar.Brand class="fs-2" link href="/">
                     <img src={logo} style="height: 3rem"/>
                 </Navbar.Brand>
                 <Navbar.Toggle class="d-sm-block d-md-none" onClick={() => setShowOffCanvas(true)} />
@@ -31,5 +31,5 @@ export const Header: Component = () => {
                 </Offcanvas>
             </Container>
         </Navbar>
-    </>;
+    </header>;
 };
