@@ -12,6 +12,6 @@ export const NavLinks: Component = () => <>
         <Nav.Link link href="/faq">FAQ</Nav.Link>
     </Nav.Item>
     <Nav.Item>
-        <Nav.Link href="https://www.40acres.pro/contact">Contact</Nav.Link>
+        <Nav.Link href="#support">Contact</Nav.Link>
     </Nav.Item>
 </>;

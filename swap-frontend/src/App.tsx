@@ -20,6 +20,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
             <Header />
             {props.children}
         </div>
+        <SupportWidget />
         <Footer />
         <Toaster toastOptions={{
             duration: 5000,
@@ -42,11 +43,11 @@ const WideContainer: ParentComponent = (props) => {
 
 const App: Component = () => {
     return <Router root={Layout}>
-        <Route path="/" component={() => <><NarrowContainer><SwapForm /></NarrowContainer><SupportWidget /></>} />
+        <Route path="/" component={() => <><NarrowContainer><SwapForm /></NarrowContainer></>} />
         <Route path="/swap/in/:id" component={() => <NarrowContainer><SwapInDetails /></NarrowContainer>} />
         <Route path="/swap/out/:id" component={() => <NarrowContainer><SwapOutDetails /></NarrowContainer>} />
         <Route path="/history" component={() => <WideContainer><History /></WideContainer>} />
-        <Route path="/faq" component={() => <><Faq /><SupportWidget /></>} />
+        <Route path="/faq" component={() => <><Faq /></>} />
         <Route path="/*" component={() => <WideContainer><h3 class="text-center">Page not found</h3></WideContainer>} />
     </Router>;
 };
