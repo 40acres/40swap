@@ -130,15 +130,26 @@ textarea {
   }
 }
 
-.btn {
+@mixin button-like {
   padding: 9px;
   text-transform: uppercase;
   font-weight: $font-weight-semibold !important;
+  text-align: center;
   @extend .w-100;
+}
+
+.btn {
+  @include button-like;
 }
 
 .narrow-container {
   max-width: 600px;
+
+  .action-link {
+    @include button-like;
+    color: $primary;
+    background-color: transparent;
+  }
 }
 
 .wide-container {

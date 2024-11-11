@@ -15,6 +15,7 @@ export class ConfigurationController {
             feePercentage: this.config.getOrThrow('swap.feePercentage', { infer: true }),
             minimumAmount: this.config.getOrThrow('swap.minimumAmount', { infer: true }),
             maximumAmount: this.config.getOrThrow('swap.maximumAmount', { infer: true }),
+            mempoolDotSpaceUrl: this.config.getOrThrow('mempoolBlockExplorer.url', { infer: true }),
         };
     }
 }

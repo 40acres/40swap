@@ -9,6 +9,7 @@ import { QrCode } from './QrCode.js';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import successImage from '/assets/success-image.png';
 import failureImage from '/assets/failure-image.png';
+import lockOpenImage from '/assets/lock-open.svg';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
@@ -211,6 +212,11 @@ export const SwapInDetails: Component = () => {
                         </div>
                     </Match>
                 </Switch>
+                <Show when={s().contractAddress}>
+                    <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`}>
+                        <img src={lockOpenImage} class="me-2" />Open lockup address
+                    </a>
+                </Show>
             </>}</Show>
         </div>
     </>;
