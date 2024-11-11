@@ -137,6 +137,16 @@ textarea {
   @extend .w-100;
 }
 
+.narrow-container {
+  max-width: 600px;
+}
+
+.wide-container {
+  .btn {
+    width: auto !important;
+  }
+}
+
 .inline-input {
   padding: 0 !important;
   min-height: auto;

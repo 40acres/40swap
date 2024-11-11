@@ -8,6 +8,7 @@ import swapIcon from '/assets/swap-icon-monochrome.svg';
 import { SwapType } from './utils.js';
 import Fa from 'solid-fa';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
+import moment from 'moment';
 
 const SwapTypeComponent: Component<{ type: SwapType }> = (props) => {
     const from = props.type === 'in' ? bitcoinIcon : lightningIcon;
@@ -19,6 +20,7 @@ const SwapTypeComponent: Component<{ type: SwapType }> = (props) => {
 
 export const History: Component = () => {
     const { localSwapStorageService } = applicationContext;
+    let fileInputRef: HTMLInputElement|undefined;
     const [swaps, { refetch }] = createResource(async () => await localSwapStorageService.findAllLocally());
 
     const [swapToDelete, setSwapToDelete] = createSignal<string|undefined>();
@@ -31,6 +33,37 @@ export const History: Component = () => {
         await localSwapStorageService.delete(id);
         setSwapToDelete();
         refetch();
+    }
+
+    async function export_(): Promise<void> {
+        const content = await localSwapStorageService.createBackup();
+        const blob = new Blob([content], {type: 'application/json'});
+        const elem = window.document.createElement('a');
+        elem.href = window.URL.createObjectURL(blob);
+        elem.download = `40swap_backup_${moment().format('YYYYMMD_HHmmss')}.json`;
+        elem.click();
+    }
+
+    async function import_(target: HTMLInputElement): Promise<void> {
+        const file = (target.files ?? [])[0];
+        if (file == null) {
+            return;
+        }
+        const reader = new FileReader();
+        reader.readAsText(file, 'utf-8');
+        reader.addEventListener('loadend', async () => {
+            if (reader.result == null) {
+                return;
+            }
+            fileInputRef!.value = '';
+            try {
+                await localSwapStorageService.restoreBackup(reader.result.toString());
+                refetch();
+            } catch (e) {
+                console.log('Invalid backup file');
+                console.error(e);
+            }
+        });
     }
 
     return <>
@@ -72,5 +105,11 @@ export const History: Component = () => {
                 </Modal.Footer>
             </Modal>
         </Show>
+        <div class="d-flex gap-2 justify-content-end">
+            <Button onclick={export_} disabled={swaps() == null || swaps()!.length === 0}>Export</Button>
+            <Button variant="secondary" onClick={() => fileInputRef?.click()}>Import</Button>
+            <input type="file" class="d-none" onChange={ev => import_(ev.target)} ref={fileInputRef!} />
+        </div>
     </>;
+
 };

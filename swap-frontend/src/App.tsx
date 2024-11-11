@@ -30,13 +30,13 @@ const Layout: Component<RouteSectionProps> = (props) => {
 };
 
 const NarrowContainer: ParentComponent = (props) => {
-    return <div style="max-width: 600px" class="mx-auto content">
+    return <div style="max-width: 600px" class="mx-auto content narrow-container">
         {props.children}
     </div>;
 };
 
 const WideContainer: ParentComponent = (props) => {
-    return <Container class="content">
+    return <Container class="content wide-container">
         {props.children}
     </Container>;
 };
