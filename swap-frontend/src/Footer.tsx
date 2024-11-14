@@ -1,5 +1,5 @@
 import { Component } from 'solid-js';
-import brandUrl from '/assets/brand.svg';
+import fortyAcresBrandUrl from '/assets/40acres-brand.svg';
 import elSalvadorUrl from '/assets/gobierno-de-el-salvador.png';
 import twitterImgUrl from '/assets/twitter.svg';
 import linkedinImgUrl from '/assets/linkedin.svg';
@@ -10,7 +10,7 @@ export const Footer: Component = () => <>
     <footer>
         <Container class="footer">
             <div class="d-flex flex-column gap-3">
-                <div><img src={brandUrl} /></div>
+                <div><a href="https://40acres.pro"><img src={fortyAcresBrandUrl} /></a></div>
                 <div><strong>40 ACRES, S.A. DE C.V.</strong><br />Company Registration No. 2024113630 - El Salvador</div>
                 <div class="d-flex gap-3">
                     <a href="https://x.com/40acres_sv"><img src={twitterImgUrl} /></a>
