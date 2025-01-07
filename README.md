@@ -1,5 +1,6 @@
-40Swap
--------
+![40swap logo](./swap-frontend/src/assets/brand.svg)
+
+---
 
 # Local dev environment
 
