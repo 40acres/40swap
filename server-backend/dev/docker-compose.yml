@@ -118,12 +118,13 @@ services:
     depends_on:
       - postgres
       - bitcoind
+      - elements
     restart: unless-stopped
     environment:
       NBXPLORER_NETWORK: regtest
       NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_NOAUTH: 1
-      NBXPLORER_CHAINS: "btc"
+      NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:18443/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:18333
       NBXPLORER_POSTGRES: Host=postgres;Port=5432;Database=40swap;Username=40swap;Password=40swap
@@ -131,6 +132,10 @@ services:
       NBXPLORER_BTCRPCPASSWORD: "pass"
       NBXPLORER_MAXGAPSIZE: 400
       NBXPLORER_MINGAPSIZE: 300
+      NBXPLORER_LBTCRPCURL: http://elements:18884/
+      NBXPLORER_LBTCNODEENDPOINT: elements:18886
+      NBXPLORER_LBTCRPCUSER: "40swap"
+      NBXPLORER_LBTCRPCPASSWORD: "pass"
     volumes:
       - "nbxplorer-data:/datadir"
       - "bitcoind-data:/root/.bitcoin"
@@ -188,6 +193,14 @@ services:
       CHANNEL_BACKUP_PATH: /shared/lnd/backup
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
+  elements:
+    container_name: 40swap_elements
+    image: ghcr.io/vulpemventures/elements:23.2.4
+    restart: unless-stopped
+    depends_on:
+      - bitcoind
+    volumes:
+      - ./liquid.conf:/home/elements/.elements/elements.conf
 #  mempool-frontend:
 #    environment:
 #      FRONTEND_HTTP_PORT: "8080"

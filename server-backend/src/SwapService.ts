@@ -19,6 +19,9 @@ import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
+import { payments as liquidPayments } from 'liquidjs-lib';
+import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
+import { liquid, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -41,6 +44,9 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
+        if (request.chain !== 'BITCOIN') {
+            throw new Error('not implemented'); // TODO
+        }
         const { network } = this.bitcoinConfig;
         const { tags, satoshis, network: invoiceNetwork } = decode(request.invoice);
         if (invoiceNetwork == null || invoiceNetwork.bech32 !== network.bech32) {
@@ -54,7 +60,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
         const outputAmount = new Decimal(satoshis).div(1e8).toDecimalPlaces(8);
         if (outputAmount.lt(this.swapConfig.minimumAmount) || outputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException('invalid amount');
+            throw new BadRequestException(`invalid amount ${outputAmount.toNumber()}`);
         }
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
         const claimKey = ECPair.makeRandom();
@@ -65,13 +71,28 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             counterpartyPubKey,
             timeoutBlockHeight,
         );
-        const { address } = payments.p2wsh({network, redeem: { output: lockScript, network }});
+        let address: string|undefined;
+        if (request.chain === 'BITCOIN') {
+            address = payments.p2wsh({network, redeem: { output: lockScript, network }}).address;
+            assert(address);
+            await this.nbxplorer.trackAddress(address);
+        } else if (request.chain === 'LIQUID') {
+            const liquidNetwork = network === bitcoin ? liquid : liquidRegtest;
+            address = liquidPayments.p2wsh({
+                network: liquidNetwork,
+                redeem: {
+                    output: lockScript,
+                    network: liquidNetwork,
+                },
+                blindkey: undefined, // TODO
+            }).address;
+        }
         assert(address);
-        await this.nbxplorer.trackAddress(address);
 
         const repository = this.dataSource.getRepository(SwapIn);
         const swap = await repository.save({
             id: base58Id(),
+            chain: request.chain,
             contractAddress: address,
             invoice: request.invoice,
             lockScript,
@@ -103,6 +124,9 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapOut(request: SwapOutRequest): Promise<SwapOut> {
+        if (request.chain !== 'BITCOIN') {
+            throw new Error('not implemented'); // TODO
+        }
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = new Decimal(request.inputAmount);
         if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
@@ -120,6 +144,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
+            chain: request.chain,
             contractAddress: null,
             inputAmount,
             outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),

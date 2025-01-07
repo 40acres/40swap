@@ -1,0 +1,10 @@
+POST http://localhost:7081/api/swap/in
+Content-Type: application/json
+
+{
+  "chain": "LIQUID",
+  "invoice": "lnbcrt2111110n1pnk9jqkpp54kf8udn8w8ye0me5z9n22hfxef7lzxjqpy3hda0slskv7c2axg3sdqqcqzzsxqyz5vqsp5gdl7kdhdan40tp04qca5et2z4t9l8luaw9889s4acuzu9rpldwts9qxpqysgqk3vem3ufffwrp0zudegxms0sfh3pg85rwa3wg2wge5lnntgyr59x908sktpxw4vehp85djv6ws0ejjqmhrjym4wx053jklae56v578sqryvcmx",
+  "refundPublicKey": "0348234a2155eaed21efcee915bef6f19117b85e7a44f2a322bac3837a4e2e2ed1"
+}
+
+###

@@ -1,11 +1,14 @@
 import { Column, CreateDateColumn, PrimaryColumn } from 'typeorm';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
-import { SwapOutcome } from '@40swap/shared';
+import { Chain, SwapOutcome } from '@40swap/shared';
 
 export class Swap {
     @PrimaryColumn({ type: 'text' })
     id!: string;
+
+    @Column({ type: 'text' })
+    chain!: Chain;
 
     @Column({ type: 'decimal', precision: 15, scale: 8, transformer: new DecimalTransformer() })
     inputAmount: Decimal = new Decimal(0);
