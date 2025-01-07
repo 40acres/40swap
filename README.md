@@ -42,4 +42,15 @@ npm run start:dev
 ```
 7. Open http://localhost:7080 in your browser
 
+## Testing
 
+By sourcing [`server-backend/dev/dev-aliases.sh`](server-backend/dev/dev-aliases.sh) you can get access to some useful commands, e.g.:
+```bash
+source server-backend/dev/dev-aliases.sh
+# mine N blocks
+40swap-bitcoin-cli -generate $N
+# pay lightning invoice from user node      
+40swap-user-lncli payinvoice $INVOICE
+# send bitcoins to adddress
+40swap-bitcoin-cli -named sendtoaddress address=$ADDR amount=$AMOUNT fee_rate=25
+```
