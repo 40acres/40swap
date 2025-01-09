@@ -8,6 +8,11 @@ services:
       POSTGRES_USER: "40swap"
       POSTGRES_PASSWORD: "40swap"
       POSTGRES_DB: "40swap"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U 40swap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   cloudbeaver:
     image: dbeaver/cloudbeaver:22.2.5
     container_name: 40swap_cloudbeaver
@@ -116,8 +121,10 @@ services:
     ports:
       - 32838:32838
     depends_on:
-      - postgres
-      - bitcoind
+      postgres:
+        condition: service_healthy
+      bitcoind:
+        condition: service_started
     restart: unless-stopped
     environment:
       NBXPLORER_NETWORK: regtest
