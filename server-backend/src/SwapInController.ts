@@ -9,14 +9,25 @@ import { DataSource } from 'typeorm';
 import { SwapIn } from './entities/SwapIn.js';
 import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
-import { GetSwapInResponse, PsbtResponse, signContractSpend, swapInRequestSchema, txRequestSchema } from '@40swap/shared';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { 
+    GetSwapInResponse,
+    getSwapInResponseSchema,
+    PsbtResponse,
+    psbtResponseSchema, 
+    signContractSpend,
+    swapInRequestSchema,
+    txRequestSchema,
+} from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 
 class SwapInRequestDto extends createZodDto(swapInRequestSchema) {}
 class TxRequestDto extends createZodDto(txRequestSchema) {}
+class GetSwapInResponseDto extends createZodDto(getSwapInResponseSchema) {}
+class PsbtResponseDto extends createZodDto(psbtResponseSchema) {}
 
 @Controller('/swap/in')
 @UsePipes(ZodValidationPipe)
@@ -31,12 +42,14 @@ export class SwapInController {
     ) {}
 
     @Post()
+    @ApiCreatedResponse({description: 'Create a swap in', type: GetSwapInResponseDto})
     async createSwap(@Body() request: SwapInRequestDto): Promise<GetSwapInResponse> {
         const swap = await this.swapService.createSwapIn(request);
         return this.mapToResponse(swap);
     }
 
     @Get('/:id/refund-psbt')
+    @ApiOkResponse({description: 'Get a refund PSBT', type: PsbtResponseDto})
     async getRefundPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
@@ -54,6 +67,7 @@ export class SwapInController {
     }
 
     @Post('/:id/refund-tx')
+    @ApiCreatedResponse({description: 'Send a refund tx', type: undefined})
     async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto): Promise<void> {
         const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
         assert(swap.lockTx != null);
@@ -70,6 +84,7 @@ export class SwapInController {
     }
 
     @Get('/:id')
+    @ApiOkResponse({description: 'Get a swap', type: GetSwapInResponseDto})
     async getSwap(@Param('id') id: string): Promise<GetSwapInResponse> {
         const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
         return this.mapToResponse(swap);

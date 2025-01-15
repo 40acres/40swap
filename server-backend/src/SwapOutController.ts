@@ -8,14 +8,24 @@ import * as ecc from 'tiny-secp256k1';
 import { address, Psbt, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut.js';
-import { GetSwapOutResponse, PsbtResponse, signContractSpend, swapOutRequestSchema, txRequestSchema } from '@40swap/shared';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import {
+    GetSwapOutResponse,
+    PsbtResponse,
+    psbtResponseSchema,
+    signContractSpend,
+    swapOutRequestSchema,
+    txRequestSchema,
+} from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
 
 class SwapOutRequestDto extends createZodDto(swapOutRequestSchema) {}
 class TxRequestDto extends createZodDto(txRequestSchema) {}
+class GetSwapOutResponseDto extends createZodDto(swapOutRequestSchema) {}
+class PsbtResponseDto extends createZodDto(psbtResponseSchema) {}
 
 @Controller('/swap/out')
 export class SwapOutController {
@@ -28,18 +38,21 @@ export class SwapOutController {
     ) {}
 
     @Post()
+    @ApiCreatedResponse({description: 'Create a swap out', type: GetSwapOutResponseDto})
     async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
         const swap = await this.swapService.createSwapOut(request);
         return this.mapToResponse(swap);
     }
 
     @Get('/:id')
+    @ApiOkResponse({description: 'Get a swap out', type: GetSwapOutResponseDto})
     async getSwap(@Param('id') id: string): Promise<GetSwapOutResponse> {
         const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
         return this.mapToResponse(swap);
     }
 
     @Post('/:id/claim')
+    @ApiCreatedResponse({description: 'Claim a swap out'})
     async claimSwap(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
         const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
         assert(swap.lockTx != null);
@@ -56,6 +69,7 @@ export class SwapOutController {
     }
 
     @Get('/:id/claim-psbt')
+    @ApiOkResponse({description: 'Get a claim PSBT', type: PsbtResponseDto})
     async getClaimPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
