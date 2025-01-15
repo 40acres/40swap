@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './AppModule.js';
 import { ConfigService } from '@nestjs/config';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { FourtySwapConfiguration } from './configuration.js';
 import { LogLevel } from '@nestjs/common';
 
@@ -12,6 +13,14 @@ async function bootstrap(): Promise<void> {
     const config = app.get(ConfigService<FourtySwapConfiguration>);
     const port = config.getOrThrow('server.port', { infer: true });
     app.setGlobalPrefix('api');
+    const swaggerConfig = new DocumentBuilder()
+        .setTitle('40Swap')
+        .setDescription('40Swap API description')
+        .setVersion('1.0')
+        .addTag('40Swap')
+        .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document);
     await app.listen(port);
 }
 
