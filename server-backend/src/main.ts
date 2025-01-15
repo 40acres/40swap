@@ -17,7 +17,6 @@ async function bootstrap(): Promise<void> {
         .setTitle('40Swap')
         .setDescription('40Swap API description')
         .setVersion('1.0')
-        .addTag('40Swap')
         .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup('docs', app, document);
