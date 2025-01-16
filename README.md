@@ -41,6 +41,7 @@ cd swap-frontend
 npm run start:dev
 ```
 7. Open http://localhost:7080 in your browser
+8. You can check the API's' Swagger at http://localhost:7081/docs
 
 ## Testing
 
