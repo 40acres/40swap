@@ -57,26 +57,6 @@ linters-settings:
       rules:
         json: camel
 
-  forbidigo:
-    forbid:
-      - p: \.NewClient$
-        pkg: github.com/dapr/go-sdk/client
-        msg: "dapr.NewClient is not allowed. Use daprutils.NewClient instead"
-
-      - p: Repository.Reset$
-        pkg: github.com/Elenpay/ep-backend/ep-lib/db/persistence/postgres
-        msg:
-          You will rarely need to call a Database Reset as it wipe all tables.
-          If you are sure, use //nolint:forbidigo to skip this check.
-
-      # convoy/pkg/log gets imported by some IDEs instead of logrus because
-      # they expose similar functions.
-      - pkg: github.com/frain-dev/convoy/pkg/log
-
-      # gofrs/uuid gets imported by some IDEs instead of google/uuid because
-      # they expose similar functions.
-      - pkg: github.com/gofrs/uuid
-    analyze-types: true
      
   revive:
     rules:
