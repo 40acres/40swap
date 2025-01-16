@@ -18,3 +18,4 @@ node_modules
 
 server-backend/dev/40swap.lightning.yml
 
+daemon/cmd/cmd
