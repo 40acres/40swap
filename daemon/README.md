@@ -1,0 +1,2 @@
+# 40swapd
+The 40swap daemon (40swapd) interacts with the lightning node to manage the swap process. It features a cli and the daemon itself, the CLI can be used to manually invoke swaps and other configuration operations.
