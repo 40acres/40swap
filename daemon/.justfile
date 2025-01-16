@@ -1,6 +1,8 @@
 
 [working-directory: 'cmd']
-build:
+tidy:
+    go mod tidy
+build: tidy
     go build .
 test:
     go test ./...
