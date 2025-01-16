@@ -9,7 +9,7 @@ set fallback := true
 alias du := docker-up
 alias drm := docker-rm
 
-# List just receipes
+# List all the recipes
 help:
     @just -l
 
@@ -18,28 +18,33 @@ install-dependencies:
     npm install --workspaces
 
 # Start services with docker compose
+[working-directory: 'server-backend/dev']
 docker-up:
-    cd server-backend/dev && docker compose up -d
+    docker compose up -d
 
 # Stop and remove services with docker compose
+[working-directory: 'server-backend/dev']
 docker-rm:
-    cd server-backend/dev && docker compose down -v
+    docker compose down -v
 
 # Initialize blockchain and lightning nodes
 initialize-nodes:
     server-backend/dev/lightning-setup.sh
 
 # Build shared module
+[working-directory: 'shared']
 build-shared:
-    cd shared && npm run build
+    npm run build
 
 # Start backend
+[working-directory: 'server-backend']
 start-backend:
-    cd server-backend && npm run start:dev
+    npm run start:dev
 
 # Start frontend
+[working-directory: 'swap-frontend']
 start-frontend:
-    cd swap-frontend && npm run start:dev
+    npm run start:dev
 
 # Start backend and frontend
 run: start-backend start-frontend
