@@ -3,6 +3,7 @@ import fortyAcresBrandUrl from '/assets/40acres-brand.svg';
 import elSalvadorUrl from '/assets/gobierno-de-el-salvador.png';
 import twitterImgUrl from '/assets/twitter.svg';
 import linkedinImgUrl from '/assets/linkedin.svg';
+import githubImgUrl from '/assets/github.svg';
 import { NavLinks } from './NavLinks.js';
 import { Container } from 'solid-bootstrap';
 
@@ -13,8 +14,9 @@ export const Footer: Component = () => <>
                 <div><a href="https://40acres.pro"><img src={fortyAcresBrandUrl} /></a></div>
                 <div><strong>40 ACRES, S.A. DE C.V.</strong><br />Company Registration No. 2024113630 - El Salvador</div>
                 <div class="d-flex gap-3">
-                    <a href="https://x.com/40acres_sv"><img src={twitterImgUrl} /></a>
-                    <a href="https://www.linkedin.com/company/40acres/"><img src={linkedinImgUrl} /></a>
+                    <a href="https://x.com/40acres_sv"><img src={twitterImgUrl} title="X" /></a>
+                    <a href="https://www.linkedin.com/company/40acres/"><img src={linkedinImgUrl} title="LinkedIn" /></a>
+                    <a href="https://github.com/40acres/40swap/"><img src={githubImgUrl} title="GitHub" /></a>
                 </div>
                 <div>Copyright © 2024 40Swap.com</div>
             </div>
