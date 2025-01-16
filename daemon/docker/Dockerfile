@@ -1,4 +1,3 @@
-
 ARG BASE_BUILDER_IMAGE=golang:1.23 # This is the alpine-based image for building, e.g. "golang:1.20.4-alpine"
 ARG BASE_RUNNER_IMAGE=alpine:latest # This is the alpine-based image for running, e.g. "alpine:latest"
 
