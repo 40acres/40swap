@@ -7,3 +7,6 @@ test:
 [working-directory: 'cmd']
 run *cmd:
     go run . {{cmd}}
+
+lint:
+    golangci-lint run

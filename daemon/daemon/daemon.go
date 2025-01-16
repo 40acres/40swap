@@ -12,11 +12,8 @@ func Start(ctx context.Context) error {
 	// TODO
 
 	// Block here until context is cancelled
-	select {
-	case <-ctx.Done():
-		log.Info("Shutting down 40swapd")
-
-	}
+	<-ctx.Done()
+	log.Info("Shutting down 40swapd")
 
 	return nil
 }
