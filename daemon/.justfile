@@ -1,7 +1,7 @@
 
-[working-directory: 'cmd']
 tidy:
     go mod tidy
+[working-directory: 'cmd']
 build: tidy
     go build .
 test:
