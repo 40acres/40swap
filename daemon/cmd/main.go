@@ -35,7 +35,10 @@ func main() {
 				Name:  "start",
 				Usage: "Start the 40wapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
-					daemon.Start(ctx)
+					err := daemon.Start(ctx)
+					if err != nil {
+						return err
+					}
 
 					return nil
 				},
