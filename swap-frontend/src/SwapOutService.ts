@@ -129,6 +129,7 @@ export class SwapOutService {
                 inputAmount: new Decimal(amount).toDecimalPlaces(8).toNumber(),
                 claimPubKey: claimPubKey.toString('hex'),
                 preImageHash: preImageHash.toString('hex'),
+                chain: 'BITCOIN',
             } satisfies SwapOutRequest),
             headers: {
                 'content-type': 'application/json',

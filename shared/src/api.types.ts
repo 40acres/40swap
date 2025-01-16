@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { networks } from 'bitcoinjs-lib';
 
+const CHAINS = [
+    'BITCOIN',
+    'LIQUID',
+] as const;
+const chainSchema = z.enum(CHAINS);
+export type Chain = z.infer<typeof chainSchema>;
+
 const SWAP_IN_STATUSES = [
     // happy path
     'CREATED',
@@ -40,6 +47,7 @@ const swapOutcomesSchema = z.enum(SWAP_OUTCOMES);
 export type SwapOutcome = z.infer<typeof swapOutcomesSchema>;
 
 export const swapInRequestSchema = z.object({
+    chain: chainSchema,
     invoice: z.string(),
     refundPublicKey: z.string(),
 });
@@ -63,6 +71,7 @@ export const getSwapInResponseSchema = swapResponseSchema.extend({
 export type GetSwapInResponse = z.infer<typeof getSwapInResponseSchema>;
 
 export const swapOutRequestSchema = z.object({
+    chain: chainSchema,
     preImageHash: z.string(),
     inputAmount: z.number().positive(),
     claimPubKey: z.string(),

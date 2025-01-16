@@ -38,11 +38,13 @@
     "ecpair": "2.1.0",
     "js-yaml": "^4.1.0",
     "moment": "^2.30.1",
-    "node-fetch": "^3.3.2",
     "pg": "^8.12.0",
     "tiny-secp256k1": "^2.2.3",
     "typeorm": "^0.3.20",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "node-fetch": "^3.3.2",
+    "liquidjs-lib": "^6.0.2-liquid.36",
+    "slip77": "^0.2.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.2",

@@ -119,6 +119,7 @@ export class SwapInService {
             body: JSON.stringify({
                 invoice,
                 refundPublicKey: refundPublicKey.toString('hex'),
+                chain: 'BITCOIN',
             } satisfies SwapInRequest),
             headers: {
                 'content-type': 'application/json',
