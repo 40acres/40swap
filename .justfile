@@ -28,8 +28,9 @@ docker-rm:
     docker compose down -v
 
 # Initialize blockchain and lightning nodes
-initialize-nodes:
-    server-backend/dev/lightning-setup.sh
+[working-directory: 'server-backend/dev']
+initialize-nodes: 
+    ./lightning-setup.sh
 
 # Build shared module
 [working-directory: 'shared']
@@ -62,8 +63,18 @@ sendtoaddress address amount:
    just bitcoin-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
    just generate 6
 
-# Generate blocks(mining)
-generate *blocks:
+elements-sendtoaddress address amount:
+    just elements-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
+    just generate 6
+
+# Generate blocks for both bitcoin and liquid
+generate blocks:
+    docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
+    docker exec -it 40swap_elements elements-cli -chain=elementsregtest -generate {{blocks}}
+# Generate blocks(mining) for Liquid
+generate-liquid blocks='1':
+    docker exec -it 40swap_elements elements-cli -chain=elementsregtest -generate {{blocks}}
+generate-bitcoin blocks='6':
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
 
 # Run command within lsp-lnd container
@@ -77,3 +88,5 @@ user-lncli *cmd:
 # Run command within alice-lnd container
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
+elements-cli *cmd:
+    docker exec -it 40swap_elements elements-cli -chain=elementsregtest  {{cmd}}
