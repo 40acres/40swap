@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = "./rpc";
+
+service 40Swap {
+  // RPC methods
+  rpc SwapOut(SwapOutRequest) returns (SwaptOutResponse);
+}
+
+// Message definitions
+message SwapOutRequest {
+  string chain = 1;
+  int32 inputAmount = 3;
+}
+
+message SwaptOutResponse {}
