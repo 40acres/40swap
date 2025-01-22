@@ -2,9 +2,8 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "master", "main" ]
-    tags:
-      - "**"
+    branches: [ "**" ]
+    tags: [ "**" ]
 
 env:
   REGISTRY: ghcr.io
@@ -63,3 +62,28 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta-be.outputs.tags }}
         labels: ${{ steps.meta-be.outputs.labels }}
+
+  integration-testing:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged --shm-size=2g
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+    steps:
+      - uses: actions/checkout@v3
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run tests
+        working-directory: server-backend
+        run: npm test
