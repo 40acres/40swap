@@ -17,6 +17,8 @@ import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js
 import { ConfigurationController } from './ConfigurationController.js';
 import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 import { SwapService } from './SwapService.js';
+import { TerminusModule } from '@nestjs/terminus';
+import { HealthController } from './HealthController.js';
 
 @Module({
     imports: [
@@ -43,11 +45,13 @@ import { SwapService } from './SwapService.js';
             load: [configuration],
         }),
         EventEmitterModule.forRoot(),
+        TerminusModule,
     ],
     controllers: [
         SwapInController,
         SwapOutController,
         ConfigurationController,
+        HealthController,
     ],
     providers: [
         NbxplorerService,
