@@ -1,5 +1,5 @@
 import { StartedGenericContainer } from 'testcontainers/build/generic-container/started-generic-container.js';
-import { GetSwapInResponse, getSwapInResponseSchema, SwapInRequest, SwapInStatus } from '../../shared/src/api.types';
+import { GetSwapInResponse, getSwapInResponseSchema, SwapInRequest } from '../../shared/src/api.types';
 
 export class BackendRestClient {
     private baseUrl: string;

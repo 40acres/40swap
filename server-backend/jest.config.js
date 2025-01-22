@@ -8,5 +8,5 @@ export default {
             },
         ],
     },
-    roots: ['test']
+    roots: ['test'],
 };
