@@ -14,7 +14,7 @@ if [ ! -d "$PROTO_DIR" ]; then
 fi
 
 # Ensure the output directory exists
-OUT_DIR="${ROOT}/daemon/lib"
+OUT_DIR="${ROOT}/daemon"
 mkdir -p ${OUT_DIR}
 
 # Find all the proto files in the project.
