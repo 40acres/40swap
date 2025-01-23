@@ -28,8 +28,9 @@ docker-rm:
     docker compose down -v
 
 # Initialize blockchain and lightning nodes
+[working-directory: 'server-backend/dev']
 initialize-nodes:
-    server-backend/dev/lightning-setup.sh
+    ./lightning-setup.sh
 
 # Build shared module
 [working-directory: 'shared']
