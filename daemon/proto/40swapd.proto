@@ -7,9 +7,15 @@ service SwapService {
   rpc SwapOut(SwapOutRequest) returns (SwapOutResponse);
 }
 
+// Enum definition
+enum Chain {
+  BITCOIN = 0;
+  LIQUID = 1;
+}
+
 // Message definitions
 message SwapOutRequest {
-  string chain = 1;
+  Chain chain = 1;
   int32 inputAmount = 2;
 }
 

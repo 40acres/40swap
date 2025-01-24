@@ -8,13 +8,13 @@
 # - Go packages (protoc-gen-go and protoc-gen-go-grpc),
 # - apt packages (unzip).
 
-FROM golang:1.21.0
+FROM golang:1.23
 
 WORKDIR /work
 
-ENV PROTOC_VERSION=24.3
-ENV PROTOC_GEN_GO_VERSION=1.31.0
-ENV PROTOC_GEN_GO_GRPC_VERSION=1.3.0
+ENV PROTOC_VERSION=29.3
+ENV PROTOC_GEN_GO_VERSION=1.36.4
+ENV PROTOC_GEN_GO_GRPC_VERSION=1.5.1
 
 RUN apt-get update && \
     apt-get install -y unzip && \
