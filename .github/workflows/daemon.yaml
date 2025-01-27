@@ -8,6 +8,7 @@ on:
       - "master"
     paths:
       - "daemon/**"
+      - ".github/workflows/daemon.yaml"
 
     tags:
       - "*"
@@ -17,6 +18,7 @@ on:
       - master
     paths:
       - "daemon/**"
+      - ".github/workflows/daemon.yaml"
 
     types:
       - opened
