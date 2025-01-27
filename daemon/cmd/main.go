@@ -2,19 +2,68 @@ package main
 
 import (
 	"context"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
+	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
+
+type server struct {
+	rpc.UnimplementedSwapServiceServer
+}
+
+func (s *server) SwapOut(ctx context.Context, req *rpc.SwapOutRequest) (*rpc.SwapOutResponse, error) {
+	log.Info("HELLO WORLD")
+	log.Infof("Received SwapOut request: %v", req)
+	return &rpc.SwapOutResponse{}, nil
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// gRPC server
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	s := grpc.NewServer()
+	rpc.RegisterSwapServiceServer(s, &server{})
+
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
+
+	// gRPC client
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        log.Fatalf("did not connect: %v", err)
+    }
+    defer conn.Close()
+
+    client := rpc.NewSwapServiceClient(conn)
+
+    req := &rpc.SwapOutRequest{
+        Chain:       rpc.Chain_BITCOIN,
+        InputAmount: 100000,
+    }
+
+    res, err := client.SwapOut(ctx, req)
+    if err != nil {
+        log.Fatalf("could not swap out: %v", err)
+    }
+    log.Printf("SwapOut response: %v", res)
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -73,8 +122,10 @@ func main() {
 		},
 	}
 
-	err := app.Run(ctx, os.Args)
+	err = app.Run(ctx, os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	s.GracefulStop()
 }
