@@ -2,15 +2,21 @@ syntax = "proto3";
 
 option go_package = "./rpc";
 
-service 40Swap {
+service SwapService {
   // RPC methods
-  rpc SwapOut(SwapOutRequest) returns (SwaptOutResponse);
+  rpc SwapOut(SwapOutRequest) returns (SwapOutResponse);
+}
+
+// Enum definition
+enum Chain {
+  BITCOIN = 0;
+  LIQUID = 1;
 }
 
 // Message definitions
 message SwapOutRequest {
-  string chain = 1;
-  int32 inputAmount = 3;
+  Chain chain = 1;
+  int32 inputAmount = 2;
 }
 
-message SwaptOutResponse {}
+message SwapOutResponse {}
