@@ -5,13 +5,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
-
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -22,23 +22,23 @@ func main() {
 	// gRPC server
 	server := rpc.NewRPCServer()
 	go func() {
-        err := server.ListenAndServe(port)
-        if err != nil {
-            log.Fatalf("couldn't start server: %v", err)
-        }
-    }()
+		err := server.ListenAndServe(port)
+		if err != nil {
+			log.Fatalf("couldn't start server: %v", err)
+		}
+	}()
 
 	// gRPC client
-    client := rpc.NewRPCClient("localhost", port)
-    testRequest := &rpc.SwapOutRequest{
-        Chain:       rpc.Chain_BITCOIN,
-        InputAmount: 100000,
-    }
-    res, err := client.SwapOut(ctx, testRequest)
-    if err != nil {
-        log.Fatalf("could not swap out: %v", err)
-    }
-    log.Printf("SwapOut response: %v", res)
+	client := rpc.NewRPCClient("localhost", port)
+	testRequest := &rpc.SwapOutRequest{
+		Chain:       rpc.Chain_BITCOIN,
+		InputAmount: 100000,
+	}
+	res, err := client.SwapOut(ctx, testRequest)
+	if err != nil {
+		log.Fatalf("could not swap out: %v", err)
+	}
+	log.Printf("SwapOut response: %v", res)
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)

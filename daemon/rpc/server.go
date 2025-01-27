@@ -4,22 +4,26 @@ import (
 	"context"
 	"fmt"
 	"net"
+
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
 type Server struct {
 	UnimplementedSwapServiceServer
-	Port        string
+	Port string
 }
 
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
-	fmt.Println("HELLO WORLD")
-	fmt.Printf("Received SwapOut request: %v", req)
+	log.Info("HELLO WORLD")
+	log.Infof("Received SwapOut request: %v", req)
+
 	return &SwapOutResponse{}, nil
 }
 
 func NewRPCServer() *Server {
 	svr := &Server{}
+
 	return svr
 }
 
@@ -34,5 +38,6 @@ func (server *Server) ListenAndServe(port string) error {
 		return fmt.Errorf("failed to initialize grpc server: %w", err)
 	}
 	server.Port = port
+
 	return nil
 }
