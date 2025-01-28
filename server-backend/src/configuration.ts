@@ -15,7 +15,7 @@ const SEARCH_PATHS = [
     '/etc/40swap',
 ];
 
-const configSchema = z.object({
+export const configSchema = z.object({
     server: z.object({
         port: z.number().int().positive(),
     }),
