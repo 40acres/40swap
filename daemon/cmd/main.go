@@ -28,18 +28,6 @@ func main() {
 		}
 	}()
 
-	// gRPC client
-	client := rpc.NewRPCClient("localhost", port)
-	testRequest := &rpc.SwapOutRequest{
-		Chain:       rpc.Chain_BITCOIN,
-		InputAmount: 100000,
-	}
-	res, err := client.SwapOut(ctx, testRequest)
-	if err != nil {
-		log.Fatalf("could not swap out: %v", err)
-	}
-	log.Printf("SwapOut response: %v", res)
-
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
@@ -97,7 +85,7 @@ func main() {
 		},
 	}
 
-	err = app.Run(ctx, os.Args)
+	err := app.Run(ctx, os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
