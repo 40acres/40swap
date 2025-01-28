@@ -20,7 +20,6 @@ install-dependencies:
 # Start services with docker compose
 [working-directory: 'server-backend/dev']
 docker-up $COMPOSE_PROFILES='mempool-btc,esplora-liquid':
-    echo $COMPOSE_PROFILES
     docker compose up -d
 
 # Stop and remove services with docker compose
