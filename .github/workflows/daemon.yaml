@@ -1,0 +1,52 @@
+name: Daemon
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - "master"
+    paths:
+      - "daemon/**"
+      - ".github/workflows/daemon.yaml"
+
+    tags:
+      - "*"
+
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "daemon/**"
+      - ".github/workflows/daemon.yaml"
+
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+
+concurrency:
+  # Cancel any previous workflows if they are from a PR or push.
+  group: ${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: 1.23.1
+
+jobs:
+  go-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: daemon
+          version: v1.61.0
+          args: "--timeout=10m"
