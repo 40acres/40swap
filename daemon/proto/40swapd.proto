@@ -16,7 +16,10 @@ enum Chain {
 // Message definitions
 message SwapOutRequest {
   Chain chain = 1;
-  int32 inputAmount = 2;
+  // Amount in satoshis
+  uint32 amountSats = 2;
+  // Optional Destination address
+  string address = 3;
 }
 
 message SwapOutResponse {}
