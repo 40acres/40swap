@@ -1,11 +1,14 @@
-name: Docker Image CI
+name: Backend/Frontend CI
 
 on:
   push:
     branches: [ "master", "main" ]
     tags:
       - "**"
-
+    paths-ignore:
+      - "daemon/**"
+      - ".justfile"
+      - "README.md"
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME_FRONTEND: ${{ github.repository }}-swap-frontend
