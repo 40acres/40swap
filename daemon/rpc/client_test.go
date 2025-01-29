@@ -44,8 +44,8 @@ func TestClientInvalidRequest(test *testing.T) {
 	default:
 		client := NewRPCClient("localhost", port)
 		testRequest := &SwapOutRequest{
-			Chain:       Chain_BITCOIN,
-			AmountSats:      100000000,
+			Chain:      Chain_BITCOIN,
+			AmountSats: 100000000,
 		}
 		response, err := client.SwapOut(ctx, testRequest)
 
