@@ -13,7 +13,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: always
   cloudbeaver:
+    profiles: ["cloudbeaver"]
     image: dbeaver/cloudbeaver:22.2.5
     container_name: 40swap_cloudbeaver
     volumes:
@@ -22,42 +24,23 @@ services:
       - cloudbeaver-data:/opt/cloudbeaver/workspace
     ports:
       - 8978:8978
+    restart: always
   bitcoind:
-    image: ruimarinho/bitcoin-core:24.0.1
+    image: bitcoin/bitcoin:28
     container_name: 40swap_bitcoind
-    command:
-      -printtoconsole
-      -regtest=1
-      -rpcbind=0.0.0.0
-      -rpcport=18443
-      -rpcallowip=0.0.0.0/0
-      -rpcauth=40swap:5604308b0303bc9e98f790c8edfb18fd$$bfdfba8951c6cc9c06ad5934ff176e7e031109e6afe5413270f295ee45dd4d66
-      -whitelist=0.0.0.0/0
-      -whitebind=0.0.0.0:18333
-      -txindex=1
-      -server=1
-      -zmqpubrawblock=tcp://0.0.0.0:28334
-      -zmqpubrawtx=tcp://0.0.0.0:28335
+    command: -printtoconsole -regtest=1 -rpcbind=0.0.0.0 -rpcport=18443 -rpcallowip=0.0.0.0/0 -rpcauth=40swap:5604308b0303bc9e98f790c8edfb18fd$$bfdfba8951c6cc9c06ad5934ff176e7e031109e6afe5413270f295ee45dd4d66 -whitelist=0.0.0.0/0 -whitebind=0.0.0.0:18333 -txindex=1 -server=1 -zmqpubrawblock=tcp://0.0.0.0:28334 -zmqpubrawtx=tcp://0.0.0.0:28335
     volumes:
       - bitcoind-data:/home/bitcoin/.bitcoin
     expose:
       - "18332"
       - "18333"
       - "18443"
+    restart: always
   lnd-lsp:
-    image: lightninglabs/lnd:v0.18.2-beta
+    image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_lsp
     command: >-
-      --noseedbackup --trickledelay=5000 --alias=40swap-lsp --externalip=lnd-lsp
-      --tlsextradomain=lnd-lsp
-      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
-      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
-      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap
-      --bitcoind.rpcpass=pass
-      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334
-      --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
-      --maxpendingchannels=20
-      --gossip.channel-update-interval=10s
+      --noseedbackup --trickledelay=5000 --alias=40swap-lsp --externalip=lnd-lsp --tlsextradomain=lnd-lsp --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335 --maxpendingchannels=20 --gossip.channel-update-interval=10s
     restart: always
     depends_on:
       - "bitcoind"
@@ -70,19 +53,10 @@ services:
     ports:
       - '10002:10009'
   lnd-user:
-    image: lightninglabs/lnd:v0.18.2-beta
+    image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_user
     command: >-
-      --noseedbackup --trickledelay=5000 --alias=40swap-user --externalip=lnd-user
-      --tlsextradomain=lnd-user
-      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
-      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
-      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap
-      --bitcoind.rpcpass=pass
-      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334
-      --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
-      --maxpendingchannels=20
-      --gossip.channel-update-interval=10s
+      --noseedbackup --trickledelay=5000 --alias=40swap-user --externalip=lnd-user --tlsextradomain=lnd-user --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335 --maxpendingchannels=20 --gossip.channel-update-interval=10s
     restart: always
     depends_on:
       - "bitcoind"
@@ -93,19 +67,10 @@ services:
       - '10009'
       - '9735'
   lnd-alice:
-    image: lightninglabs/lnd:v0.18.2-beta
+    image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_alice
     command: >-
-      --noseedbackup --trickledelay=5000 --alias=alice --externalip=lnd-alice
-      --tlsextradomain=lnd-alice
-      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
-      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
-      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap
-      --bitcoind.rpcpass=pass
-      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334
-      --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
-      --maxpendingchannels=20
-      --gossip.channel-update-interval=10s
+      --noseedbackup --trickledelay=5000 --alias=alice --externalip=lnd-alice --tlsextradomain=lnd-alice --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335 --maxpendingchannels=20 --gossip.channel-update-interval=10s
     restart: always
     depends_on:
       - "bitcoind"
@@ -116,7 +81,7 @@ services:
       - '10009'
       - '9735'
   nbxplorer:
-    image: nicolasdorier/nbxplorer:2.3.62
+    image: nicolasdorier/nbxplorer:2.5.17
     container_name: 40swap_nbxplorer
     ports:
       - 32838:32838
@@ -127,7 +92,7 @@ services:
         condition: service_started
       elements:
         condition: service_started
-    restart: unless-stopped
+    restart: always
     environment:
       NBXPLORER_NETWORK: regtest
       NBXPLORER_BIND: 0.0.0.0:32838
@@ -150,9 +115,10 @@ services:
     links:
       - bitcoind
   rtl-user:
+    profiles: ["rtl"]
     container_name: 40swap_rtl_user
     image: shahanafarooqui/rtl:v0.15.2
-    restart: unless-stopped
+    restart: always
     depends_on:
       - lnd-user
     volumes:
@@ -176,9 +142,10 @@ services:
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
   rtl-lsp:
+    profiles: ["rtl"]
     container_name: 40swap_rtl_lsp
     image: shahanafarooqui/rtl:v0.15.2
-    restart: unless-stopped
+    restart: always
     depends_on:
       - lnd-lsp
     volumes:
@@ -204,87 +171,184 @@ services:
   elements:
     container_name: 40swap_elements
     image: ghcr.io/vulpemventures/elements:23.2.4
-    restart: unless-stopped
+    restart: always
     depends_on:
       - bitcoind
     volumes:
       - ./liquid.conf:/home/elements/.elements/elements.conf
-#  mempool-frontend:
-#    environment:
-#      FRONTEND_HTTP_PORT: "8080"
-#      BACKEND_MAINNET_HTTP_HOST: "mempool-backend"
-#    image: mempool/frontend:latest
-#    container_name: 40swap_mempool_frontend
-#    user: "1000:1000"
-#    restart: on-failure
-#    stop_grace_period: 1m
-#    command: "./wait-for mempool-db:3306 --timeout=720 -- nginx -g 'daemon off;'"
-#    ports:
-#      - 7084:8080
-#  mempool-backend:
-#    environment:
-#      MEMPOOL_BACKEND: "electrum"
-#      CORE_RPC_HOST: "bitcoind"
-#      CORE_RPC_PORT: "18443"
-#      CORE_RPC_USERNAME: "40swap"
-#      CORE_RPC_PASSWORD: "pass"
-#      DATABASE_ENABLED: "true"
-#      DATABASE_HOST: "mempool-db"
-#      DATABASE_DATABASE: "mempool"
-#      DATABASE_USERNAME: "mempool"
-#      DATABASE_PASSWORD: "mempool"
-#      STATISTICS_ENABLED: "true"
-#      ELECTRUM_HOST: "electrumx"
-#      ELECTRUM_PORT: "50001"
-#      ELECTRUM_TLS_ENABLED: "false"
-#    image: mempool/backend:latest
-#    container_name: 40swap_mempool_backend
-#    user: "1000:1000"
-#    restart: on-failure
-#    stop_grace_period: 1m
-#    command: "./wait-for-it.sh mempool-db:3306 --timeout=720 --strict -- ./start.sh"
-#    depends_on:
-#      - bitcoind
-#      - mempool-db
-#    volumes:
-#      - mempool-backend-data:/backend/cache
-#  mempool-db:
-#    environment:
-#      MYSQL_DATABASE: "mempool"
-#      MYSQL_USER: "mempool"
-#      MYSQL_PASSWORD: "mempool"
-#      MYSQL_ROOT_PASSWORD: "admin"
-#    image: mariadb:10.5.8
-#    container_name: 40swap_mempool_db
-#    restart: on-failure
-#    stop_grace_period: 1m
-#    volumes:
-#      - mempool-db-data:/var/lib/mysql
-#  electrumx:
-#    image: andgohq/electrumx:1.8.7
-#    container_name: 40swap_electrumx
-#    depends_on:
-#      - "bitcoind"
-#    command: [ "wait-for-it.sh", "bitcoind:18443", "--", "init" ]
-#    ports:
-#      - "51002:50002"
-#      - "51001:50001"
-#    expose:
-#      - "50001"
-#      - "50002"
-#    volumes:
-#      - electrumx-data:/data
-#    environment:
-#      # bitcoind is valid
-#      - DAEMON_URL=http://40swap:pass@bitcoind:18443
-#      - COIN=BitcoinSegwit
-#      - NET=regtest
-#      # 127.0.0.1 or electrumx is valid for RPC_HOST
-#      - RPC_HOST=electrumx
-#      - RPC_PORT=18443
-#      - HOST=electrumx
-#      - TCP_PORT=50001
-#      - SSL_PORT=50002
+  mempool-frontend-btc:
+    profiles: ["mempool-btc"]
+    environment:
+      FRONTEND_HTTP_PORT: "8080"
+      BACKEND_MAINNET_HTTP_HOST: "mempool-backend-btc"
+      LIQUID_ENABLED: false
+      LIQUID_TESTNET_ENABLED: false
+    image: mempool/frontend:latest
+    container_name: 40swap_mempool_frontend_btc
+    user: "1000:1000"
+    restart: always
+    command: "./wait-for mempool-db-btc:3306 --timeout=720 -- nginx -g 'daemon off;'"
+    ports:
+      - 7084:8080
+  mempool-backend-btc:
+    profiles: ["mempool-btc"]
+    environment:
+      MEMPOOL_BACKEND: "electrum"
+      CORE_RPC_HOST: "bitcoind"
+      CORE_RPC_PORT: "18443"
+      CORE_RPC_USERNAME: "40swap"
+      CORE_RPC_PASSWORD: "pass"
+      DATABASE_ENABLED: "true"
+      DATABASE_HOST: "mempool-db-btc"
+      DATABASE_DATABASE: "mempool_btc"
+      DATABASE_USERNAME: "mempool"
+      DATABASE_PASSWORD: "mempool"
+      STATISTICS_ENABLED: "true"
+      ELECTRUM_HOST: "electrumx"
+      ELECTRUM_PORT: "50001"
+      ELECTRUM_TLS_ENABLED: "false"
+    image: mempool/backend:latest
+    container_name: 40swap_mempool_backend_btc
+    user: "1000:1000"
+    restart: always
+    command: "./wait-for-it.sh mempool-db-btc:3306 --timeout=720 --strict -- ./start.sh"
+    depends_on:
+      - bitcoind
+      - mempool-db-btc
+    volumes:
+      - mempool-backend-btc-data:/backend/cache
+  # mempool-frontend-liquid:
+  #   profiles: ["mempool-liquid"]
+  #   environment:
+  #     BASE_MODULE: liquid
+  #     FRONTEND_HTTP_PORT: "8080"
+  #     BACKEND_MAINNET_HTTP_HOST: "mempool-backend-liquid"
+  #     LIQUID_ENABLED: true
+  #     LIQUID_TESTNET_ENABLED: true
+  #     LIQUID_REGTEST_ENABLED: true
+  #     # TESTNET_ENABLED: true
+  #     # TESTNET4_ENABLED: true
+  #     # SIGNET_ENABLED: true
+  #     ITEMS_PER_PAGE: 25
+  #     BLOCK_WEIGHT_UNITS: 300000
+
+  #   image: mempool/frontend:latest
+  #   container_name: 40swap_mempool_frontend_liquid
+  #   user: "1000:1000"
+  #   restart: always
+  #   command: "./wait-for mempool-db-liquid:3306 --timeout=720 -- nginx -g 'daemon off;'"
+  #   ports:
+  #     - 7085:8080
+
+  # mempool-backend-liquid:
+  #   profiles: ["mempool-liquid"]
+  #   environment:
+  #     MEMPOOL_BACKEND: "esplora"
+  #     MEMPOOL_NETWORK: "liquid"
+  #     CORE_RPC_HOST: "elements"
+  #     CORE_RPC_PORT: "18884"
+  #     CORE_RPC_USERNAME: "40swap"
+  #     CORE_RPC_PASSWORD: "pass"
+  #     DATABASE_ENABLED: "true"
+  #     DATABASE_HOST: "mempool-db-liquid"
+  #     DATABASE_DATABASE: "mempool_liquid"
+  #     DATABASE_USERNAME: "mempool"
+  #     DATABASE_PASSWORD: "mempool"
+  #     STATISTICS_ENABLED: "true"
+  #     ELECTRUM_HOST: "electrs-liquid"
+  #     ELECTRUM_PORT: "50001"
+  #     ELECTRUM_TLS_ENABLED: "false"
+  #     ESPLORA_REST_API_URL: http://electrs-liquid:3000
+  #   image: mempool/backend:latest
+  #   container_name: 40swap_mempool_backend_liquid
+  #   user: "1000:1000"
+  #   restart: always
+  #   command: "./wait-for-it.sh mempool-db-liquid:3306 --timeout=720 --strict -- ./start.sh"
+  #   depends_on:
+  #     - elements
+  #     - mempool-db-liquid
+  #   volumes:
+  #     - mempool-backend-liquid-data:/backend/cache
+  mempool-db-btc:
+    profiles: ["mempool-btc"]
+    environment:
+      MYSQL_DATABASE: "mempool_btc"
+      MYSQL_USER: "mempool"
+      MYSQL_PASSWORD: "mempool"
+      MYSQL_ROOT_PASSWORD: "admin"
+    image: mariadb:10.5.8
+    container_name: 40swap_mempool_db_btc
+    restart: always
+    volumes:
+      - mempool-db-btc-data:/var/lib/mysql
+  # mempool-db-liquid:
+  #   profiles: ["mempool-liquid"]
+  #   environment:
+  #     MYSQL_DATABASE: "mempool_liquid"
+  #     MYSQL_USER: "mempool"
+  #     MYSQL_PASSWORD: "mempool"
+  #     MYSQL_ROOT_PASSWORD: "admin"
+  #   image: mariadb:10.5.8
+  #   container_name: 40swap_mempool_db_liquid
+  #   restart: always
+  #   volumes:
+  #     - mempool-db-liquid-data:/var/lib/mysql
+  electrumx:
+    profiles: ["mempool-btc"]
+    image: andgohq/electrumx:1.8.7
+    container_name: 40swap_electrumx
+    depends_on:
+      - "bitcoind"
+    command: ["wait-for-it.sh", "bitcoind:18443", "--", "init"]
+    ports:
+      - "51002:50002"
+      - "51001:50001"
+    expose:
+      - "50001"
+      - "50002"
+    volumes:
+      - electrumx-data:/data
+    environment:
+      # bitcoind is valid
+      - DAEMON_URL=http://40swap:pass@bitcoind:18443
+      - COIN=BitcoinSegwit
+      - NET=regtest
+      # 127.0.0.1 or electrumx is valid for RPC_HOST
+      - RPC_HOST=electrumx
+      - RPC_PORT=18443
+      - HOST=electrumx
+      - TCP_PORT=50001
+      - SSL_PORT=50002
+    restart: always
+  electrs-liquid:
+    profiles: ["esplora-liquid"]
+    image: blockstream/electrsd-liquid:latest
+    container_name: 40swap_electrs_liquid
+    restart: always
+    depends_on:
+      - elements
+    command: |
+      --jsonrpc-import
+      --network liquidregtest
+      --parent-network regtest 
+      --cookie=40swap:pass 
+      --daemon-rpc-addr=elements:18884 
+      --electrum-rpc-addr=0.0.0.0:50001
+      --http-addr=0.0.0.0:3000
+      --cors *
+    ports:
+      - 3000:3000
+  esplora-liquid:
+    profiles: ["esplora-liquid"]
+    image: ghcr.io/vulpemventures/esplora:latest
+    container_name: 40swap_esplora_liquid
+    restart: always
+    depends_on:
+      - electrs-liquid
+    environment:
+      API_URL: http://localhost:3000
+    ports:
+      - 35000:5000
 volumes:
   bitcoind-data:
   lnd-lsp-data:
@@ -294,6 +358,6 @@ volumes:
   cloudbeaver-data:
   rtl-user-data:
   rtl-lsp-data:
-  mempool-backend-data:
-  mempool-db-data:
+  mempool-backend-btc-data:
+  mempool-db-btc-data:
   electrumx-data:
