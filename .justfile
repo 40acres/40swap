@@ -19,17 +19,17 @@ install-dependencies:
 
 # Start services with docker compose
 [working-directory: 'server-backend/dev']
-docker-up:
+docker-up $COMPOSE_PROFILES='mempool-btc,esplora-liquid':
     docker compose up -d
 
 # Stop and remove services with docker compose
 [working-directory: 'server-backend/dev']
 docker-rm:
-    docker compose down -v
+    docker compose --profile '*' down  -v
 
 # Initialize blockchain and lightning nodes
 [working-directory: 'server-backend/dev']
-initialize-nodes:
+initialize-nodes: 
     ./lightning-setup.sh
 
 # Build shared module
@@ -39,12 +39,12 @@ build-shared:
 
 # Start backend
 [working-directory: 'server-backend']
-start-backend:
+start-backend: build-shared
     npm run start:dev
 
 # Start frontend
 [working-directory: 'swap-frontend']
-start-frontend:
+start-frontend: build-shared
     npm run start:dev
 
 # Start backend and frontend
@@ -63,8 +63,18 @@ sendtoaddress address amount:
    just bitcoin-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
    just generate 6
 
-# Generate blocks(mining)
-generate *blocks:
+elements-sendtoaddress address amount:
+    just elements-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
+    just generate 6
+
+# Generate blocks for both bitcoin and liquid
+generate blocks:
+    docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+# Generate blocks(mining) for Liquid
+generate-liquid blocks='1':
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+generate-bitcoin blocks='6':
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
 
 # Run command within lsp-lnd container
@@ -78,3 +88,5 @@ user-lncli *cmd:
 # Run command within alice-lnd container
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
+elements-cli *cmd:
+    docker exec -it 40swap_elements elements-cli -chain=elementsregtest  {{cmd}}
