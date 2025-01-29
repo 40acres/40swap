@@ -5,18 +5,17 @@ import (
 )
 
 func TestNewRPCServer(test *testing.T) {
-	server := NewRPCServer()
+	server := NewRPCServer(50051)
 	if server == nil {
 		test.Fatalf("Expected non-nil server")
 	}
 }
 
 func TestListenAndServe(test *testing.T) {
-	port := "50051"
-	server := NewRPCServer()
+	server := NewRPCServer(50051)
 	errChan := make(chan error)
 	go func() {
-		errChan <- server.ListenAndServe(port)
+		errChan <- server.ListenAndServe()
 	}()
 	select {
 	case err := <-errChan:

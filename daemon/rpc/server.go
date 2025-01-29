@@ -11,7 +11,7 @@ import (
 
 type Server struct {
 	UnimplementedSwapServiceServer
-	Port string
+	Port int
 }
 
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
@@ -21,14 +21,16 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	return &SwapOutResponse{}, nil
 }
 
-func NewRPCServer() *Server {
-	svr := &Server{}
+func NewRPCServer(port int) *Server {
+	svr := &Server{
+		Port: port,
+	}
 
 	return svr
 }
 
-func (server *Server) ListenAndServe(port string) error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+func (server *Server) ListenAndServe() error {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Port))
 	if err != nil {
 		return fmt.Errorf("failed to listen to port: %w", err)
 	}
@@ -37,7 +39,6 @@ func (server *Server) ListenAndServe(port string) error {
 	if err := grpcServer.Serve(listener); err != nil {
 		return fmt.Errorf("failed to initialize grpc server: %w", err)
 	}
-	server.Port = port
 
 	return nil
 }

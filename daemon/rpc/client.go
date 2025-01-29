@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewConnection(host string, port string) *grpc.ClientConn {
+func NewConnection(host string, port int) *grpc.ClientConn {
 	conn, err := grpc.NewClient(
-		fmt.Sprintf("%s:%s", host, port),
+		fmt.Sprintf("%s:%d", host, port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -20,7 +20,7 @@ func NewConnection(host string, port string) *grpc.ClientConn {
 	return conn
 }
 
-func NewRPCClient(host string, port string) SwapServiceClient {
+func NewRPCClient(host string, port int) SwapServiceClient {
 	conn := NewConnection("localhost", port)
 	client := NewSwapServiceClient(conn)
 
