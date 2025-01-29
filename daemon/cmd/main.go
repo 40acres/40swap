@@ -8,6 +8,7 @@ import (
 
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
+	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
@@ -15,6 +16,17 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	port := 50051
+
+	// gRPC server
+	server := rpc.NewRPCServer(port)
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatalf("couldn't start server: %v", err)
+		}
+	}()
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
