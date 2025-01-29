@@ -4,6 +4,8 @@ tidy:
 [working-directory: 'cmd']
 build: tidy
     go build .
+generate:
+    go generate ./...
 test:
     go test ./...
 [working-directory: 'cmd']
