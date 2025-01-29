@@ -17,12 +17,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	port := "50051"
+	port := 50051
 
 	// gRPC server
-	server := rpc.NewRPCServer()
+	server := rpc.NewRPCServer(port)
 	go func() {
-		err := server.ListenAndServe(port)
+		err := server.ListenAndServe()
 		if err != nil {
 			log.Fatalf("couldn't start server: %v", err)
 		}
