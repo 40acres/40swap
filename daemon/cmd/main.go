@@ -100,7 +100,6 @@ func main() {
 		log.Fatalf("Error finding swagger.json: %v", err)
 	}
 
-	// Imprimir la ruta absoluta para depuración
 	log.Infof("Swagger JSON path: %s", swaggerPath)
 
 	http.HandleFunc("/api/swagger.json", func(w http.ResponseWriter, r *http.Request) {
