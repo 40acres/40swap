@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/40acres/40swap/daemon/api"
 	swapcli "github.com/40acres/40swap/daemon/cli"
@@ -110,9 +111,16 @@ func main() {
 	}, nil))
 
 	log.Infof("Swagger UI available at http://localhost:%d/docs", 8081)
-	go func() {
-		log.Fatal(http.ListenAndServe(":8081", nil))
-	}()
+
+	srv := &http.Server{
+		Addr:         ":8081",
+		Handler:      nil,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  15 * time.Second,
+	}
+
+	log.Fatal(srv.ListenAndServe())
 
 	// API client
 	_, clientErr := api.NewClient("http://localhost:8081")
