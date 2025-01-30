@@ -2,18 +2,13 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
-	"time"
 
-	"github.com/40acres/40swap/daemon/api"
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/rpc"
-	"github.com/go-openapi/runtime/middleware"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
@@ -93,40 +88,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Swagger UI
-	swaggerPath, err := filepath.Abs("api/swagger.json")
-	if err != nil {
-		log.Fatalf("Error finding swagger.json: %v", err)
-	}
-
-	log.Infof("Swagger JSON path: %s", swaggerPath)
-
-	http.HandleFunc("/api/swagger.json", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, swaggerPath)
-	})
-	http.Handle("/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
-		SpecURL: "/api/swagger.json",
-	}, nil))
-
-	log.Infof("Swagger UI available at http://localhost:%d/docs", 8081)
-
-	srv := &http.Server{
-		Addr:         ":8081",
-		Handler:      nil,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  15 * time.Second,
-	}
-
-	log.Fatal(srv.ListenAndServe())
-
-	// API client
-	_, clientErr := api.NewClient("http://localhost:8081")
-	if clientErr != nil {
-		log.Fatalf("Error creating client: %v", clientErr)
-	}
-
-	// Keep the main function running
-	select {}
 }
