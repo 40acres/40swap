@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
+	"github.com/40acres/40swap/daemon/api"
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/rpc"
+	"github.com/go-openapi/runtime/middleware"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
@@ -17,9 +21,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	port := 50051
-
 	// gRPC server
+	port := 50051
 	server := rpc.NewRPCServer(port)
 	go func() {
 		err := server.ListenAndServe()
@@ -89,4 +92,34 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Swagger UI
+	swaggerPath, err := filepath.Abs("api/swagger.json")
+	if err != nil {
+		log.Fatalf("Error finding swagger.json: %v", err)
+	}
+
+	// Imprimir la ruta absoluta para depuración
+	log.Infof("Swagger JSON path: %s", swaggerPath)
+
+	http.HandleFunc("/api/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, swaggerPath)
+	})
+	http.Handle("/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
+		SpecURL: "/api/swagger.json",
+	}, nil))
+
+	log.Infof("Swagger UI available at http://localhost:%d/docs", 8081)
+	go func() {
+		log.Fatal(http.ListenAndServe(":8081", nil))
+	}()
+
+	// API client
+	_, clientErr := api.NewClient("http://localhost:8081")
+	if clientErr != nil {
+		log.Fatalf("Error creating client: %v", clientErr)
+	}
+
+	// Keep the main function running
+	select {}
 }
