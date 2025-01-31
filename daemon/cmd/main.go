@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,84 +9,45 @@ import (
 
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
+	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	_ "github.com/lib/pq"
 )
 
+type User struct {
+	ID   uint   `gorm:"primaryKey"`
+	Name string `gorm:"not null"`
+}
+
 func main() {
-	// Crear una instancia de Embedded Postgres con configuración por defecto
-	db := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Username("myuser").
-			Password("mypassword").
-			Database("postgres").
-			Port(5433),
-	)
-
-	// Iniciar el servidor de PostgreSQL embebido
-	if err := db.Start(); err != nil {
-		log.Fatalf("Error iniciando la base de datos: %v", err)
-	}
-	defer func() {
-		// Detener el servidor cuando termine el programa
-		if err := db.Stop(); err != nil {
-			log.Fatalf("Error deteniendo la base de datos: %v", err)
-		}
-	}()
-
-	// Conectar a la base de datos
-	connStr := "host=localhost port=5433 user=myuser password=mypassword dbname=postgres sslmode=disable"
-	conn, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Fatalf("Error conectando a la base de datos: %v", err)
-	}
-	defer conn.Close()
-
-	// Verificar conexión
-	if err := conn.Ping(); err != nil {
-		log.Fatalf("No se pudo conectar a la base de datos: %v", err)
-	}
-
-	fmt.Println("✅ Base de datos embebida en funcionamiento")
-
-	// Crear una tabla de ejemplo
-	_, err = conn.Exec("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT NOT NULL)")
-	if err != nil {
-		log.Fatalf("Error creando tabla: %v", err)
-	}
-
-	// Insertar datos
-	_, err = conn.Exec("INSERT INTO users (name) VALUES ($1)", "Juan Pérez")
-	if err != nil {
-		log.Fatalf("Error insertando datos: %v", err)
-	}
-
-	// Consultar datos
-	rows, err := conn.Query("SELECT id, name FROM users")
-	if err != nil {
-		log.Fatalf("Error consultando datos: %v", err)
-	}
-	defer rows.Close()
-
-	fmt.Println("📋 Usuarios en la base de datos:")
-	for rows.Next() {
-		var id int
-		var name string
-		if err := rows.Scan(&id, &name); err != nil {
-			log.Fatalf("Error escaneando fila: %v", err)
-		}
-		fmt.Printf("- ID: %d, Nombre: %s\n", id, name)
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Fatalf("Error en iteración de filas: %v", err)
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// DB
+	db := database.NewDatabase("myuser", "mypassword", "postgres", 5433)
+	defer db.Stop()
+	db.MigrateDatabase(&User{})
+
+	// Insertar un usuario
+	user := User{Name: "Juan Pérez"}
+	if err := db.ORM().Create(&user).Error; err != nil {
+		log.Fatalf("Error insertando usuario: %v", err)
+	}
+
+	// Consultar usuarios
+	var users []User
+	if err := db.ORM().Find(&users).Error; err != nil {
+		log.Fatalf("Error consultando usuarios: %v", err)
+	}
+
+	// Imprimir usuarios
+	fmt.Println("📋 Usuarios en la base de datos:")
+	for _, u := range users {
+		fmt.Printf("- ID: %d, Nombre: %s\n", u.ID, u.Name)
+	}
 
 	// gRPC server
 	port := 50051
