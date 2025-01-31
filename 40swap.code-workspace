@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "daemon"
+		},
+		{
+			"path": "server-backend"
+		},
+		{
+			"path": "swap-frontend"
+		}
+	],
+	"settings": {}
+}
