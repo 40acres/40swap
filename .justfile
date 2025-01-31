@@ -89,4 +89,4 @@ user-lncli *cmd:
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
 elements-cli *cmd:
-    docker exec -it 40swap_elements elements-cli -chain=elementsregtest  {{cmd}}
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest  {{cmd}}
