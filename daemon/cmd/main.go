@@ -17,9 +17,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	port := 50051
-
 	// gRPC server
+	port := 50051
 	server := rpc.NewRPCServer(port)
 	go func() {
 		err := server.ListenAndServe()
