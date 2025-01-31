@@ -92,6 +92,9 @@ func (d *Database) Stop() {
 }
 
 func (d *Database) MigrateDatabase(models ...interface{}) {
+	if enumErr := CreateEnumStatus(d.orm); enumErr != nil {
+        log.Fatalln("failed to create enum status:", enumErr)
+    }
 	err := d.orm.AutoMigrate(models...)
 	if err != nil {
 		log.Fatalf("Error migrating models: %v", err)

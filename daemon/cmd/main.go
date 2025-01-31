@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,16 +10,12 @@ import (
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/rpc"
+	"github.com/40acres/40swap/daemon/swap"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
 	_ "github.com/lib/pq"
 )
-
-type User struct {
-	ID   uint   `gorm:"primaryKey"`
-	Name string `gorm:"not null"`
-}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -29,25 +24,7 @@ func main() {
 	// DB
 	db := database.NewDatabase("myuser", "mypassword", "postgres", 5433)
 	defer db.Stop()
-	db.MigrateDatabase(&User{})
-
-	// Insertar un usuario
-	user := User{Name: "Juan Pérez"}
-	if err := db.ORM().Create(&user).Error; err != nil {
-		log.Fatalf("Error insertando usuario: %v", err)
-	}
-
-	// Consultar usuarios
-	var users []User
-	if err := db.ORM().Find(&users).Error; err != nil {
-		log.Fatalf("Error consultando usuarios: %v", err)
-	}
-
-	// Imprimir usuarios
-	fmt.Println("📋 Usuarios en la base de datos:")
-	for _, u := range users {
-		fmt.Printf("- ID: %d, Nombre: %s\n", u.ID, u.Name)
-	}
+	db.MigrateDatabase(&swap.SwapOut{})
 
 	// gRPC server
 	port := 50051
