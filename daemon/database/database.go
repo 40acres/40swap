@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/40acres/40swap/daemon/swap"
 	log "github.com/sirupsen/logrus"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -18,21 +19,25 @@ type Database struct {
 	password   string
 	database   string
 	port       uint32
+	dataPath   string
 	connection *embeddedpostgres.EmbeddedPostgres
 	orm        *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port uint32, host ...string) *Database {
+func NewDatabase(username, password, database string, port int, dataPath string, host ...string) *Database {
+
 	var dbHost string = "localhost"
 	if len(host) > 0 {
 		dbHost = host[0]
 	}
+
 	db := &Database{
 		host:     dbHost,
 		username: username,
 		password: password,
 		database: database,
-		port:     port,
+		port:     uint32(port),
+		dataPath: dataPath,
 	}
 	db.GetConnection()
 	db.StartDatabase()
@@ -44,11 +49,13 @@ func NewDatabase(username, password, database string, port uint32, host ...strin
 func (d *Database) GetConnection() *embeddedpostgres.EmbeddedPostgres {
 	db := embeddedpostgres.NewDatabase(
 		embeddedpostgres.DefaultConfig().
+			DataPath(d.dataPath).
 			Username(d.username).
 			Password(d.password).
 			Database(d.database).
 			Port(d.port),
 	)
+
 	d.connection = db
 
 	return db
@@ -91,12 +98,17 @@ func (d *Database) Stop() {
 	}
 }
 
-func (d *Database) MigrateDatabase(models ...interface{}) {
+func (d *Database) MigrateDatabase() error {
 	if enumErr := CreateEnumStatus(d.orm); enumErr != nil {
-        log.Fatalln("failed to create enum status:", enumErr)
-    }
-	err := d.orm.AutoMigrate(models...)
+		log.Fatalln("failed to create enum status:", enumErr)
+
+		return enumErr
+	}
+	err := d.orm.AutoMigrate(&swap.SwapOut{})
 	if err != nil {
 		log.Fatalf("Error migrating models: %v", err)
+		return err
 	}
+
+	return nil
 }

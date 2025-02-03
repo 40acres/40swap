@@ -10,7 +10,6 @@ import (
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/rpc"
-	"github.com/40acres/40swap/daemon/swap"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
@@ -20,11 +19,6 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// DB
-	db := database.NewDatabase("myuser", "mypassword", "postgres", 5433)
-	defer db.Stop()
-	db.MigrateDatabase(&swap.SwapOut{})
 
 	// gRPC server
 	port := 50051
@@ -50,14 +44,83 @@ func main() {
 	app := &cli.Command{
 		Name:  "40swap",
 		Usage: "A CLI for 40swap daemon",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "db-host",
+				Usage: "Database username",
+				Value: "localhost",
+			},
+			&cli.StringFlag{
+				Name:  "db-user",
+				Usage: "Database username",
+				Value: "myuser",
+			},
+			&cli.StringFlag{
+				Name:  "db-password",
+				Usage: "Database password",
+				Value: "mypassword",
+			},
+			&cli.StringFlag{
+				Name:  "db-name",
+				Usage: "Database name",
+				Value: "postgres",
+			},
+			&cli.IntFlag{
+				Name:  "db-port",
+				Usage: "Database port",
+				Value: 5433,
+			},
+			&cli.StringFlag{
+				Name:  "db-data-path",
+				Usage: "Database path",
+			},
+		},
 		Commands: []*cli.Command{
 			{
 				Name:  "start",
 				Usage: "Start the 40wapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
-					err := daemon.Start(ctx)
+					db := database.NewDatabase(
+						c.String("db-user"),
+						c.String("db-password"),
+						c.String("db-name"),
+						int(c.Int("db-port")),
+						c.String("db-data-path"),
+						c.String("db-host"),
+					)
+					defer db.Stop()
+
+					if c.String("db-data-path") == "" {
+						dbErr := db.MigrateDatabase()
+						if dbErr != nil {
+							return dbErr
+						}
+					}
+
+					err := daemon.Start(ctx, db)
 					if err != nil {
 						return err
+					}
+
+					return nil
+				},
+			},
+			{
+				Name:  "migrate",
+				Usage: "Migrate the 40wapd daemon database",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					db := database.NewDatabase(
+						c.String("db-user"),
+						c.String("db-password"),
+						c.String("db-name"),
+						int(c.Int("db-port")),
+						c.String("db-data-path"),
+						c.String("db-host"),
+					)
+					defer db.Stop()
+					dbErr := db.MigrateDatabase()
+					if dbErr != nil {
+						return dbErr
 					}
 
 					return nil
