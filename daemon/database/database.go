@@ -14,7 +14,7 @@ import (
 )
 
 type Database struct {
-	host       string
+	host       string `default0:"localhost"`
 	username   string
 	password   string
 	database   string
@@ -39,14 +39,14 @@ func NewDatabase(username, password, database string, port int, dataPath string,
 		port:     uint32(port),
 		dataPath: dataPath,
 	}
-	db.GetConnection()
+	db.Connect()
 	db.StartDatabase()
 	db.orm = db.GetGorm()
 
 	return db
 }
 
-func (d *Database) GetConnection() *embeddedpostgres.EmbeddedPostgres {
+func (d *Database) Connect() *embeddedpostgres.EmbeddedPostgres {
 	db := embeddedpostgres.NewDatabase(
 		embeddedpostgres.DefaultConfig().
 			DataPath(d.dataPath).
@@ -61,12 +61,15 @@ func (d *Database) GetConnection() *embeddedpostgres.EmbeddedPostgres {
 	return db
 }
 
+func (d *Database) GetConnection() string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s database=%s sslmode=disable", d.host, d.port, d.username, d.password, d.database)
+}
+
 func (d *Database) StartDatabase() {
 	if err := d.connection.Start(); err != nil {
 		log.Fatalf("Error starting database: %v", err)
 	}
-	connStr := fmt.Sprintf("host=localhost port=%d user=%s password=%s database=%s sslmode=disable", d.port, d.username, d.password, d.database)
-	conn, err := sql.Open("postgres", connStr)
+	conn, err := sql.Open("postgres", d.GetConnection())
 	if err != nil {
 		log.Fatalf("Error conectando a la base de datos: %v", err)
 	}
@@ -79,8 +82,7 @@ func (d *Database) StartDatabase() {
 }
 
 func (d *Database) GetGorm() *gorm.DB {
-	dsn := fmt.Sprintf("host=localhost port=%d user=%s password=%s database=%s sslmode=disable", d.port, d.username, d.password, d.database)
-	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	gormDB, err := gorm.Open(postgres.Open(d.GetConnection()), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Error connecting GORM: %v", err)
 	}
