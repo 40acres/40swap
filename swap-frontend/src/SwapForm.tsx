@@ -1,22 +1,19 @@
-import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
-import { Form, Dropdown } from 'solid-bootstrap';
-import bitcoinLogo from '/assets/bitcoin-logo.svg';
-import lightningLogo from '/assets/lightning-logo.svg';
-import liquidLogo from '/assets/liquid-logo.svg';
-import flipImg from '/assets/flip.png';
-import { AssetType, currencyFormat, SwapType } from './utils.js';
-import { createStore } from 'solid-js/store';
-import { decode } from 'bolt11';
-import { applicationContext } from './ApplicationContext.js';
-import { useNavigate } from '@solidjs/router';
-import Decimal from 'decimal.js';
-import { address } from 'bitcoinjs-lib';
-import { ActionButton } from './ActionButton.js';
-import { toast } from 'solid-toast';
-import { getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
 import Fa from 'solid-fa';
+import Decimal from 'decimal.js';
+import flipImg from '/assets/flip.png';
+import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
+import { getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import { AssetType, currencyFormat, SwapType } from './utils.js';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { applicationContext } from './ApplicationContext.js';
 import { AssetSelector } from './components/AssetSelector';
+import { ActionButton } from './ActionButton.js';
+import { useNavigate } from '@solidjs/router';
+import { createStore } from 'solid-js/store';
+import { address } from 'bitcoinjs-lib';
+import { Form } from 'solid-bootstrap';
+import { toast } from 'solid-toast';
+import { decode } from 'bolt11';
 
 export type SwappableAsset = {
     asset: AssetType,
@@ -190,6 +187,7 @@ export const SwapForm: Component = () => {
                     <div class="fw-medium">
                         <AssetSelector 
                             selectedAsset={form.from.asset}
+                            excludeAssets={[form.to.asset, form.from.asset]}
                             onAssetSelect={(asset) => changeAsset(asset, form.to.asset)}
                         />
                     </div>
@@ -213,6 +211,7 @@ export const SwapForm: Component = () => {
                     <div class="fw-medium">
                         <AssetSelector 
                             selectedAsset={form.to.asset}
+                            excludeAssets={[form.from.asset, form.to.asset]}
                             onAssetSelect={(asset) => changeAsset(form.from.asset, asset)}
                         />
                     </div>
@@ -244,7 +243,8 @@ export const SwapForm: Component = () => {
             <div class="text-muted text-end small">Fee ({config()?.feePercentage}%): {currencyFormat(fee())}</div>
             <ActionButton action={createSwap} disabled={!isSendable() || hasErrors()}>Create swap</ActionButton>
             <div class="text-muted text-center small border border-primary rounded-3 p-2">
-                <Fa icon={faInfoCircle} /> Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)} | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
+                <Fa icon={faInfoCircle} /> 
+                Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)} | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
             </div>
             <Show when={errorMessage() !== ''}>
                 <div class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" style="border-style: dashed !important">

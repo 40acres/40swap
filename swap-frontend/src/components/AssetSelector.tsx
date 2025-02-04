@@ -10,6 +10,7 @@ type AssetSelectorProps = {
     selectedAsset: AssetType;
     onAssetSelect: (asset: AssetType) => void;
     disabled?: boolean;
+    excludeAssets?: AssetType[];
 }
 
 const AssetDetails: Record<AssetType, {
@@ -37,6 +38,9 @@ const AVAILABLE_ASSETS = [
 ] as const;
 
 export const AssetSelector: Component<AssetSelectorProps> = (props) => {
+    const filteredAssets = (): AssetType[] => 
+        AVAILABLE_ASSETS.filter(asset => !props.excludeAssets?.includes(asset));
+
     return (
         <div class="fw-medium">
             <Dropdown>
@@ -55,7 +59,7 @@ export const AssetSelector: Component<AssetSelectorProps> = (props) => {
                     </span>
                 </Dropdown.Toggle>
                 <Dropdown.Menu class='w-100'>
-                    <For each={AVAILABLE_ASSETS}>
+                    <For each={filteredAssets()}>
                         {(asset) => (
                             <Dropdown.Item 
                                 onClick={() => props.onAssetSelect(asset)}
