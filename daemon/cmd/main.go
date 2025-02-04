@@ -47,8 +47,8 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "db-host",
-				Usage: "Database username",
-				Value: "localhost",
+				Usage: "Database host",
+				Value: "embedded",
 			},
 			&cli.StringFlag{
 				Name:  "db-user",
@@ -90,7 +90,7 @@ func main() {
 					)
 					defer db.Stop()
 
-					if c.String("db-data-path") == "" {
+					if c.String("db-data-path") == "" && c.String("db-host") == "embedded" {
 						dbErr := db.MigrateDatabase()
 						if dbErr != nil {
 							return dbErr
