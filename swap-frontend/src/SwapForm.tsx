@@ -1,5 +1,5 @@
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
-import { Form } from 'solid-bootstrap';
+import { Form, Dropdown } from 'solid-bootstrap';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import lightningLogo from '/assets/lightning-logo.svg';
 import liquidLogo from '/assets/liquid-logo.svg';
@@ -16,21 +16,7 @@ import { toast } from 'solid-toast';
 import { getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
 import Fa from 'solid-fa';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
-
-const AssetDetails = {
-    [AssetType.ON_CHAIN_BITCOIN]: {
-        displayName: 'BTC',
-        icon: bitcoinLogo,
-    },
-    [AssetType.LIGHTNING_BITCOIN]: {
-        displayName: 'Lightning',
-        icon: lightningLogo,
-    },
-    [AssetType.ON_CHAIN_LIQUID]: {
-        displayName: 'Liquid',
-        icon: liquidLogo,
-    },
-};
+import { AssetSelector } from './components/AssetSelector';
 
 export type SwappableAsset = {
     asset: AssetType,
@@ -101,28 +87,20 @@ export const SwapForm: Component = () => {
     }
 
     function flipSwapType(): void {
-        setSwapType(swapType() === 'in' ? 'out' : 'in');
-
         setForm({
             from: form.to,
             to: form.from,
             inputAmount: 0,
         });
+        setSwapType(swapType() === 'in' ? 'out' : 'in');
     }
 
-
-    function getInputAsset(): AssetType {
-        if (swapType() === 'out') {
-            return  AssetType.LIGHTNING_BITCOIN
-        }
-        return AssetType.ON_CHAIN_BITCOIN;
-    }
-
-    function getOutputAsset(): AssetType {
-        if (swapType() === 'in') {
-            return AssetType.LIGHTNING_BITCOIN; 
-        }
-        return AssetType.ON_CHAIN_BITCOIN;
+    function changeAsset(from: AssetType, to: AssetType): void {
+        setForm({
+            from: { asset: from, payload: '' },
+            to: { asset: to, payload: '' },
+            inputAmount: 0,
+        });
     }
 
     function isValid(field: keyof FormData | 'outputAmount'): boolean {
@@ -149,7 +127,7 @@ export const SwapForm: Component = () => {
             setFormErrors('inputAmount', false);
             try {
                 decode(form.from.payload);
-                setFormErrors("from", false);
+                setFormErrors('from', false);
             } catch (e) {
                 setFormErrors('from', true);
                 setErrorMessage('Invalid invoice');
@@ -209,8 +187,11 @@ export const SwapForm: Component = () => {
         <div class="d-flex flex-column gap-3">
             <div class="d-flex gap-2">
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
-                    <div class="fw-medium text-nowrap">
-                        <img src={AssetDetails[getInputAsset()].icon} /><span class="ps-1 text-uppercase">{AssetDetails[getInputAsset()].displayName}</span>
+                    <div class="fw-medium">
+                        <AssetSelector 
+                            selectedAsset={form.from.asset}
+                            onAssetSelect={(asset) => changeAsset(asset, form.to.asset)}
+                        />
                     </div>
                     <hr />
                     <div class="fs-6">You send</div>
@@ -226,11 +207,14 @@ export const SwapForm: Component = () => {
                     </div>
                 </div>
                 <div style="margin: auto -28px; z-index: 0" onClick={flipSwapType}>
-                    <img src={flipImg} />
+                    <img src={flipImg} draggable={false}/>
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
-                    <div class="fw-medium text-nowrap">
-                        <img src={AssetDetails[getOutputAsset()].icon}/><span class="ps-1 text-uppercase">{AssetDetails[getOutputAsset()].displayName}</span>
+                    <div class="fw-medium">
+                        <AssetSelector 
+                            selectedAsset={form.to.asset}
+                            onAssetSelect={(asset) => changeAsset(form.from.asset, asset)}
+                        />
                     </div>
                     <hr />
                     <div class="fs-6">You get</div>
