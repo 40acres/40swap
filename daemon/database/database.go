@@ -25,7 +25,7 @@ type Database struct {
 	orm        *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port int, dataPath string, host ...string) *Database {
+func NewDatabase(username, password, database string, port uint32, dataPath string, host ...string) *Database {
 	var dbHost string = "embedded"
 	if len(host) > 0 && host[0] != "embedded" {
 		dbHost = host[0]
@@ -36,7 +36,7 @@ func NewDatabase(username, password, database string, port int, dataPath string,
 		username: username,
 		password: password,
 		database: database,
-		port:     uint32(port),
+		port:     port,
 		dataPath: dataPath,
 	}
 	db.Connect()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +16,14 @@ import (
 
 	_ "github.com/lib/pq"
 )
+
+func validatePort(port int64) (uint32, error) {
+	if port < 0 || port > 65535 {
+		return 0, fmt.Errorf("port number %d is invalid: must be between 0 and 65535", port)
+	}
+
+	return uint32(port), nil
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -80,11 +89,15 @@ func main() {
 				Name:  "start",
 				Usage: "Start the 40wapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
+					port, err := validatePort(c.Int("db-port"))
+					if err != nil {
+						return err
+					}
 					db := database.NewDatabase(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
-						int(c.Int("db-port")),
+						port,
 						c.String("db-data-path"),
 						c.String("db-host"),
 					)
@@ -97,7 +110,7 @@ func main() {
 						}
 					}
 
-					err := daemon.Start(ctx, db)
+					err = daemon.Start(ctx, db)
 					if err != nil {
 						return err
 					}
@@ -109,11 +122,15 @@ func main() {
 				Name:  "migrate",
 				Usage: "Migrate the 40wapd daemon database",
 				Action: func(ctx context.Context, c *cli.Command) error {
+					port, err := validatePort(c.Int("db-port"))
+					if err != nil {
+						return err
+					}
 					db := database.NewDatabase(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
-						int(c.Int("db-port")),
+						port,
 						c.String("db-data-path"),
 						c.String("db-host"),
 					)
