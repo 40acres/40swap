@@ -26,7 +26,6 @@ type Database struct {
 }
 
 func NewDatabase(username, password, database string, port int, dataPath string, host ...string) *Database {
-
 	var dbHost string = "embedded"
 	if len(host) > 0 && host[0] != "embedded" {
 		dbHost = host[0]
@@ -54,6 +53,7 @@ func (d *Database) Connect() interface{} {
 			log.Fatalf("Error connecting to database with sqlx: %v", err)
 		}
 		d.connection = db
+
 		return db
 	}
 	db := embeddedpostgres.NewDatabase(
@@ -66,6 +66,7 @@ func (d *Database) Connect() interface{} {
 	)
 
 	d.connection = db
+
 	return db
 }
 
@@ -74,6 +75,7 @@ func (d *Database) GetConnection() string {
 	if d.host != "embedded" {
 		host = d.host
 	}
+
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s database=%s sslmode=disable", host, d.port, d.username, d.password, d.database)
 }
 
@@ -132,6 +134,7 @@ func (d *Database) MigrateDatabase() error {
 	err := d.orm.AutoMigrate(&swap.SwapOut{})
 	if err != nil {
 		log.Fatalf("Error migrating models: %v", err)
+
 		return err
 	}
 
