@@ -8,6 +8,7 @@ import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { applicationContext } from './ApplicationContext.js';
 import { AssetSelector } from './components/AssetSelector';
 import { ActionButton } from './ActionButton.js';
+import { fromBase58Check } from 'liquidjs-lib/src/address.js';
 import { useNavigate } from '@solidjs/router';
 import { createStore } from 'solid-js/store';
 import { address } from 'bitcoinjs-lib';
@@ -107,7 +108,8 @@ export const SwapForm: Component = () => {
 
     function isValid(field: keyof FormData | 'outputAmount'): boolean {
         // if we wanted to show the valid markers, uncomment this line
-        return validated() && !formErrors[field];
+        // return validated() && !formErrors[field];
+        return false;
     }
 
     function isInvalid(field: keyof FormData | 'outputAmount'): boolean {
@@ -134,7 +136,7 @@ export const SwapForm: Component = () => {
                 setFormErrors('from', true);
                 setErrorMessage('Invalid invoice');
             }
-        } else {
+        } else if (swapType() === 'out') {
             const isInvalidInputAmount = inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount;
             setFormErrors('inputAmount', isInvalidInputAmount);
             if (isInvalidInputAmount) {
@@ -147,6 +149,24 @@ export const SwapForm: Component = () => {
             } catch (e) {
                 setFormErrors('from', true);
                 setErrorMessage('Invalid bitcoin address');
+            }
+        } else if (swapType() === 'chain') {
+            const isInvalidInputAmount = inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount;
+            setFormErrors('inputAmount', isInvalidInputAmount);
+            if (isInvalidInputAmount) {
+                setErrorMessage('Invalid amount');
+            }
+            setFormErrors('outputAmount', false);
+            try {
+                if (form.from.asset === AssetType.ON_CHAIN_LIQUID) {
+                    fromBase58Check(form.from.payload);
+                } else {
+                    address.toOutputScript(form.from.payload, conf.bitcoinNetwork);
+                }
+                setFormErrors('from', false);
+            } catch (e) {
+                setFormErrors('from', true);
+                setErrorMessage(form.to.asset === AssetType.ON_CHAIN_LIQUID ? 'Invalid Liquid address' : 'Invalid bitcoin address');
             }
         }
         setValidated(true);
