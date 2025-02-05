@@ -46,7 +46,7 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 	return db
 }
 
-func (d *Database) Connect() interface{} {
+func (d *Database) Connect() any {
 	if d.host != "embedded" {
 		db, err := sqlx.Connect("postgres", d.GetConnection())
 		if err != nil {
@@ -83,26 +83,26 @@ func (d *Database) StartDatabase() {
 	_, isEmbedded := d.connection.(*embeddedpostgres.EmbeddedPostgres)
 	if isEmbedded {
 		if err := d.connection.(*embeddedpostgres.EmbeddedPostgres).Start(); err != nil {
-			log.Fatalf("Error starting database: %v", err)
+			log.Fatalf("Could not start database: %v", err)
 		}
 	}
 
 	conn, err := sql.Open("postgres", d.GetConnection())
 	if err != nil {
-		log.Fatalf("Error conecting to db: %v", err)
+		log.Fatalf("Could not conect to db: %v", err)
 	}
 	defer conn.Close()
 	if err := conn.Ping(); err != nil {
 		log.Fatalf("Could not ping db: %v", err)
 	}
 
-	log.Println("✅ DB started")
+	log.Info("✅ DB started")
 }
 
 func (d *Database) GetGorm() *gorm.DB {
 	gormDB, err := gorm.Open(postgres.Open(d.GetConnection()), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Error connecting GORM: %v", err)
+		log.Fatalf("Could not connect GORM: %v", err)
 	}
 
 	return gormDB
@@ -116,24 +116,29 @@ func (d *Database) Stop() {
 	switch conn := d.connection.(type) {
 	case *embeddedpostgres.EmbeddedPostgres:
 		if err := conn.Stop(); err != nil {
-			log.Fatalf("Error stopping embedded database: %v", err)
+			log.Fatalf("Could not stop embedded database: %v", err)
 		}
 	case *sqlx.DB:
 		if err := conn.Close(); err != nil {
-			log.Fatalf("Error closing sqlx database connection: %v", err)
+			log.Fatalf("Could not close sqlx database connection: %v", err)
 		}
 	}
 }
 
 func (d *Database) MigrateDatabase() error {
 	if enumErr := CreateEnumStatus(d.orm); enumErr != nil {
-		log.Fatalln("failed to create enum status:", enumErr)
+		log.Fatalln("Could not create enum status:", enumErr)
+
+		return enumErr
+	}
+	if enumErr := CreateEnumChain(d.orm); enumErr != nil {
+		log.Fatalln("Could not create enum chain:", enumErr)
 
 		return enumErr
 	}
 	err := d.orm.AutoMigrate(&swap.SwapOut{})
 	if err != nil {
-		log.Fatalf("Error migrating models: %v", err)
+		log.Fatalf("Could not migrate models: %v", err)
 
 		return err
 	}
