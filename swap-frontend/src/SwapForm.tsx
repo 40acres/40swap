@@ -58,12 +58,15 @@ export const SwapForm: Component = () => {
                 }
             }
             return 0;
-        } else {
+        } else if (swapType() === 'out') {
             const conf = config();
             if (conf == null) {
                 return 0;
             }
             return getSwapOutOutputAmount(new Decimal(inputAmount()), new Decimal(conf.feePercentage)).toNumber();
+        } else {
+            // TODO
+            return 0;
         }
     }
 
@@ -74,8 +77,11 @@ export const SwapForm: Component = () => {
                 return 0;
             }
             return getSwapInInputAmount(new Decimal(outputAmount()), new Decimal(conf.feePercentage)).toNumber();
-        } else {
+        } else if (swapType() === 'out') {
             return form.inputAmount;
+        } else {
+            // TODO
+            return 0;
         }
     }
 
@@ -89,7 +95,6 @@ export const SwapForm: Component = () => {
             to: form.from,
             inputAmount: 0,
         });
-        setSwapType(swapType() === 'in' ? 'out' : 'in');
     }
 
     function changeAsset(from: AssetType, to: AssetType): void {
@@ -153,6 +158,18 @@ export const SwapForm: Component = () => {
         }
     });
 
+    createEffect(() => {
+        const fromAsset = form.from.asset;
+        const toAsset = form.to.asset;
+        if (fromAsset === AssetType.ON_CHAIN_LIQUID || toAsset === AssetType.ON_CHAIN_LIQUID) {
+            setSwapType('chain');
+        } else if (fromAsset === AssetType.LIGHTNING_BITCOIN && toAsset === AssetType.ON_CHAIN_BITCOIN) {
+            setSwapType('in');
+        } else if (fromAsset === AssetType.ON_CHAIN_BITCOIN && toAsset === AssetType.LIGHTNING_BITCOIN) {
+            setSwapType('out');
+        }
+    });
+
     function hasErrors(): boolean {
         return formErrors.from || formErrors.to || formErrors.inputAmount || formErrors.outputAmount;
     }
@@ -204,7 +221,7 @@ export const SwapForm: Component = () => {
                         />
                     </div>
                 </div>
-                <div style="margin: auto -28px; z-index: 0" onClick={flipSwapType}>
+                <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipSwapType}>
                     <img src={flipImg} draggable={false}/>
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
@@ -233,6 +250,14 @@ export const SwapForm: Component = () => {
                 />
             </Show>
             <Show when={swapType() === 'out'}>
+                <Form.Control type="text" placeholder="Enter address"
+                    value={form.from.payload}
+                    onChange={e => setForm('from', { payload: e.target.value, asset: AssetType.ON_CHAIN_BITCOIN })}
+                    onKeyUp={e => setForm('from', { payload: e.currentTarget.value, asset: AssetType.ON_CHAIN_BITCOIN })}
+                    isValid={isValid('from')} isInvalid={isInvalid('from')}
+                />
+            </Show>
+            <Show when={swapType() === 'chain'}>
                 <Form.Control type="text" placeholder="Enter address"
                     value={form.from.payload}
                     onChange={e => setForm('from', { payload: e.target.value, asset: AssetType.ON_CHAIN_BITCOIN })}
