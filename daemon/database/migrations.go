@@ -9,5 +9,5 @@ func CreateEnumStatus(db *gorm.DB) error {
 }
 
 func CreateEnumChain(db *gorm.DB) error {
-	return db.Exec("CREATE TYPE chain_enum AS ENUM ('bitcoin', 'litecoin', 'monero')").Error
+	return db.Exec("CREATE TYPE chain_enum AS ENUM ('bitcoin', 'liquid')").Error
 }
