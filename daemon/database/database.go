@@ -24,6 +24,7 @@ func (w *errorOnlyWriter) Write(p []byte) (n int, err error) {
 	if strings.Contains(strings.ToLower(msg), "error") {
 		w.logger.Error(msg)
 	}
+
 	return len(p), nil
 }
 
