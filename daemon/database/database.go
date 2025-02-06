@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/40acres/40swap/daemon/swap"
 	log "github.com/sirupsen/logrus"
@@ -13,6 +14,18 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+type errorOnlyWriter struct {
+	logger *log.Logger
+}
+
+func (w *errorOnlyWriter) Write(p []byte) (n int, err error) {
+	msg := string(p)
+	if strings.Contains(strings.ToLower(msg), "error") {
+		w.logger.Error(msg)
+	}
+	return len(p), nil
+}
 
 type Database struct {
 	host       string
@@ -62,7 +75,8 @@ func (d *Database) Connect() any {
 			Username(d.username).
 			Password(d.password).
 			Database(d.database).
-			Port(d.port),
+			Port(d.port).
+			Logger(&errorOnlyWriter{logger: log.New()}),
 	)
 
 	d.connection = db

@@ -82,7 +82,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "db-data-path",
 				Usage: "Database path",
-				Value: "./data",
+				Value: "./.data",
 			},
 		},
 		Commands: []*cli.Command{
