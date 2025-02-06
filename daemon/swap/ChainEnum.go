@@ -29,6 +29,7 @@ func (c *Chain) Scan(value interface{}) error {
 		return fmt.Errorf("failed to scan Chain: expected string, got %T", value)
 	}
 	*c = Chain(str)
+
 	return nil
 }
 

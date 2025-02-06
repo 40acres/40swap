@@ -30,6 +30,7 @@ func (s *SwapStatus) Scan(value interface{}) error {
 		return fmt.Errorf("failed to scan SwapStatus: expected string, got %T", value)
 	}
 	*s = SwapStatus(str)
+
 	return nil
 }
 
