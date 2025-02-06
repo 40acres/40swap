@@ -119,31 +119,6 @@ func main() {
 				},
 			},
 			{
-				Name:  "migrate",
-				Usage: "Migrate the 40wapd daemon database",
-				Action: func(ctx context.Context, c *cli.Command) error {
-					port, err := validatePort(c.Int("db-port"))
-					if err != nil {
-						return err
-					}
-					db := database.NewDatabase(
-						c.String("db-user"),
-						c.String("db-password"),
-						c.String("db-name"),
-						port,
-						c.String("db-data-path"),
-						c.String("db-host"),
-					)
-					defer db.Stop()
-					dbErr := db.MigrateDatabase()
-					if dbErr != nil {
-						return dbErr
-					}
-
-					return nil
-				},
-			},
-			{
 				Name:  "swap",
 				Usage: "Swap operations",
 				Commands: []*cli.Command{
