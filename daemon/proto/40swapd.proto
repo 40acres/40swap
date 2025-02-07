@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option go_package = "./rpc";
+
+service SwapService {
+  // RPC methods
+  rpc SwapOut(SwapOutRequest) returns (SwapOutResponse);
+}
+
+// Enum definition
+enum Chain {
+  BITCOIN = 0;
+  LIQUID = 1;
+}
+
+// Message definitions
+message SwapOutRequest {
+  Chain chain = 1;
+  // Amount in satoshis
+  uint32 amountSats = 2;
+  // Optional Destination address
+  string address = 3;
+}
+
+message SwapOutResponse {}
