@@ -14,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
+	_ "ariga.io/atlas-provider-gorm/gormschema"
 	_ "github.com/lib/pq"
 )
 
@@ -104,11 +105,8 @@ func main() {
 					)
 					defer db.Stop()
 
-					if c.String("db-data-path") == "" && c.String("db-host") == "embedded" {
-						dbErr := db.MigrateDatabase()
-						if dbErr != nil {
-							return dbErr
-						}
+					if err := db.MigrateDatabase(); err != nil {
+						return fmt.Errorf("failed to migrate database: %v", err)
 					}
 
 					err = daemon.Start(ctx, db)
