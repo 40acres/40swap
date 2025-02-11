@@ -4,8 +4,6 @@ set fallback := true
 ###########
 # Aliases #
 ###########
-
-
 alias du := docker-up
 alias drm := docker-rm
 
@@ -63,6 +61,7 @@ sendtoaddress address amount:
    just bitcoin-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
    just generate 6
 
+# Send to address with fee rate and generate blocks for Liquid
 elements-sendtoaddress address amount:
     just elements-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
     just generate 6
@@ -71,9 +70,12 @@ elements-sendtoaddress address amount:
 generate blocks:
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+
 # Generate blocks(mining) for Liquid
 generate-liquid blocks='1':
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+
+# Generate blocks(mining) for Bitcoin
 generate-bitcoin blocks='6':
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
 
@@ -88,5 +90,7 @@ user-lncli *cmd:
 # Run command within alice-lnd container
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
+
+# Run command within elements container
 elements-cli *cmd:
     docker exec -it 40swap_elements elements-cli -chain=elementsregtest  {{cmd}}
