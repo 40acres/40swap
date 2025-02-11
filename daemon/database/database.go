@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -140,6 +141,16 @@ func (d *Database) Stop() {
 }
 
 func (d *Database) MigrateDatabase() error {
-	// To be implemented
+	cmd := exec.Command("atlas", "migrate", "apply",
+		"--url", "postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable",
+		"--dir", "file://database/migrations")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to apply migrations: %w, output: %s", err, output)
+	}
+
+	log.Info("✅ Migrations applied successfully")
+
 	return nil
 }

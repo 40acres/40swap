@@ -11,7 +11,7 @@ import (
 
 func LoadSchema() *gorm.DB {
 	dialector := postgres.New(postgres.Config{
-		DSN: "postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable",
+		DSN: os.Getenv("DATABASE_URL"),
 	})
 
 	db, err := gorm.Open(dialector, &gorm.Config{})
@@ -30,7 +30,5 @@ func LoadSchema() *gorm.DB {
 }
 
 func main() {
-	fmt.Fprintf(os.Stderr, "Starting schema generation...\n")
-	// To be implemented
-	fmt.Fprintf(os.Stderr, "Schema generation completed\n")
+	LoadSchema()
 }
