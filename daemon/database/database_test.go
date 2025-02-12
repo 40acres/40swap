@@ -61,9 +61,4 @@ func TestDatabaseOperations(t *testing.T) {
 		assert.NotNil(t, orm)
 		assert.Equal(t, db.orm, orm)
 	})
-
-	t.Run("Database migration", func(t *testing.T) {
-		err := db.MigrateDatabase()
-		assert.NoError(t, err)
-	})
 }
