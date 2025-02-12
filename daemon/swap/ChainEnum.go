@@ -8,13 +8,13 @@ import (
 type Chain string
 
 const (
-	ChainBitcoin Chain = "bitcoin"
-	ChainLiquid  Chain = "liquid"
+	Bitcoin Chain = "bitcoin"
+	Liquid  Chain = "liquid"
 )
 
 // IsValid checks if the Chain value is valid
 func (c Chain) IsValid() bool {
-	return c == ChainBitcoin || c == ChainLiquid
+	return c == Bitcoin || c == Liquid
 }
 
 // String returns the string representation
