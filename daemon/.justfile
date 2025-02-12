@@ -33,9 +33,9 @@ add-migration:
    atlas migrate diff --env gorm
 
 # Apply migrations
-apply-migrations:
-   atlas migrate apply --env gorm
+apply-migrations *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
+   atlas migrate apply --env gorm --url {{url}}
 
 # Show migrations status
-db-status:
-    atlas migrate status --env gorm
+db-status *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
+    atlas migrate status --env gorm --url {{url}}
