@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/40acres/40swap/daemon/swap"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/40acres/40swap/daemon/database/models"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -151,7 +151,7 @@ func (d *Database) MigrateDatabase() error {
 
 		return enumErr
 	}
-	err := d.orm.AutoMigrate(&swap.SwapOut{})
+	err := d.orm.AutoMigrate(&models.SwapOut{})
 	if err != nil {
 		log.Fatalf("Could not migrate models: %v", err)
 

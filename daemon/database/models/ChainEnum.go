@@ -1,4 +1,4 @@
-package swap
+package models
 
 import (
 	"database/sql/driver"
@@ -12,17 +12,14 @@ const (
 	Liquid  Chain = "liquid"
 )
 
-// IsValid checks if the Chain value is valid
 func (c Chain) IsValid() bool {
 	return c == Bitcoin || c == Liquid
 }
 
-// String returns the string representation
 func (c Chain) String() string {
 	return string(c)
 }
 
-// Scan implements the sql.Scanner interface for Chain
 func (c *Chain) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
@@ -33,7 +30,6 @@ func (c *Chain) Scan(value interface{}) error {
 	return nil
 }
 
-// Value implements the driver.Valuer interface for Chain
 func (c Chain) Value() (driver.Value, error) {
 	return string(c), nil
 }
