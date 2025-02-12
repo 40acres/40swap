@@ -33,3 +33,7 @@ func (c *Chain) Scan(value interface{}) error {
 func (c Chain) Value() (driver.Value, error) {
 	return string(c), nil
 }
+
+func ChainEnumSQL() string {
+	return `CREATE TYPE destination_chain AS ENUM ('bitcoin', 'liquid');`
+}

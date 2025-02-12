@@ -34,3 +34,7 @@ func (s *SwapStatus) Scan(value interface{}) error {
 func (s SwapStatus) Value() (driver.Value, error) {
 	return string(s), nil
 }
+
+func SwapStatusEnumSQL() string {
+	return `CREATE TYPE swap_status AS ENUM ('pending', 'completed', 'failed');`
+}
