@@ -160,7 +160,7 @@ func (d *Database) MigrateDatabase() error {
 		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
 	}
 
-	if !strings.Contains(string(statusOutput), "No pending migrations") {
+	if !strings.Contains(string(statusOutput), "Already at latest version") {
 		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
 		applyOutput, err := applyCmd.CombinedOutput()
 		if err != nil {
