@@ -151,9 +151,28 @@ export const SwapForm: Component = () => {
 
     function validateBitcoinAddress(btcAddress: string, conf: FrontendConfiguration): void {
         try {
-            address.toOutputScript(btcAddress, conf.bitcoinNetwork);
-            setFormErrors('payload', false);
-        } catch (e) {
+            const network = conf.bitcoinNetwork;
+            let isValid = false;
+    
+            if (btcAddress.startsWith('bc1') || btcAddress.startsWith('tb1')) {
+                const decoded = address.fromBech32(btcAddress);
+                if (
+                    (decoded.version === 0 && decoded.data.length === 20) ||  // P2WPKH (SegWit)
+                    (decoded.version === 0 && decoded.data.length === 32) ||  // P2WSH (SegWit)
+                    (decoded.version === 1 && decoded.data.length === 32)     // P2TR (Taproot)
+                ) {
+                    isValid = true;
+                }
+            } else {
+                // P2PKH, P2SH
+                address.toOutputScript(btcAddress, network);
+                isValid = true;
+            }
+            setFormErrors('payload', !isValid);
+            if (!isValid) {
+                setErrorMessage('Invalid bitcoin address');
+            }
+        } catch (error) {
             setFormErrors('payload', true);
             setErrorMessage('Invalid bitcoin address');
         }
@@ -319,7 +338,7 @@ export const SwapForm: Component = () => {
             <Show when={destinationAsset() === AssetType.ON_CHAIN_BITCOIN}>
                 <Form.Control 
                     type="text" 
-                    placeholder="Enter address"
+                    placeholder="Enter bitcoin address"
                     value={form.payload}
                     onChange={e => setForm('payload', e.target.value)}
                     onKeyUp={e => setForm('payload', e.currentTarget.value)}
