@@ -106,7 +106,7 @@ func main() {
 					defer db.Stop()
 
 					if err := db.MigrateDatabase(); err != nil {
-						return fmt.Errorf("failed to migrate database: %v", err)
+						return fmt.Errorf("failed to migrate database: %w", err)
 					}
 
 					err = daemon.Start(ctx, db)

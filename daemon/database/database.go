@@ -96,11 +96,11 @@ func (d *Database) GetHost() string {
 
 func (d *Database) GetConnection() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s database=%s sslmode=disable", 
+		"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
 		d.GetHost(),
-		d.port, 
-		d.username, 
-		d.password, 
+		d.port,
+		d.username,
+		d.password,
 		d.database)
 }
 
@@ -152,7 +152,7 @@ func (d *Database) Stop() {
 
 func (d *Database) MigrateDatabase() error {
 	dbURL := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable", 
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		d.username, d.password, d.GetHost(), d.port, d.database)
 	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
 	statusOutput, err := statusCmd.CombinedOutput()
