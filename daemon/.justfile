@@ -27,3 +27,15 @@ run *cmd:
 # Lint the project
 lint:
     golangci-lint run
+
+# Add migrations
+add-migration:
+   atlas migrate diff --env gorm
+
+# Apply migrations
+apply-migrations:
+   atlas migrate apply --env gorm
+
+# Show migrations status
+db-status:
+    atlas migrate status --env gorm

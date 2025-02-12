@@ -2,8 +2,7 @@ data "external_schema" "gorm" {
   program = [
     "go",
     "run",
-    "-mod=mod",
-    "database/schema.go"
+    "database/migrations/schema.go"
   ]
 }
 
