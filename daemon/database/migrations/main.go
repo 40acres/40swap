@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"ariga.io/atlas-provider-gorm/gormschema"
-	_ "ariga.io/atlas-provider-gorm/gormschema"
 	"github.com/40acres/40swap/daemon/swap"
 )
 

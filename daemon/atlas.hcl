@@ -2,7 +2,7 @@ data "external_schema" "gorm" {
   program = [
     "go",
     "run",
-    "database/migrations/schema.go"
+    "database/migrations/main.go"
   ]
 }
 
