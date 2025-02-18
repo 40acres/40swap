@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { networks } from 'bitcoinjs-lib';
+import { networks as liquidNetworks } from 'liquidjs-lib';
 
 const CHAINS = [
     'BITCOIN',
@@ -88,6 +89,7 @@ export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 
 export const frontendConfigurationSchema = z.object({
     bitcoinNetwork: z.enum(['bitcoin', 'regtest', 'testnet']).transform(n => networks[n]),
+    liquidNetwork: z.enum(['liquid', 'regtest', 'testnet']).transform(n => liquidNetworks[n]),
     feePercentage: z.number(),
     minimumAmount: z.number(),
     maximumAmount: z.number(),
