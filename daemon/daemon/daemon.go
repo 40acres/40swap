@@ -4,10 +4,11 @@ package daemon
 import (
 	"context"
 
+	"github.com/40acres/40swap/daemon/database"
 	log "github.com/sirupsen/logrus"
 )
 
-func Start(ctx context.Context) error {
+func Start(ctx context.Context, db *database.Database) error {
 	log.Info("Starting 40swapd")
 	// TODO
 
