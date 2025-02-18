@@ -3,15 +3,15 @@ import Decimal from 'decimal.js';
 import flipImg from '/assets/flip.png';
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { FrontendConfiguration, getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetType, currencyFormat, SwapType } from './utils.js';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
 import { applicationContext } from './ApplicationContext.js';
 import { AssetSelector } from './components/AssetSelector';
 import { ActionButton } from './ActionButton.js';
-import { fromBase58Check } from 'liquidjs-lib/src/address.js';
 import { useNavigate } from '@solidjs/router';
 import { createStore } from 'solid-js/store';
-import { address } from 'bitcoinjs-lib';
 import { Form } from 'solid-bootstrap';
 import { toast } from 'solid-toast';
 import { decode } from 'bolt11';
@@ -151,39 +151,20 @@ export const SwapForm: Component = () => {
 
     function validateBitcoinAddress(btcAddress: string, conf: FrontendConfiguration): void {
         try {
-            const network = conf.bitcoinNetwork;
-            let isValid = false;
-    
-            if (btcAddress.startsWith('bc1') || btcAddress.startsWith('tb1')) {
-                const decoded = address.fromBech32(btcAddress);
-                if (
-                    (decoded.version === 0 && decoded.data.length === 20) ||  // P2WPKH (SegWit)
-                    (decoded.version === 0 && decoded.data.length === 32) ||  // P2WSH (SegWit)
-                    (decoded.version === 1 && decoded.data.length === 32)     // P2TR (Taproot)
-                ) {
-                    isValid = true;
-                }
-            } else {
-                // P2PKH, P2SH
-                address.toOutputScript(btcAddress, network);
-                isValid = true;
-            }
-            setFormErrors('payload', !isValid);
-            if (!isValid) {
-                setErrorMessage('Invalid bitcoin address');
-            }
+            toOutputScript(btcAddress, conf.bitcoinNetwork);
+            setFormErrors('payload', false);
         } catch (error) {
             setFormErrors('payload', true);
             setErrorMessage('Invalid bitcoin address');
         }
     }
 
-    function validateLiquidAddress(address: string): void {
+    function validateLiquidAddress(address: string, conf: FrontendConfiguration): void {
         try {
-            fromBase58Check(address);
-            setFormErrors('from', false);
+            toOutputScriptLiquid(address, conf.liquidNetwork);
+            setFormErrors('payload', false);
         } catch (e) {
-            setFormErrors('from', true);
+            setFormErrors('payload', true);
             setErrorMessage('Invalid liquid address');
         }
     }
@@ -212,7 +193,7 @@ export const SwapForm: Component = () => {
                 break;
             case AssetType.ON_CHAIN_LIQUID:
                 // TODO: more validation for liquid
-                validateLiquidAddress(form.payload);
+                validateLiquidAddress(form.payload, conf);
                 break;
             }
         }
