@@ -3,18 +3,11 @@ package database
 import (
 	"database/sql"
 	"fmt"
-<<<<<<< HEAD
 	"os/exec"
-=======
->>>>>>> master
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
-<<<<<<< HEAD
-=======
-	"github.com/40acres/40swap/daemon/database/models"
->>>>>>> master
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
