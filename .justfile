@@ -93,4 +93,4 @@ alice-lncli *cmd:
 
 # Run command within elements container
 elements-cli *cmd:
-    docker exec -it 40swap_elements elements-cli -chain=elementsregtest  {{cmd}}
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest  {{cmd}}

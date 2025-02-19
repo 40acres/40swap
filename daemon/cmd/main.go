@@ -105,8 +105,11 @@ func main() {
 					)
 					defer db.Stop()
 
-					if err := db.MigrateDatabase(); err != nil {
-						return fmt.Errorf("failed to migrate database: %w", err)
+					if c.String("db-data-path") == "" && c.String("db-host") == "embedded" {
+						dbErr := db.MigrateDatabase()
+						if dbErr != nil {
+							return dbErr
+						}
 					}
 
 					err = daemon.Start(ctx, db)
