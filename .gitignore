@@ -20,3 +20,4 @@ server-backend/dev/40swap.lightning.yml
 
 daemon/cmd/cmd
 40swap.lightning.yml
+.data/
