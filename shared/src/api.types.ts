@@ -3,6 +3,7 @@ import { networks } from 'bitcoinjs-lib';
 
 const CHAINS = [
     'BITCOIN',
+    'LIGHTNING',
     'LIQUID',
 ] as const;
 const chainSchema = z.enum(CHAINS);
@@ -85,6 +86,22 @@ export const getSwapOutResponseSchema = swapResponseSchema.extend({
     contractAddress: z.string().optional(),
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
+
+export const swapChainRequestSchema = z.object({
+    originChain: chainSchema,
+    destinationChain: chainSchema,
+    amount: z.number().positive(),
+    destinationAddress: z.string(),
+});
+export type SwapChainRequest = z.infer<typeof swapOutRequestSchema>;
+
+export const getSwapChainResponseSchema = swapResponseSchema.extend({
+    invoice: z.string(),
+    status: swapOutStatusSchema,
+    redeemScript: z.string().optional(),
+    contractAddress: z.string().optional(),
+});chainSchema
+export type GetSwapChainResponse = z.infer<typeof getSwapOutResponseSchema>;
 
 export const frontendConfigurationSchema = z.object({
     bitcoinNetwork: z.enum(['bitcoin', 'regtest', 'testnet']).transform(n => networks[n]),

@@ -19,6 +19,8 @@ import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 import { SwapService } from './SwapService.js';
 import { TerminusModule } from '@nestjs/terminus';
 import { HealthController } from './HealthController.js';
+import { SwapChainController } from './SwapChainController.js';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 @Module({
     imports: [
@@ -50,6 +52,7 @@ import { HealthController } from './HealthController.js';
     controllers: [
         SwapInController,
         SwapOutController,
+        SwapChainController,
         ConfigurationController,
         HealthController,
     ],
