@@ -23,7 +23,7 @@ import { payments as liquidPayments } from 'liquidjs-lib';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import * as liquid from 'liquidjs-lib';
-import { Psbt } from 'liquidjs-lib/src/psbt.js';
+import { Psbt, witnessStackToScriptWitness } from 'liquidjs-lib/src/psbt.js';
 import { randomBytes, createHash } from 'crypto';
 
 const ECPair = ECPairFactory(ecc);
@@ -180,15 +180,15 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     /**
- * Initiates a Lightning to Liquid atomic swap:
- * - Receives the destination Liquid address and the amount in satoshis.
- * - Generates a secret and its hash.
- * - Creates a HODL invoice in LND.
- * - Constructs an HTLC in Liquid without requiring the recipient's public key.
- *
- * @param amount Invoice amount in satoshis.
- * @param recipientAddress Liquid address to receive the funds.
- */
+     * Initiates a Lightning to Liquid atomic swap:
+     * - Receives the destination Liquid address and the amount in satoshis.
+     * - Generates a secret and its hash.
+     * - Creates a HODL invoice in LND.
+     * - Constructs an HTLC in Liquid without requiring the recipient's public key.
+     *
+     * @param amount Invoice amount in satoshis.
+     * @param recipientAddress Liquid address to receive the funds.
+     */
     async initiateLightningToLiquidSwap(
         amount: number,
         recipientAddress: string,
@@ -260,7 +260,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
      * - vout: output index.
      * - fundingValue: output value.
      * - asset: asset hash.
-     * - htlcP2shOutput: script of the HTLC P2SH address.
+     * - liquidHtlcAddress: script of the HTLC P2SH address.
      * - htlcScript: the original HTLC script.
      * - recipientAddress: destination address to receive the funds.
      *
@@ -285,7 +285,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             witnessUtxo: {
                 value: swapDetails.fundingValue,
                 asset: swapDetails.asset,
-                script: Buffer.from(swapDetails.htlcP2shOutput, 'hex'),
+                script: Buffer.from(swapDetails.liquidHtlcAddress, 'hex'),
                 nonce: Buffer.alloc(32), // confidentiality nonce
             },
         });
@@ -304,7 +304,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         // Use Buffer.from([1]) as the activator (true) for the redemption branch.
         psbt.finalizeInput(0, () => {
             return {
-                finalScriptWitness: liquid.script.witness.compile([
+                finalScriptSig: undefined,
+                finalScriptWitness: witnessStackToScriptWitness([
                     secret,
                     Buffer.from([1]),
                     Buffer.from(swapDetails.htlcScript, 'hex'),
@@ -312,8 +313,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             };
         });
         const tx = psbt.extractTransaction();
-
-        // In production, broadcast the transaction to the Liquid network.
         return tx.toHex();
     }
 
