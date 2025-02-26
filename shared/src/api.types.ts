@@ -90,10 +90,24 @@ export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 export const swapChainRequestSchema = z.object({
     originChain: chainSchema,
     destinationChain: chainSchema,
-    amount: z.number().positive(),
+    inputAmount: z.number().positive(),
     destinationAddress: z.string(),
+    preImageHash: z.string(),
 });
-export type SwapChainRequest = z.infer<typeof swapOutRequestSchema>;
+export type SwapChainRequest = z.infer<typeof swapChainRequestSchema>;
+
+export const intiateSwapFromLNToLQResponse = z.object({
+    invoice: z.string(),
+    hash: z.string(),
+    liquidHtlcAddress: z.string(),
+    htlcScript: z.string(),
+    recipientAddress: z.string(),
+    refundPubKey: z.string(),
+    locktime: z.number(),
+    amount: z.number()
+});chainSchema
+export type IntiateSwapFromLNToLQResponse = z.infer<typeof intiateSwapFromLNToLQResponse>;
+export type RedeemSwapFromLNToLQRequest = z.infer<typeof intiateSwapFromLNToLQResponse>;
 
 export const getSwapChainResponseSchema = swapResponseSchema.extend({
     invoice: z.string(),
