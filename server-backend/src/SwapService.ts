@@ -23,8 +23,7 @@ import { payments as liquidPayments } from 'liquidjs-lib';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import * as liquid from 'liquidjs-lib';
-import { Psbt, witnessStackToScriptWitness } from 'liquidjs-lib/src/psbt.js';
-import { randomBytes, createHash } from 'crypto';
+import { reverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -192,29 +191,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         });
 
         const network = liquidNetwork;
-        // TODO: Ask for refund address (?) -> NBExplorer en liquid mode for a new address not used (HOT)
+        // TODO: Ask for refund address (?) -> NBExplorer en liquid node for a new address not used (HOT)
         const refundKeyPair = ECPair.makeRandom({ network });
         const refundPubKey = refundKeyPair.publicKey;
 
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
-        const htlcScript = liquid.script.compile([
-            liquid.script.OPS.OP_SIZE,
-            liquid.script.number.encode(32),
-            liquid.script.OPS.OP_EQUAL,
-            liquid.script.OPS.OP_IF,
-              liquid.script.OPS.OP_HASH160,
-              liquid.crypto.ripemd160(preImageHash),
-              liquid.script.OPS.OP_EQUALVERIFY,
-              Buffer.from(request.destinationAddress, 'hex'),
-            liquid.script.OPS.OP_ELSE,
-              liquid.script.OPS.OP_DROP,
-              liquid.script.number.encode(timeoutBlockHeight),
-              liquid.script.OPS.OP_CHECKLOCKTIMEVERIFY,
-              liquid.script.OPS.OP_DROP,
-              refundPubKey,
-            liquid.script.OPS.OP_ENDIF,
-            liquid.script.OPS.OP_CHECKSIG,
-          ]);
+        const htlcScript = reverseSwapScript(preImageHash, refundPubKey, refundPubKey, timeoutBlockHeight);
 
         const p2wsh = liquid.payments.p2wsh({
             redeem: { output: htlcScript, network },
