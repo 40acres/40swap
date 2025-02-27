@@ -182,7 +182,9 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = new Decimal(request.inputAmount);
         if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException('invalid amount');
+            throw new BadRequestException(
+                `Invalid amount, must be between ${this.swapConfig.minimumAmount} and ${this.swapConfig.maximumAmount}`
+            );
         }
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
