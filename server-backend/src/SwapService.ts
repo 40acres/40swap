@@ -45,6 +45,13 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         this.swapConfig = config.getOrThrow('swap', { infer: true });
     }
 
+    getCheckedAmount(amount: Decimal): Decimal {
+        if (amount.lt(this.swapConfig.minimumAmount) || amount.gt(this.swapConfig.maximumAmount)) {
+            throw new BadRequestException('invalid amount');
+        }
+        return amount;
+    }
+
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
         if (request.chain !== 'BITCOIN') {
             throw new Error('not implemented'); // TODO
@@ -60,10 +67,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         assert(satoshis != null);
         const paymentHash = hashTag.data;
 
-        const outputAmount = new Decimal(satoshis).div(1e8).toDecimalPlaces(8);
-        if (outputAmount.lt(this.swapConfig.minimumAmount) || outputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException(`invalid amount ${outputAmount.toNumber()}`);
-        }
+        const outputAmount = this.getCheckedAmount(new Decimal(satoshis).div(1e8).toDecimalPlaces(8));
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
@@ -130,11 +134,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             throw new Error('not implemented'); // TODO
         }
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
-        const inputAmount = new Decimal(request.inputAmount);
-        if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException('invalid amount');
-        }
-
+        const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
@@ -179,20 +179,15 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async initiateLightningToLiquidSwap(request: SwapChainRequest): Promise<IntiateSwapFromLNToLQResponse> {
+        const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const claimPubKey = Buffer.from(request.claimPubKey, 'hex');
-        const inputAmount = new Decimal(request.inputAmount);
-        if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException(
-                `Invalid amount, must be between ${this.swapConfig.minimumAmount} and ${this.swapConfig.maximumAmount}`
-            );
-        }
+        const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-        const network = liquidNetwork;
         const refundHotWallet = await this.nbxplorer.generateHotWallet();
         const refundKeys = getKeysFromHotWallet(refundHotWallet);
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
