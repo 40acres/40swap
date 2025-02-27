@@ -29,6 +29,19 @@ const nbxplorerAddressSchema = z.object({
 });
 export type NBXplorerAddress = z.infer<typeof nbxplorerAddressSchema>;
 
+const nbxplorerHotWalletSchema = z.object({
+    mnemonic: z.string(),
+    passphrase: z.string(),
+    wordList: z.string(),
+    wordCount: z.number().int(),
+    masterHDKey: z.string(),
+    accountHDKey: z.string(),
+    accountKeyPath: z.string(),
+    accountDescriptor: z.string(),
+    derivationScheme: z.string(),
+});
+export type nbxplorerHotWallet = z.infer<typeof nbxplorerHotWalletSchema>;
+
 const nbxplorerUtxoListSchema = z.object({
     spentOutpoints: z.string().array(),
     utxOs: z.array(z.object({
@@ -223,6 +236,14 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/addresses/unused?${params}`)).json();
         return nbxplorerAddressSchema.parse(response);
     }
+
+    async generateHotWallet(): Promise<nbxplorerHotWallet> {
+        const response = await (await fetch(`${this.config.baseUrl}/derivations`, {
+            method: 'POST'
+        })).json();
+        return nbxplorerHotWalletSchema.parse(response);
+    }
+
     async getUTXOs(xpub: string): Promise<NBXplorerUtxosResponse> {
         const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/utxos`)).json();
         return nbxplorerUtxosResponseSchema.parse(response);

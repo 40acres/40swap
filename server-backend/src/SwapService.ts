@@ -189,15 +189,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-
         const network = liquidNetwork;
-        // TODO: Ask for refund address (?) -> NBExplorer en liquid node for a new address not used (HOT)
-        const refundKeyPair = ECPair.makeRandom({ network });
-        const refundPubKey = refundKeyPair.publicKey;
-
+        const hotWallet = await this.nbxplorer.generateHotWallet();
+        const refundPubKey = Buffer.from(hotWallet.derivationScheme, 'hex');
+        const claimPubKey = Buffer.from(request.destinationAddress, 'hex');
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
-        const htlcScript = reverseSwapScript(preImageHash, refundPubKey, refundPubKey, timeoutBlockHeight);
-
+        const htlcScript = reverseSwapScript(preImageHash, claimPubKey, refundPubKey, timeoutBlockHeight);
         const p2wsh = liquid.payments.p2wsh({
             redeem: { output: htlcScript, network },
             network,
