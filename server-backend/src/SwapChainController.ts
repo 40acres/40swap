@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Post, UsePipes } from '@nestjs/c
 import { IntiateSwapFromLNToLQResponse, swapChainRequestSchema } from '@40swap/shared';
 import { createZodDto, ZodValidationPipe } from '@anatine/zod-nestjs';
 import { ApiCreatedResponse } from '@nestjs/swagger';
-import { SwapService } from './SwapService';
+import { SwapService } from './SwapService.js';
 
 class SwapChainRequestDto extends createZodDto(swapChainRequestSchema) { }
 
