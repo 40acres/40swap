@@ -23,7 +23,7 @@ import { payments as liquidPayments } from 'liquidjs-lib';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import * as liquid from 'liquidjs-lib';
-import { reverseSwapScript } from './LiquidUtils.js';
+import { getKeysFromHotWallet, reverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -180,6 +180,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
     async initiateLightningToLiquidSwap(request: SwapChainRequest): Promise<IntiateSwapFromLNToLQResponse> {
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
+        const claimPubKey = Buffer.from(request.claimPubKey, 'hex');
         const inputAmount = new Decimal(request.inputAmount);
         if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
             throw new BadRequestException(
@@ -192,11 +193,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
         const network = liquidNetwork;
-        const hotWallet = await this.nbxplorer.generateHotWallet();
-        const refundPubKey = Buffer.from(hotWallet.derivationScheme, 'hex');
-        const claimPubKey = Buffer.from(request.destinationAddress, 'hex');
+        const refundHotWallet = await this.nbxplorer.generateHotWallet();
+        const refundKeys = getKeysFromHotWallet(refundHotWallet);
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
-        const htlcScript = reverseSwapScript(preImageHash, claimPubKey, refundPubKey, timeoutBlockHeight);
+        const htlcScript = reverseSwapScript(preImageHash, claimPubKey, Buffer.from(refundKeys.pubKey), timeoutBlockHeight);
         const p2wsh = liquid.payments.p2wsh({
             redeem: { output: htlcScript, network },
             network,
@@ -207,8 +207,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             hash: preImageHash.toString('hex'),
             liquidHtlcAddress: String(p2wsh.address),
             htlcScript: htlcScript.toString('hex'),
-            recipientAddress: request.destinationAddress,
-            refundPubKey: refundPubKey.toString('hex'),
+            claimPubKey: request.claimPubKey,
+            refundPubKey: Buffer.from(refundKeys.pubKey).toString('hex'),
             locktime: timeoutBlockHeight,
             amount: request.inputAmount,
         };
@@ -216,7 +216,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
     async claimTx(request: RedeemSwapFromLNToLQRequest): Promise<string> {
         const preimage = Buffer.from(request.hash, 'hex');
-        const destinationKeyPair = request.recipientAddress;
+        const destinationKeyPair = request.claimPubKey;
         if (!destinationKeyPair) {
             throw new Error("Destination key pair is required.");
         }

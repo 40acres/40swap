@@ -9,7 +9,12 @@
     "swap-frontend",
     "shared"
   ],
-  "engines" : { 
-    "node" : ">=22.0.0 <23.0.0"
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
+  },
+  "dependencies": {
+    "@types/bip32": "^2.0.4",
+    "bip32": "^5.0.0-rc.0",
+    "bip39": "^3.1.0"
   }
 }

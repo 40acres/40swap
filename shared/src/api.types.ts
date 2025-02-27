@@ -91,7 +91,7 @@ export const swapChainRequestSchema = z.object({
     originChain: chainSchema,
     destinationChain: chainSchema,
     inputAmount: z.number().positive(),
-    destinationAddress: z.string(),
+    claimPubKey: z.string(),
     preImageHash: z.string(),
 });
 export type SwapChainRequest = z.infer<typeof swapChainRequestSchema>;
@@ -101,7 +101,7 @@ export const intiateSwapFromLNToLQResponse = z.object({
     hash: z.string(),
     liquidHtlcAddress: z.string(),
     htlcScript: z.string(),
-    recipientAddress: z.string(),
+    claimPubKey: z.string(),
     refundPubKey: z.string(),
     locktime: z.number(),
     amount: z.number()

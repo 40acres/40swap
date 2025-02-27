@@ -1,5 +1,9 @@
-
+import BIP32Factory from 'bip32';
 import * as liquid from 'liquidjs-lib';
+import { nbxplorerHotWallet } from './NbxplorerService';
+import * as ecc from 'tiny-secp256k1';
+import * as bip39 from 'bip39';
+const bip32 = BIP32Factory(ecc);
 
 export function reverseSwapScript(
     preimageHash: Buffer,
@@ -26,4 +30,14 @@ export function reverseSwapScript(
         liquid.script.OPS.OP_CHECKSIG,
     ]);
     return htlcScript;
+}
+
+export function getKeysFromHotWallet(wallet: nbxplorerHotWallet): { pubKey: Uint8Array, privKey: Uint8Array } {
+    const seed = bip39.mnemonicToSeedSync(wallet.mnemonic, wallet.passphrase);
+    const root = bip32.fromSeed(seed);
+    const account = root.derivePath(wallet.accountKeyPath);
+    return {
+        pubKey: account.publicKey,
+        privKey: account.privateKey!,
+    }
 }
