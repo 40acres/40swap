@@ -178,7 +178,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         return swap;
     }
 
-    async initiateLightningToLiquidSwap(request: SwapChainRequest): Promise<IntiateSwapFromLNToLQResponse> {
+    async initiateLightningToLiquidSwap(request: SwapChainRequest): Promise<SwapOut> {
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const claimPubKey = Buffer.from(request.claimPubKey, 'hex');
@@ -189,7 +189,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
         const refundHotWallet = await this.nbxplorer.generateHotWallet();
-        const refundKeys = getKeysFromHotWallet(refundHotWallet);
+        const refundKeys = getKeysFromHotWallet(refundHotWallet, network);
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
         const htlcScript = reverseSwapScript(preImageHash, claimPubKey, Buffer.from(refundKeys.pubKey), timeoutBlockHeight);
         const p2wsh = liquid.payments.p2wsh({
