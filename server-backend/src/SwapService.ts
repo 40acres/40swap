@@ -197,30 +197,39 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             network,
         });
 
-        return {
+        const repository = this.dataSource.getRepository(SwapOut);
+        const swap = await repository.save({
+            id: base58Id(),
+            chain: request.destinationChain,
+            contractAddress: p2wsh.toString(), // TODO: define this in a better way
+            inputAmount,
+            outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
+            lockScript: null,
+            status: 'CREATED',
+            preImageHash,
             invoice,
-            hash: preImageHash.toString('hex'),
-            liquidHtlcAddress: String(p2wsh.address),
-            htlcScript: htlcScript.toString('hex'),
-            claimPubKey: request.claimPubKey,
-            refundPubKey: Buffer.from(refundKeys.pubKey).toString('hex'),
-            locktime: timeoutBlockHeight,
-            amount: request.inputAmount,
-        };
-    }
-
-    async claimTx(request: RedeemSwapFromLNToLQRequest): Promise<string> {
-        const preimage = Buffer.from(request.hash, 'hex');
-        const destinationKeyPair = request.claimPubKey;
-        if (!destinationKeyPair) {
-            throw new Error("Destination key pair is required.");
-        }
-        // const utxo = await this.getUtxoForAddress(request.liquidHtlcAddress);
-        // if (!utxo) {
-        //     throw new Error("No se encontró un UTXO para la dirección HTLC.");
-        // }
-        const pset = new liquid.Pset();
-        return pset.toBase64();
+            timeoutBlockHeight,
+            sweepAddress: await this.lnd.getNewAddress(),
+            unlockPrivKey: Buffer.from(refundKeys.privKey),
+            counterpartyPubKey: claimPubKey,
+            unlockTx: null,
+            preImage: null,
+            lockTx: null,
+            outcome: null,
+            lockTxHeight: 0,
+            unlockTxHeight: 0,
+        } satisfies Omit<SwapOut, 'createdAt' | 'modifiedAt'>);
+        const runner = new SwapOutRunner(
+            swap,
+            repository,
+            this.bitcoinConfig,
+            this.bitcoinService,
+            this.nbxplorer,
+            this.lnd,
+            this.swapConfig,
+        );
+        this.runAndMonitor(swap, runner);
+        return swap;
     }
 
     private async runAndMonitor(swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
