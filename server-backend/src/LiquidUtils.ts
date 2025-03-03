@@ -2,11 +2,10 @@ import BIP32Factory from 'bip32';
 import * as liquid from 'liquidjs-lib';
 import { nbxplorerHotWallet } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
-import * as bip39 from 'bip39';
 import { Network } from 'bitcoinjs-lib';
 const bip32 = BIP32Factory(ecc);
 
-export function reverseSwapScript(
+export function liquidReverseSwapScript(
     preimageHash: Buffer,
     claimPublicKey: Buffer,
     refundPublicKey: Buffer,

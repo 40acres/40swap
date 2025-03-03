@@ -22,7 +22,7 @@ export class SwapChainController {
         if (request.originChain !== 'LIGHTNING' || request.destinationChain !== 'LIQUID') {
             throw new BadRequestException('We only support swaps from LIGHTNING to LIQUID currently');
         }
-        const swap = await this.swapService.initiateLightningToLiquidSwap(request);
+        const swap = await this.swapService.createSwapOutLightningToLiquidSwap(request);
         return this.mapToResponse(swap);
     }
 

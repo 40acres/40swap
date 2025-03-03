@@ -22,8 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
-import * as liquid from 'liquidjs-lib';
-import { getKeysFromHotWallet, reverseSwapScript } from './LiquidUtils.js';
+import { getKeysFromHotWallet } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -178,7 +177,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         return swap;
     }
 
-    async initiateLightningToLiquidSwap(request: SwapChainRequest): Promise<SwapOut> {
+    async createSwapOutLightningToLiquidSwap(request: SwapChainRequest): Promise<SwapOut> {
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const claimPubKey = Buffer.from(request.claimPubKey, 'hex');
@@ -191,17 +190,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const refundHotWallet = await this.nbxplorer.generateHotWallet();
         const refundKeys = getKeysFromHotWallet(refundHotWallet, network);
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
-        const htlcScript = reverseSwapScript(preImageHash, claimPubKey, Buffer.from(refundKeys.pubKey), timeoutBlockHeight);
-        const p2wsh = liquid.payments.p2wsh({
-            redeem: { output: htlcScript, network },
-            network,
-        });
 
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
             chain: request.destinationChain,
-            contractAddress: p2wsh.toString(), // TODO: define this in a better way
+            contractAddress: null,
             inputAmount,
             outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             lockScript: null,
@@ -220,13 +214,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             unlockTxHeight: 0,
         } satisfies Omit<SwapOut, 'createdAt' | 'modifiedAt'>);
         const runner = new SwapOutRunner(
-            swap,
-            repository,
-            this.bitcoinConfig,
-            this.bitcoinService,
-            this.nbxplorer,
-            this.lnd,
-            this.swapConfig,
+            swap, repository, this.bitcoinConfig, this.bitcoinService, this.nbxplorer, this.lnd, this.swapConfig
         );
         this.runAndMonitor(swap, runner);
         return swap;
