@@ -1,11 +1,11 @@
 package models
 
 import (
-	"time"
+	"gorm.io/gorm"
 )
 
 type SwapOut struct {
-	ID                 uint       `gorm:"primaryKey;autoIncrement"`
+	gorm.Model
 	Status             SwapStatus `gorm:"type:status_enum;not null"`
 	AmountSATS         uint64     `gorm:"not null"`
 	DestinationAddress string     `gorm:"not null"`
@@ -17,8 +17,6 @@ type SwapOut struct {
 	PaymentRequest     string     `gorm:"not null"`
 	Description        *string    `gorm:"not null"`
 	MaxRoutingFeeRatio float64    `gorm:"not null"`
-	CreatedAt          time.Time  `gorm:"autoCreateTime"`
-	UpdatedAt          time.Time  `gorm:"autoUpdateTime"`
 }
 
 func (SwapOut) TableName() string {

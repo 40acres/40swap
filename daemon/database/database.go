@@ -3,11 +3,11 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/40acres/40swap/daemon/database/models"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -85,13 +85,23 @@ func (d *Database) Connect() any {
 	return db
 }
 
-func (d *Database) GetConnection() string {
+func (d *Database) GetHost() string {
 	host := "localhost"
 	if d.host != "embedded" {
 		host = d.host
 	}
 
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s database=%s sslmode=disable", host, d.port, d.username, d.password, d.database)
+	return host
+}
+
+func (d *Database) GetConnection() string {
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
+		d.GetHost(),
+		d.port,
+		d.username,
+		d.password,
+		d.database)
 }
 
 func (d *Database) StartDatabase() {
@@ -141,21 +151,24 @@ func (d *Database) Stop() {
 }
 
 func (d *Database) MigrateDatabase() error {
-	if enumErr := CreateEnumStatus(d.orm); enumErr != nil {
-		log.Fatalln("Could not create enum status:", enumErr)
-
-		return enumErr
-	}
-	if enumErr := CreateEnumChain(d.orm); enumErr != nil {
-		log.Fatalln("Could not create enum chain:", enumErr)
-
-		return enumErr
-	}
-	err := d.orm.AutoMigrate(&models.SwapOut{})
+	dbURL := fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		d.username, d.password, d.GetHost(), d.port, d.database)
+	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
+	statusOutput, err := statusCmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("Could not migrate models: %v", err)
+		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
+	}
 
-		return err
+	if !strings.Contains(string(statusOutput), "Already at latest version") {
+		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
+		applyOutput, err := applyCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))
+		}
+		log.Info("✅ Migrations applied successfully")
+	} else {
+		log.Info("✅ Database is up to date with migrations")
 	}
 
 	return nil
