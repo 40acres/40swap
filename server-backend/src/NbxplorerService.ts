@@ -209,8 +209,9 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerBalanceSchema.parse(response);
     }
 
-    async track(xpub: string): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/derivations/${xpub}`, { method: 'POST' });
+    async track(xpub: string, cryptoCode: string = 'btc'): Promise<void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/derivations/${xpub}`, { method: 'POST' });
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an error when tracking xpub');
         }
@@ -239,15 +240,17 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerAddressSchema.parse(response);
     }
 
-    async generateHotWallet(): Promise<nbxplorerHotWallet> {
-        const response = await (await fetch(`${this.config.baseUrl}/derivations`, {
-            method: 'POST'
+    async generateHotWallet(cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await (await fetch(`${url}/derivations`, {
+            method: 'POST',
         })).json();
         return nbxplorerHotWalletSchema.parse(response);
     }
 
-    async getUTXOs(xpub: string): Promise<NBXplorerUtxosResponse> {
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/utxos`)).json();
+    async getUTXOs(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerUtxosResponse | void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await (await fetch(`${url}/derivations/${xpub}/utxos`)).json();
         return nbxplorerUtxosResponseSchema.parse(response);
     }
 
