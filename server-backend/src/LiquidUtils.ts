@@ -1,6 +1,6 @@
 import BIP32Factory from 'bip32';
 import * as liquid from 'liquidjs-lib';
-import { nbxplorerHotWallet } from './NbxplorerService';
+import { nbxplorerHotWallet, NbxplorerService } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
 import { Network } from 'bitcoinjs-lib';
 const bip32 = BIP32Factory(ecc);
@@ -11,6 +11,7 @@ export function liquidReverseSwapScript(
     refundPublicKey: Buffer,
     timeoutBlockHeight: number,
 ): Buffer {
+    /* eslint-disable indent */
     const htlcScript = liquid.script.compile([
         liquid.script.OPS.OP_SIZE,
         liquid.script.number.encode(32),
@@ -40,5 +41,15 @@ export function getKeysFromHotWallet(wallet: nbxplorerHotWallet, network: Networ
     return {
         pubKey: account.publicKey,
         privKey: account.privateKey!,
-    }
+    };
+}
+
+export async function sendLiquidCoins(
+    address: string, 
+    amount: number, 
+    network: Network,
+    nbxplorer: NbxplorerService,
+    liquidXpub: string
+): Promise<string> {
+    return 'TODO';
 }
