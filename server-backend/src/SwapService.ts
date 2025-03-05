@@ -1,4 +1,4 @@
-import { getSwapInInputAmount, getSwapOutOutputAmount, IntiateSwapFromLNToLQResponse, RedeemSwapFromLNToLQRequest, SwapChainRequest, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import { getSwapInInputAmount, getSwapOutOutputAmount, SwapChainRequest, SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -187,7 +187,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-        const refundHotWallet = await this.nbxplorer.generateHotWallet();
+        const refundHotWallet = await this.nbxplorer.generateHotWallet('lbtc');
         const refundKeys = getKeysFromHotWallet(refundHotWallet, network);
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
 
@@ -241,6 +241,15 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async onApplicationBootstrap(): Promise<void> {
+        // Track the Liquid wallet in NBXplorer
+        try {
+            await this.nbxplorer.track(this.swapConfig.liquidXpub, 'lbtc');
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`Failed to get or track Liquid wallet: ${errorMessage}`);
+        }
+        
+        // Resume existing swaps
         const swapInRepository = this.dataSource.getRepository(SwapIn);
         const swapOutRepository = this.dataSource.getRepository(SwapOut);
         const resumableSwapIns = await swapInRepository.findBy({
