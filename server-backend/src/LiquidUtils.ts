@@ -2,9 +2,13 @@ import BIP32Factory from 'bip32';
 import * as liquid from 'liquidjs-lib';
 import { nbxplorerHotWallet, NbxplorerService } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
-import { Network, Psbt } from 'bitcoinjs-lib';
+import { Network } from 'bitcoinjs-lib';
+import { Psbt } from 'liquidjs-lib/src/psbt.js';
 import { liquid as liquidNetwork } from 'liquidjs-lib/src/networks.js';
+import { ECPairFactory } from 'ecpair';
+
 const bip32 = BIP32Factory(ecc);
+const ECPair = ECPairFactory(ecc);
 
 export function liquidReverseSwapScript(
     preimageHash: Buffer,
@@ -45,23 +49,82 @@ export function getKeysFromHotWallet(wallet: nbxplorerHotWallet, network: Networ
     };
 }
 
+export function satoshiToBuffer(value: number): Buffer {
+    const buf = Buffer.alloc(8);
+    buf.writeBigUInt64LE(BigInt(value));
+    return buf;
+}
+
 export async function buildLiquidPsbt(
-    xpub: string,
-    requiredAmount: number,       // amount (in satoshis) to send to the contract address
-    contractAddress: string,      // the address derived from your custom lockScript
-    changeAddress: string,        // your change address
-    network: typeof liquidNetwork,// e.g., liquid.network or liquid.regtest
+    xpub: string, requiredAmount: number,
+    contractAddress: string,
+    changeAddress: string,
+    network: typeof liquidNetwork,
+    signerPrivKey: Buffer,
     nbxplorer: NbxplorerService,
-    keyPair: {
-        pubKey: Uint8Array,
-        privKey: Uint8Array
-    },                            // key pair to sign the inputs
-  ): Promise<string> {
+  ): Promise<liquid.Transaction> {
     // get utxos from nbxplorer
     const utxoResponse = await nbxplorer.getUTXOs(xpub, 'lbtc');
-    if (!utxoResponse) throw new Error('No UTXOs returned from NBXplorer');
-  
-    const psbt = new Psbt({ network });
+    if (!utxoResponse) {
+        throw new Error('No UTXOs returned from NBXplorer');
+    }
 
-    return psbt.toHex();
-  }
+    const psbt = new Psbt({ network });
+    console.log(psbt);
+
+    // get confirmed utxos for input
+    const utxos = utxoResponse.confirmed.utxOs;
+    console.log(utxos);
+    let totalInputValue = 0;
+    const selectedUtxos = [];
+    for (const utxo of utxos) {
+        selectedUtxos.push(utxo);
+        totalInputValue += utxo.value;
+        if (totalInputValue >= requiredAmount) break;
+    }
+    if (totalInputValue < requiredAmount) {
+        throw new Error('Insufficient funds');
+    }
+
+    // // Add inputs to psbt
+    selectedUtxos.forEach((utxo) => {
+        psbt.addInput({
+            hash: utxo.transactionHash,
+            index: utxo.index,
+            witnessUtxo: {
+                script: Buffer.from(utxo.scriptPubKey, 'hex'),
+                value: satoshiToBuffer(utxo.value),
+                nonce: Buffer.alloc(32, 0),
+                asset: Buffer.from(network.assetHash, 'hex'),
+            },
+        });
+    });
+  
+    // Add an output sending the required amount to the contract address (derived from your lockScript)
+    psbt.addOutput({
+        script: liquid.address.toOutputScript(contractAddress, network),
+        value: satoshiToBuffer(requiredAmount),
+        nonce: Buffer.alloc(32, 0),
+        asset: Buffer.from(network.assetHash, 'hex'),
+    });
+  
+    // Add a change output
+    const changeValue = totalInputValue - requiredAmount;
+    if (changeValue > 0) {
+        psbt.addOutput({
+            script: liquid.address.toOutputScript(changeAddress, network),
+            value: satoshiToBuffer(changeValue),
+            nonce: Buffer.alloc(32, 0),
+            asset: Buffer.from(network.assetHash, 'hex'),
+        });
+    }
+  
+    // Sign each input with your keyPair
+    for (let i = 0; i < selectedUtxos.length; i++) {
+        psbt.signInput(i, ECPair.fromPrivateKey(signerPrivKey));
+    }
+  
+    // Finalize all inputs and extract the fully signed transaction
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction();
+}

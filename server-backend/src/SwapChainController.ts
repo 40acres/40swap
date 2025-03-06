@@ -26,6 +26,12 @@ export class SwapChainController {
         return this.mapToResponse(swap);
     }
 
+    @Post('/test')
+    @ApiCreatedResponse({ description: 'Create a swap between chains', type: GetSwapOutResponseDto })
+    async test(): Promise<void> {
+        await this.swapService.test();
+    }
+
     private mapToResponse(swap: SwapOut): GetSwapOutResponse {
         return {
             swapId: swap.id,

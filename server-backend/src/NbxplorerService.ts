@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, EntityManager } from 'typeorm';
 import { FourtySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 const nbxplorerBalanceSchema = z.object({
     unconfirmed: z.number(),
@@ -254,8 +255,9 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerUtxosResponseSchema.parse(response);
     }
 
-    async broadcastTx(tx: Transaction): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/transactions`, {
+    async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/transactions`, {
             method: 'POST',
             body: tx.toBuffer(),
         });

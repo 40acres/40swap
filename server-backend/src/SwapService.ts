@@ -228,6 +228,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         this.runningSwaps.delete(swap.id);
     }
 
+    async test(): Promise<void> {
+        const utxoResponse = await this.nbxplorer.getUTXOs(this.swapConfig.liquidXpub, 'lbtc');
+        if (!utxoResponse) throw new Error('No UTXOs returned from NBXplorer');
+        const utxos = utxoResponse.confirmed.utxOs;
+        console.log(utxoResponse);
+        console.log(utxos);
+    }
+
     @OnEvent('nbxplorer.newblock')
     private async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event));
