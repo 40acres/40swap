@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { liquidReverseSwapScript } from './LiquidUtils.js';
+import { buildLiquidPsbt, liquidReverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -104,7 +104,20 @@ export class SwapOutRunner {
                 swap.contractAddress = contractAddress;
                 await this.nbxplorer.trackAddress(contractAddress, 'lbtc');
                 this.swap = await this.repository.save(swap);
-                // TODO: Send coins to contract address using liquid
+                const keyPair = {
+                    pubKey: ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey,
+                    privKey: swap.unlockPrivKey,
+                };
+                const psbt = await buildLiquidPsbt(
+                    this.swapConfig.liquidXpub,
+                    swap.outputAmount.mul(1e8).toNumber(),
+                    contractAddress,
+                    swap.sweepAddress,
+                    network,
+                    this.nbxplorer,
+                    keyPair,
+                );
+                console.log(psbt);
             } else {
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,

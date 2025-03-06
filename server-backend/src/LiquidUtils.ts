@@ -2,7 +2,8 @@ import BIP32Factory from 'bip32';
 import * as liquid from 'liquidjs-lib';
 import { nbxplorerHotWallet, NbxplorerService } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
-import { Network } from 'bitcoinjs-lib';
+import { Network, Psbt } from 'bitcoinjs-lib';
+import { liquid as liquidNetwork } from 'liquidjs-lib/src/networks.js';
 const bip32 = BIP32Factory(ecc);
 
 export function liquidReverseSwapScript(
@@ -44,12 +45,23 @@ export function getKeysFromHotWallet(wallet: nbxplorerHotWallet, network: Networ
     };
 }
 
-export async function sendLiquidCoins(
-    address: string, 
-    amount: number, 
-    network: Network,
+export async function buildLiquidPsbt(
+    xpub: string,
+    requiredAmount: number,       // amount (in satoshis) to send to the contract address
+    contractAddress: string,      // the address derived from your custom lockScript
+    changeAddress: string,        // your change address
+    network: typeof liquidNetwork,// e.g., liquid.network or liquid.regtest
     nbxplorer: NbxplorerService,
-    liquidXpub: string
-): Promise<string> {
-    return 'TODO';
-}
+    keyPair: {
+        pubKey: Uint8Array,
+        privKey: Uint8Array
+    },                            // key pair to sign the inputs
+  ): Promise<string> {
+    // get utxos from nbxplorer
+    const utxoResponse = await nbxplorer.getUTXOs(xpub, 'lbtc');
+    if (!utxoResponse) throw new Error('No UTXOs returned from NBXplorer');
+  
+    const psbt = new Psbt({ network });
+
+    return psbt.toHex();
+  }
