@@ -57,6 +57,7 @@ export const configSchema = z.object({
         expiryDuration: z.string()
             .transform(d => moment.duration(d))
             .refine(d => d.toISOString() !== 'P0D'),
+        liquidXpriv: z.string(),
         liquidXpub: z.string(),
     }),
 });
