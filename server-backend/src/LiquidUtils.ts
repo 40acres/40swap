@@ -138,14 +138,15 @@ export async function buildLiquidPsbt(
     console.log(psbt);
   
     // Sign each input with your keyPair
-    for (const utxo of selectedUtxos) {
+    for (let i = 0; i < selectedUtxos.length; i++) {
+        const utxo = selectedUtxos[i];
         const node = bip32.fromBase58(xpriv, network);
         const child = node.derivePath(utxo.keyPath);
         if (!child.privateKey) {
-          throw new Error('No se pudo obtener la clave privada del nodo derivado');
+            throw new Error('Could not obtain private key from derived node');
         }
         const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey));
-        psbt.signInput(utxo.index, signingKeyPair);
+        psbt.signInput(i, signingKeyPair);
     }
     console.log('--------------------------------');
     console.log('Signed inputs');
@@ -162,4 +163,4 @@ export async function buildLiquidPsbt(
     console.log('--------------------------------');
     console.log('TX FINALIZED :)');
     return tx;
-}
+  }
