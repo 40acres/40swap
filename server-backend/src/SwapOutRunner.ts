@@ -106,14 +106,16 @@ export class SwapOutRunner {
                 this.swap = await this.repository.save(swap);
                 const psbtTx = await buildLiquidPsbt(
                     this.swapConfig.liquidXpub,
+                    this.swapConfig.liquidXpriv,
                     swap.outputAmount.mul(1e8).toNumber(),
                     contractAddress,
-                    swap.sweepAddress,
-                    network,
                     swap.unlockPrivKey,
+                    network,
                     this.nbxplorer,
                 );
-                await this.nbxplorer.broadcastTx(psbtTx);
+                console.log('--------------------------------');
+                console.log('PSBTTX: ', psbtTx);
+                await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
             } else {
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,

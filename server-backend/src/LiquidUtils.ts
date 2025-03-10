@@ -49,18 +49,13 @@ export function getKeysFromHotWallet(wallet: nbxplorerHotWallet, network: Networ
     };
 }
 
-export function satoshiToBuffer(value: number): Buffer {
-    const buf = Buffer.alloc(8);
-    buf.writeBigUInt64LE(BigInt(value));
-    return buf;
-}
-
 export async function buildLiquidPsbt(
-    xpub: string, requiredAmount: number,
+    xpub: string,
+    xpriv: string,
+    requiredAmount: number,
     contractAddress: string,
-    changeAddress: string,
+    unlockPrivKey: Buffer,
     network: typeof liquidNetwork,
-    signerPrivKey: Buffer,
     nbxplorer: NbxplorerService,
   ): Promise<liquid.Transaction> {
     // get utxos from nbxplorer
@@ -80,51 +75,91 @@ export async function buildLiquidPsbt(
     for (const utxo of utxos) {
         selectedUtxos.push(utxo);
         totalInputValue += utxo.value;
-        if (totalInputValue >= requiredAmount) break;
+        if (totalInputValue >= requiredAmount) {
+            break;
+        }
     }
     if (totalInputValue < requiredAmount) {
-        throw new Error('Insufficient funds');
+        throw new Error(`Insufficient funds, required ${requiredAmount} but only ${totalInputValue} available`);
     }
 
-    // // Add inputs to psbt
+    // Add inputs to psbt
     selectedUtxos.forEach((utxo) => {
         psbt.addInput({
             hash: utxo.transactionHash,
             index: utxo.index,
             witnessUtxo: {
                 script: Buffer.from(utxo.scriptPubKey, 'hex'),
-                value: satoshiToBuffer(utxo.value),
+                value: liquid.ElementsValue.fromNumber(utxo.value).bytes,
                 nonce: Buffer.alloc(32, 0),
-                asset: Buffer.from(network.assetHash, 'hex'),
+                asset: Buffer.concat([
+                    Buffer.from(network.assetHash, 'hex'),
+                    Buffer.alloc(1, 0),
+                ]),
             },
         });
     });
+    console.log('--------------------------------');
+    console.log('Added inputs');
+    console.log(psbt);
   
     // Add an output sending the required amount to the contract address (derived from your lockScript)
     psbt.addOutput({
         script: liquid.address.toOutputScript(contractAddress, network),
-        value: satoshiToBuffer(requiredAmount),
+        value: liquid.ElementsValue.fromNumber(requiredAmount).bytes,
         nonce: Buffer.alloc(32, 0),
-        asset: Buffer.from(network.assetHash, 'hex'),
+        asset: Buffer.concat([
+            Buffer.from(network.assetHash, 'hex'),
+            Buffer.alloc(1, 0),
+        ]),
     });
+    console.log('--------------------------------');
+    console.log('Added outputs');
+    console.log(psbt);
   
     // Add a change output
+    
     const changeValue = totalInputValue - requiredAmount;
     if (changeValue > 0) {
+        const keyPair = ECPair.fromPrivateKey(unlockPrivKey);
+        const changeP2wpkh = liquid.payments.p2wpkh({ pubkey: keyPair.publicKey, network });
         psbt.addOutput({
-            script: liquid.address.toOutputScript(changeAddress, network),
-            value: satoshiToBuffer(changeValue),
+            script: liquid.address.toOutputScript(changeP2wpkh.address!, network),
+            value: liquid.ElementsValue.fromNumber(changeValue).bytes,
             nonce: Buffer.alloc(32, 0),
-            asset: Buffer.from(network.assetHash, 'hex'),
+            asset: Buffer.concat([
+                Buffer.from(network.assetHash, 'hex'),
+                Buffer.alloc(1, 0),
+            ]),
         });
     }
+    console.log('--------------------------------');
+    console.log('Added change outputs');
+    console.log(psbt);
   
     // Sign each input with your keyPair
-    for (let i = 0; i < selectedUtxos.length; i++) {
-        psbt.signInput(i, ECPair.fromPrivateKey(signerPrivKey));
+    for (const utxo of selectedUtxos) {
+        const node = bip32.fromBase58(xpriv, network);
+        const child = node.derivePath(utxo.keyPath);
+        if (!child.privateKey) {
+          throw new Error('No se pudo obtener la clave privada del nodo derivado');
+        }
+        const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey));
+        psbt.signInput(utxo.index, signingKeyPair);
     }
+    console.log('--------------------------------');
+    console.log('Signed inputs');
+    console.log(psbt);
   
     // Finalize all inputs and extract the fully signed transaction
     psbt.finalizeAllInputs();
-    return psbt.extractTransaction();
+    console.log('Finalized inputs');
+    console.log(psbt);
+    console.log('--------------------------------');
+    console.log('Extracting transaction');
+    const tx = psbt.extractTransaction();
+    console.log('Transaction', tx);
+    console.log('--------------------------------');
+    console.log('TX FINALIZED :)');
+    return tx;
 }
