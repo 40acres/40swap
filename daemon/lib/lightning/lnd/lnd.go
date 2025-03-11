@@ -128,7 +128,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		closeConnection: func() {
 			err := conn.Close()
 			if err != nil {
-				fmt.Printf("error closing connection: %v\n", err)
+				log.WithError(err).Error("error closing connection")
 			}
 		},
 	}
