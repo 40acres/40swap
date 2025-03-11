@@ -103,7 +103,7 @@ func main() {
 						c.String("db-host"),
 					)
 					if err != nil {
-						log.Fatalf("❌ Could not connect to database: %v", err)
+						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
 					defer func() {
 						if err := db.Close(); err != nil {
