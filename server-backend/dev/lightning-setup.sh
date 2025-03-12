@@ -92,7 +92,7 @@ echo "$dev_config" > 40swap.lightning.yml
 pegin_result=$(40swap-elements-cli getpeginaddress)
 pegin_mainchain_address=$(echo -n $pegin_result | jq -r '.mainchain_address')
 pegin_claim_script=$(echo -n $res | jq -r '.claim_script')
-pegin_txid=$(40swap-bitcoin-cli -named sendtoaddress address=$pegin_mainchain_address amount=10.0035 fee_rate=25)
+pegin_txid=$(40swap-bitcoin-cli -named sendtoaddress address=$pegin_mainchain_address amount=100.0035 fee_rate=25)
 40swap-bitcoin-cli -generate 102
 pegin_rawtx=$(40swap-bitcoin-cli getrawtransaction $pegin_txid)
 pegin_proof=$(40swap-bitcoin-cli gettxoutproof '["'$pegin_txid'"]')
