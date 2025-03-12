@@ -87,7 +87,7 @@ export async function buildLiquidPsbt(
     network: typeof liquidNetwork,
     nbxplorer: NbxplorerService,
     blindingKey?: Buffer | undefined,
-  ): Promise<void> {
+  ): Promise<liquid.Transaction> {
     // get utxos from nbxplorer
     const utxoResponse = await nbxplorer.getUTXOs(xpub, 'lbtc');
     if (!utxoResponse) {
@@ -205,9 +205,37 @@ export async function buildLiquidPsbt(
 
     // finalize
     console.log('--------------------------------');
+    
+    const finalizer = new liquid.Finalizer(pset);
+
+    for (let i = 0; i < selectedUtxos.length; i++) {
+        const utxo = selectedUtxos[i];
+        finalizer.finalizeInput(i, () => {
+            const finals: {
+                finalScriptSig?: Buffer;
+                finalScriptWitness?: Buffer;
+            } = {};
+
+            finals.finalScriptSig = scriptBuffersToScript([
+                scriptBuffersToScript([
+                    getHexString(varuint.encode(liquid.script.OPS.OP_0)),
+                    liquid.crypto.sha256(Buffer.from(utxo.scriptPubKey!, 'hex')),
+                ]),
+            ]);
+
+            finals.finalScriptWitness = liquid.witnessStackToScriptWitness([
+                signatures[i],
+                Buffer.from(utxo.scriptPubKey!),
+            ]);
+            return finals;
+        });
+    }
+    console.log('PSET finalized');
+    console.log(pset);
 
     // extract transaction
     console.log('--------------------------------');
     const transaction = liquid.Extractor.extract(pset);
     console.log('Transaction: ', transaction);
+    return transaction;
   }
