@@ -3,12 +3,43 @@ import * as liquid from 'liquidjs-lib';
 import { nbxplorerHotWallet, NbxplorerService } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
 import { Network } from 'bitcoinjs-lib';
-import { Psbt } from 'liquidjs-lib/src/psbt.js';
 import { liquid as liquidNetwork } from 'liquidjs-lib/src/networks.js';
+import { varuint } from 'liquidjs-lib/src/bufferutils.js';
 import { ECPairFactory } from 'ecpair';
+import { Output } from 'liquidjs-lib/src/transaction';
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
+
+export type ScriptElement = Buffer | number | string;
+
+export const getHexString = (input: Buffer): string => {
+    return input.toString('hex');
+};
+
+export const getHexBuffer = (input: string): Buffer => {
+    return Buffer.from(input, 'hex');
+};
+
+export const scriptBuffersToScript = (elements: ScriptElement[]): Buffer => {
+    const buffers: Buffer[] = [];
+  
+    elements.forEach((element) => {
+        if (Buffer.isBuffer(element)) {
+            buffers.push(
+                Buffer.concat([
+                    Buffer.from(varuint.encode(element.length).buffer),
+                    element,
+                ]),
+            );
+        } else {
+            buffers.push(getHexBuffer(element.toString(16)));
+        }
+    });
+  
+    return Buffer.concat(buffers);
+};
+  
 
 export function liquidReverseSwapScript(
     preimageHash: Buffer,
@@ -54,27 +85,24 @@ export async function buildLiquidPsbt(
     xpriv: string,
     requiredAmount: number,
     contractAddress: string,
-    unlockPrivKey: Buffer,
     network: typeof liquidNetwork,
     nbxplorer: NbxplorerService,
-  ): Promise<liquid.Transaction> {
+    blindingKey?: Buffer | undefined,
+  ): Promise<void> {
     // get utxos from nbxplorer
     const utxoResponse = await nbxplorer.getUTXOs(xpub, 'lbtc');
     if (!utxoResponse) {
         throw new Error('No UTXOs returned from NBXplorer');
     }
 
-    const psbt = new Psbt({ network });
-    console.log(psbt);
-
     // get confirmed utxos for input
     const utxos = utxoResponse.confirmed.utxOs;
-    console.log(utxos);
+    // console.log(utxos);
     let totalInputValue = 0;
     const selectedUtxos = [];
     for (const utxo of utxos) {
         selectedUtxos.push(utxo);
-        totalInputValue += utxo.value;
+        totalInputValue += Number(utxo.value);
         if (totalInputValue >= requiredAmount) {
             break;
         }
@@ -83,84 +111,113 @@ export async function buildLiquidPsbt(
         throw new Error(`Insufficient funds, required ${requiredAmount} but only ${totalInputValue} available`);
     }
 
+    // Create a new pset
+    console.log('--------------------------------');
+    const pset = liquid.Creator.newPset();
+    const updater = new liquid.Updater(pset);
+    console.log('New PSET');
+    console.log(pset);
+
     // Add inputs to psbt
-    selectedUtxos.forEach((utxo) => {
-        psbt.addInput({
-            hash: utxo.transactionHash,
-            index: utxo.index,
-            witnessUtxo: {
-                script: Buffer.from(utxo.scriptPubKey, 'hex'),
-                value: liquid.ElementsValue.fromNumber(utxo.value).bytes,
-                nonce: Buffer.alloc(32, 0),
-                asset: Buffer.concat([
-                    Buffer.from(network.assetHash, 'hex'),
-                    Buffer.alloc(1, 0),
-                ]),
-            },
-        });
-    });
     console.log('--------------------------------');
-    console.log('Added inputs');
-    console.log(psbt);
-  
-    // Add an output sending the required amount to the contract address (derived from your lockScript)
-    psbt.addOutput({
-        script: liquid.address.toOutputScript(contractAddress, network),
-        value: liquid.ElementsValue.fromNumber(requiredAmount).bytes,
-        nonce: Buffer.alloc(32, 0),
-        asset: Buffer.concat([
-            Buffer.from(network.assetHash, 'hex'),
-            Buffer.alloc(1, 0),
-        ]),
-    });
-    console.log('--------------------------------');
-    console.log('Added outputs');
-    console.log(psbt);
-  
-    // Add a change output
-    
-    const changeValue = totalInputValue - requiredAmount;
-    if (changeValue > 0) {
-        const keyPair = ECPair.fromPrivateKey(unlockPrivKey);
-        const changeP2wpkh = liquid.payments.p2wpkh({ pubkey: keyPair.publicKey, network });
-        psbt.addOutput({
-            script: liquid.address.toOutputScript(changeP2wpkh.address!, network),
-            value: liquid.ElementsValue.fromNumber(changeValue).bytes,
-            nonce: Buffer.alloc(32, 0),
-            asset: Buffer.concat([
-                Buffer.from(network.assetHash, 'hex'),
-                Buffer.alloc(1, 0),
-            ]),
-        });
-    }
-    console.log('--------------------------------');
-    console.log('Added change outputs');
-    console.log(psbt);
-  
-    // Sign each input with your keyPair
-    for (let i = 0; i < selectedUtxos.length; i++) {
-        const utxo = selectedUtxos[i];
-        const node = bip32.fromBase58(xpriv, network);
-        const child = node.derivePath(utxo.keyPath);
-        if (!child.privateKey) {
-            throw new Error('Could not obtain private key from derived node');
+    await Promise.all(selectedUtxos.map(async (utxo, i) => {
+        const {transaction: tx} = await nbxplorer.getWalletTransaction(xpub, utxo.transactionHash, 'lbtc');
+        const liquidTx = liquid.Transaction.fromBuffer(Buffer.from(tx, 'hex'));
+        const input = new liquid.CreatorInput(utxo.transactionHash, utxo.value);
+        pset.addInput(input.toPartialInput());
+        updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
+        // updater.addInNonWitnessUtxo(i, liquidTx);
+        
+        // Make sure the previous output is correctly referenced
+        if (!utxo.scriptPubKey) {
+            throw new Error(`Missing scriptPubKey for input ${i}`);
         }
-        const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey));
-        psbt.signInput(i, signingKeyPair);
-    }
+        
+        updater.addInRedeemScript(
+          i,
+          scriptBuffersToScript([
+            scriptBuffersToScript([
+              getHexString(varuint.encode(liquid.script.OPS.OP_0)), 
+              liquid.crypto.sha256(Buffer.from(utxo.scriptPubKey, 'hex')),
+            ]),
+          ]),
+        );
+        
+        updater.addInWitnessUtxo(i, {
+            ...utxo,
+            script: Buffer.from(utxo.scriptPubKey, 'hex'),
+            value: Buffer.from(liquid.ElementsValue.fromNumber(Number(utxo.value)).bytes),
+            asset: Buffer.from(network.assetHash, 'hex'),
+            nonce: Buffer.from([0x00]),
+        });
+        updater.addInWitnessScript(i, Buffer.from(utxo.scriptPubKey, 'hex'));
+    }));
+
+    console.log('Added inputs');
+    console.log(pset);
+
+    // Add outputs
     console.log('--------------------------------');
-    console.log('Signed inputs');
-    console.log(psbt);
-  
-    // Finalize all inputs and extract the fully signed transaction
-    psbt.finalizeAllInputs();
-    console.log('Finalized inputs');
-    console.log(psbt);
+    const claimOutput = new liquid.CreatorOutput(
+        network.assetHash,
+        liquid.ElementsValue.fromNumber(Number(requiredAmount)).number,
+        Buffer.from(contractAddress, 'hex'),
+        blindingKey !== undefined ? Buffer.from(blindingKey) : undefined,
+        blindingKey !== undefined ? 0 : undefined
+    );
+    updater.addOutputs([claimOutput]);
+
+    console.log('Added outputs');
+    console.log(pset);
+
+    // Add change output
     console.log('--------------------------------');
-    console.log('Extracting transaction');
-    const tx = psbt.extractTransaction();
-    console.log('Transaction', tx);
-    console.log('--------------------------------');
-    console.log('TX FINALIZED :)');
-    return tx;
+    // TODO: check if change address is already in swap object
+    const changeAddress = await nbxplorer.getUnusedAddress(xpub, 'lbtc', { change: true });
+    console.log('Change address:', changeAddress);
+    const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, network);
+    const changeOutput = new liquid.CreatorOutput(
+        network.assetHash,
+        liquid.ElementsValue.fromNumber(Number(totalInputValue - requiredAmount)).number,
+        changeOutputScript,
+        blindingKey !== undefined ? Buffer.from(blindingKey) : undefined,
+        blindingKey !== undefined ? 0 : undefined
+    );
+    updater.addOutputs([changeOutput]);
+
+    console.log('Added change output');
+    console.log(pset);
+
+    // Sign inputs
+    // console.log('--------------------------------');
+    // const signer = new liquid.Signer(pset);
+    // const signatures: Buffer[] = [];
+
+    // for (let i = 0; i < selectedUtxos.length; i++) {
+    //     const utxo = selectedUtxos[i];
+    //     const node = bip32.fromBase58(xpriv, network);
+    //     const child = node.derivePath(utxo.keyPath);
+    //     if (!child.privateKey) {
+    //         throw new Error('Could not obtain private key from derived node');
+    //     }
+    //     const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey));
+    //     const signature = liquid.script.signature.encode(
+    //         signingKeyPair.sign(pset.getInputPreimage(i, liquid.Transaction.SIGHASH_ALL)),
+    //         liquid.Transaction.SIGHASH_ALL,
+    //     );
+    //     signatures.push(signature);
+    //     signer.addSignature(
+    //         i,
+    //         {
+    //             partialSig: {
+    //                 pubkey: signingKeyPair.publicKey,
+    //                 signature,
+    //             },
+    //         },
+    //         liquid.Pset.ECDSASigValidator(ecc),
+    //     );
+    // }
+
+    // console.log('Signed inputs');
+    // console.log(pset);
   }
