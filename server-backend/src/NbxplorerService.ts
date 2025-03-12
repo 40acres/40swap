@@ -111,6 +111,43 @@ const nbxplorerWalletTransactionsResponseSchema = z.object({
 });
 export type NBXplorerWalletTransactions = z.infer<typeof nbxplorerWalletTransactionsResponseSchema>;
 
+interface NBXplorerLiquidAssetValue {
+    assetId: string;
+    value: number;
+}
+
+interface NBXplorerLiquidTransactionOutput {
+    keyPath: string;
+    scriptPubKey: string;
+    index: number;
+    feature: string | null;
+    value: NBXplorerLiquidAssetValue;
+    address: string;
+}
+
+interface NBXplorerLiquidTransactionInput {
+    prevout: string;
+    scriptSig: string;
+    witness: string[];
+    sequence: number;
+}
+
+export interface NBXplorerLiquidWalletTransaction {
+    blockHash: string;
+    confirmations: number;
+    height: number;
+    isMature: boolean;
+    transactionId: string;
+    transaction: string;
+    outputs: NBXplorerLiquidTransactionOutput[];
+    inputs: NBXplorerLiquidTransactionInput[]; 
+    timestamp: number;
+    balanceChange: NBXplorerLiquidAssetValue[];
+    replacedBy: string | null;
+    replacing: string | null;
+    replaceable: boolean;
+}
+
 const nbxplorerFeeRateResponseSchema = z.object({
     feeRate: z.number().positive(),
     blockCount: z.number().int().positive(),
@@ -218,8 +255,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    async trackAddress(address: string, cryptoCore: string = 'btc'): Promise<void> {
-        const url = this.config.baseUrl.replace('btc', cryptoCore);
+    async trackAddress(address: string, cryptoCode: string = 'btc'): Promise<void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
         const response = await fetch(`${url}/addresses/${address}`, { method: 'POST' });
         console.log(address);
         if (response.status >= 300) {
@@ -227,17 +264,18 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    async getUnusedAddress(xpub: string, opts?: {
+    async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
         change?: boolean,
-        reserve?: boolean
+        reserve?: boolean,
     }): Promise<NBXplorerAddress> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
         const change = opts?.change ?? false;
         const reserve = opts?.reserve ?? false;
         const params = new URLSearchParams({
             feature: change ? 'Change' : 'Deposit',
             reserve: reserve.toString(),
         });
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/addresses/unused?${params}`)).json();
+        const response = await (await fetch(`${url}/derivations/${xpub}/addresses/unused?${params}`)).json();
         return nbxplorerAddressSchema.parse(response);
     }
 
@@ -268,8 +306,9 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    async getTx(id: string): Promise<NBXplorerTransaction|null> {
-        const response = await fetch(`${this.config.baseUrl}/transactions/${id}`, {
+    async getTx(id: string, cryptoCode: string = 'btc'): Promise<NBXplorerTransaction|null> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/transactions/${id}`, {
             method: 'GET',
         });
         if (response.status === 404) {
@@ -305,6 +344,16 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerWalletTransactionsResponseSchema.parse(await response.json());
     }
 
+    async getWalletTransaction(xpub: string, txId: string, cryptoCode: string = 'lbtc'): Promise<NBXplorerLiquidWalletTransaction> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/derivations/${xpub}/transactions/${txId}`, {
+            method: 'GET',
+        });
+        if (response.status >= 300) {
+            throw new Error(`nbxplorer threw an error when fetching a transaction: ${txId}`);
+        }
+        return response.json() as Promise<NBXplorerLiquidWalletTransaction>;
+    }
 
     private abortController?: AbortController;
 
