@@ -4,7 +4,6 @@ go 1.23
 
 require (
 	github.com/fergusstrange/embedded-postgres v1.30.0
-	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/sirupsen/logrus v1.9.3

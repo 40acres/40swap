@@ -29,16 +29,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// gRPC server
-	port := 50051
-	server := rpc.NewRPCServer(port)
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatalf("couldn't start server: %v", err)
-		}
-	}()
-
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
@@ -84,6 +74,7 @@ func main() {
 				Usage: "Database path",
 				Value: "./.data",
 			},
+			&grpcPort,
 		},
 		Commands: []*cli.Command{
 			{
@@ -94,6 +85,12 @@ func main() {
 					if err != nil {
 						return err
 					}
+
+					grpcPort, err := validatePort(c.Int("grpc-port"))
+					if err != nil {
+						return err
+					}
+
 					db, closeDb, err := database.NewDatabase(
 						c.String("db-user"),
 						c.String("db-password"),
@@ -119,6 +116,15 @@ func main() {
 					} else {
 						log.Info("🔍 Skipping database migration")
 					}
+
+					// gRPC server
+					server := rpc.NewRPCServer(grpcPort, db)
+					go func() {
+						err := server.ListenAndServe()
+						if err != nil {
+							log.Fatalf("couldn't start server: %v", err)
+						}
+					}()
 
 					err = daemon.Start(ctx, db)
 					if err != nil {
@@ -162,4 +168,19 @@ func main() {
 	if app_err != nil {
 		log.Fatal(app_err)
 	}
+}
+
+var regtest = cli.BoolFlag{
+	Name:  "regtest",
+	Usage: "Use regtest network",
+}
+var testnet = cli.BoolFlag{
+	Name:  "testnet",
+	Usage: "Use testnet network",
+}
+
+var grpcPort = cli.IntFlag{
+	Name:  "grpc-port",
+	Usage: "Grpc port for client to daemon communication",
+	Value: 50051,
 }
