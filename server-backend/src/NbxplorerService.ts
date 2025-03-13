@@ -258,7 +258,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     async trackAddress(address: string, cryptoCode: string = 'btc'): Promise<void> {
         const url = this.config.baseUrl.replace('btc', cryptoCode);
         const response = await fetch(`${url}/addresses/${address}`, { method: 'POST' });
-        console.log(address);
         if (response.status >= 300) {
             throw new Error(`nbxplorer threw an error when tracking xpub: ${address}`);
         }
