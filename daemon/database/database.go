@@ -38,18 +38,12 @@ type Database struct {
 	orm      *gorm.DB
 }
 
-type EmbeddedDatabase struct {
-	Database
-	postgres *embeddedpostgres.EmbeddedPostgres
-}
-
 type Client interface {
-	Close() error
 	MigrateDatabase() error
 	ORM() *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port uint32, dataPath string, host string) (Client, error) {
+func NewDatabase(username, password, database string, port uint32, dataPath string, host string) (*Database, func() error, error) {
 	db := Database{
 		host:     host,
 		username: username,
@@ -59,6 +53,7 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 		dataPath: dataPath,
 	}
 
+	close := db.close
 	if host == "embedded" {
 		postgres, err := newEmbeddedDatabase(
 			username,
@@ -67,31 +62,35 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 			port,
 			dataPath)
 		if err != nil {
-			return nil, fmt.Errorf("could not connect to embedded database: %w", err)
+			return nil, nil, fmt.Errorf("could not connect to embedded database: %w", err)
 		}
 
-		embeddedDB := &EmbeddedDatabase{
-			Database: db,
-			postgres: postgres,
-		}
+		close = func() error {
+			if err := db.close(); err != nil {
+				return fmt.Errorf("Could not close database connection: %w", err)
+			}
 
-		// Connect to GORM for the embedded database
-		orm, err := embeddedDB.getGorm()
-		if err != nil {
-			return nil, fmt.Errorf("could not get GORM for embedded database: %w", err)
-		}
-		embeddedDB.orm = orm
+			if err := postgres.Stop(); err != nil {
+				if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(port) {
+					killPostgres(port)
 
-		return embeddedDB, nil
+					return nil
+				}
+
+				return fmt.Errorf("Could not stop embedded database: %w", err)
+			}
+
+			return nil
+		}
 	}
 
 	orm, err := db.getGorm()
 	if err != nil {
-		return nil, fmt.Errorf("could not get GORM: %w", err)
+		return nil, nil, fmt.Errorf("could not get GORM: %w", err)
 	}
 	db.orm = orm
 
-	return &db, nil
+	return &db, close, nil
 }
 
 func (d *Database) getConnection() string {
@@ -118,7 +117,7 @@ func (d *Database) ORM() *gorm.DB {
 	return d.orm
 }
 
-func (d *Database) Close() error {
+func (d *Database) close() error {
 	db, err := d.orm.DB()
 	if err != nil {
 		return fmt.Errorf("Could not get database connection: %w", err)
@@ -171,24 +170,6 @@ func newEmbeddedDatabase(username, password, database string, port uint32, dataP
 	log.Info("✅ DB started")
 
 	return postgres, nil
-}
-
-func (d *EmbeddedDatabase) Close() error {
-	if err := d.Database.Close(); err != nil {
-		return fmt.Errorf("Could not close database connection: %w", err)
-	}
-
-	if err := d.postgres.Stop(); err != nil {
-		if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(d.port) {
-			killPostgres(d.port)
-
-			return nil
-		}
-
-		return fmt.Errorf("Could not stop embedded database: %w", err)
-	}
-
-	return nil
 }
 
 func isPostgresRunning(port uint32) bool {
