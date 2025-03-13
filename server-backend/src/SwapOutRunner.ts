@@ -99,22 +99,21 @@ export class SwapOutRunner {
                     swap.timeoutBlockHeight
                 );
                 const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-                const { address: contractAddress } = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
-                assert(contractAddress != null);
-                swap.contractAddress = contractAddress;
-                await this.nbxplorer.trackAddress(contractAddress, 'lbtc');
+                const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
+                assert(p2wsh.address != null);
+                swap.contractAddress = p2wsh.address;
+                await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 this.swap = await this.repository.save(swap);
                 const psbtTx = await buildLiquidPsbt(
                     this.swapConfig.liquidXpub,
                     this.swapConfig.liquidXpriv,
                     swap.outputAmount.mul(1e8).toNumber(),
-                    contractAddress,
-                    swap.unlockPrivKey,
+                    p2wsh.address,
                     network,
                     this.nbxplorer,
+                    p2wsh.blindkey, // TODO: add blinding key
+                    swap.timeoutBlockHeight,
                 );
-                console.log('--------------------------------');
-                console.log('PSBTTX: ', psbtTx);
                 await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
             } else {
                 swap.lockScript = reverseSwapScript(
