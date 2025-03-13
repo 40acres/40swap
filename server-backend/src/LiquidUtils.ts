@@ -89,15 +89,14 @@ export async function buildLiquidPsbt(
     blindingKey?: Buffer | undefined,
     timeoutBlockHeight?: number,
   ): Promise<liquid.Transaction> {
-    // get utxos from nbxplorer
+    // Get utxos
     const utxoResponse = await nbxplorer.getUTXOs(xpub, 'lbtc');
     if (!utxoResponse) {
         throw new Error('No UTXOs returned from NBXplorer');
     }
 
-    // get confirmed utxos for input
+    // Get confirmed utxos
     const utxos = utxoResponse.confirmed.utxOs;
-    // console.log(utxos);
     let totalInputValue = 0;
     const commision = 1000; // 0.1% TODO: get from other source
     const selectedUtxos = [];
@@ -113,14 +112,10 @@ export async function buildLiquidPsbt(
     }
 
     // Create a new pset
-    console.log('--------------------------------');
     const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
     const updater = new liquid.Updater(pset);
-    console.log('New PSET');
-    console.log(pset);
 
-    // Add inputs
-    console.log('--------------------------------');
+    // Add inputs   
     await Promise.all(selectedUtxos.map(async (utxo, i) => {
         const walletTx = await nbxplorer.getWalletTransaction(xpub, utxo.transactionHash, 'lbtc');
         const liquidTx = liquid.Transaction.fromBuffer(Buffer.from(walletTx.transaction, 'hex'));
@@ -128,15 +123,10 @@ export async function buildLiquidPsbt(
         const input = new liquid.CreatorInput(liquidTx.getId(), utxo.index, sequence);
         pset.addInput(input.toPartialInput());
         updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
-        updater.addInNonWitnessUtxo(i, liquidTx);        
-        // updater.addInRedeemScript(i, Buffer.from(utxo.scriptPubKey, 'hex'));
+        updater.addInNonWitnessUtxo(i, liquidTx);
     }));
 
-    console.log('Added inputs');
-    console.log(pset);
-
     // Add outputs
-    console.log('--------------------------------');
     const claimOutputScript = liquid.address.toOutputScript(contractAddress, network);
     const claimOutput = new liquid.CreatorOutput(
         network.assetHash,
@@ -147,12 +137,7 @@ export async function buildLiquidPsbt(
     );
     updater.addOutputs([claimOutput]);
 
-    console.log('Added outputs');
-    console.log(pset);
-
     // Add change output
-    console.log('--------------------------------');
-    // TODO: check if change address is already in swap object
     const changeAddress = await nbxplorer.getUnusedAddress(xpub, 'lbtc', { change: true });
     const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, network);
     const changeOutput = new liquid.CreatorOutput(
@@ -164,19 +149,11 @@ export async function buildLiquidPsbt(
     );
     updater.addOutputs([changeOutput]);
 
-    console.log('Added change output');
-    console.log(pset);
-
     // Add fee output
-    console.log('--------------------------------');
     const feeOutput = new liquid.CreatorOutput(network.assetHash, liquid.ElementsValue.fromNumber(Number(commision)).number);
     updater.addOutputs([feeOutput]);
 
-    console.log('Added fee output');
-    console.log(pset);
-
     // Sign inputs
-    console.log('--------------------------------');
     const signer = new liquid.Signer(pset);
     const signatures: Buffer[] = [];
     const signingKeys: ECPairInterface[] = [];
@@ -208,12 +185,7 @@ export async function buildLiquidPsbt(
         );
     }
 
-    console.log('Signed inputs');
-    console.log(pset);
-
     // finalize
-    console.log('--------------------------------');
-    
     const finalizer = new liquid.Finalizer(pset);
 
     for (let i = 0; i < selectedUtxos.length; i++) {
@@ -229,11 +201,8 @@ export async function buildLiquidPsbt(
             return finals;
         });
     }
-    console.log('PSET finalized');
-    console.log(pset);
 
     // extract transaction
-    console.log('--------------------------------');
     const transaction = liquid.Extractor.extract(pset);
     console.log('Transaction hex: ', transaction.toHex());
     return transaction;
