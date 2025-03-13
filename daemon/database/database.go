@@ -86,6 +86,10 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 
 	orm, err := db.getGorm()
 	if err != nil {
+		if closeErr := close(); closeErr != nil {
+			return nil, nil, fmt.Errorf("could not close database: %w", closeErr)
+		}
+
 		return nil, nil, fmt.Errorf("could not get GORM: %w", err)
 	}
 	db.orm = orm
