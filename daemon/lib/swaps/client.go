@@ -23,8 +23,8 @@ type SwapOutResponse struct {
 	SwapId             string            `json:"swapId"`
 	TimeoutBlockHeight int               `json:"timeoutBlockHeight"`
 	Invoice            string            `json:"invoice"`
-	InputAmountSATS    uint64            `json:"inputAmountSATS"`
-	OutputAmountSATS   uint64            `json:"outputAmountSATS"`
+	InputAmount        decimal.Decimal   `json:"inputAmount"`
+	OutputAmount       decimal.Decimal   `json:"outputAmount"`
 	Status             models.SwapStatus `json:"status"`
 	CreatedAt          time.Time         `json:"createdAt"`
 }
