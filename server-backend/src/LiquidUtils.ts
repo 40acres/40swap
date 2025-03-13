@@ -116,25 +116,14 @@ export class LiquidPSETBuilder {
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
 
         // Create a new pset
-        const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
-        const updater = new liquid.Updater(pset);
+        const pset = this.getNewPset(timeoutBlockHeight);
+        const updater = this.getNewUpdater(pset);
 
         // Add inputs to pset
         await this.addInputs(utxos, pset, updater, timeoutBlockHeight);
 
-        // Add claim output to pset
-        const claimOutputScript = liquid.address.toOutputScript(contractAddress, network);
-        this.addOutputs(network, updater, getLiquidNumber(requiredAmount), claimOutputScript, blindingKey);
-
-        // Add change output to pset
-        const changeAddress = await this.nbxplorer.getUnusedAddress(this.swapConfig.liquidXpub, 'lbtc', { change: true });
-        const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, network);
-        const changeAmount = getLiquidNumber(totalInputValue - requiredAmount - commision);
-        this.addOutputs(network, updater, changeAmount, changeOutputScript, blindingKey);
-
-        // Add fee output to pset
-        const feeAmount = getLiquidNumber(commision);
-        this.addOutputs(network, updater, feeAmount);
+        // Add required outputs (claim, change, fee) to pset
+        await this.addRequiredOutputs(requiredAmount, contractAddress, network, commision, totalInputValue, updater, blindingKey);
 
         // Sign pset inputs
         const signer = new liquid.Signer(pset);
@@ -148,6 +137,14 @@ export class LiquidPSETBuilder {
         const transaction = liquid.Extractor.extract(pset);
         console.log('Transaction hex: ', transaction.toHex());
         return transaction;
+    }
+
+    getNewPset(timeoutBlockHeight?: number): liquid.Pset {
+        return liquid.Creator.newPset({locktime: timeoutBlockHeight ?? 0});
+    }
+
+    getNewUpdater(pset: liquid.Pset): liquid.Updater {
+        return new liquid.Updater(pset);
     }
 
     async addInputs(
@@ -167,7 +164,31 @@ export class LiquidPSETBuilder {
         });
     }
 
-    addOutputs(
+    async addRequiredOutputs(
+        requiredAmount: number,
+        contractAddress: string,
+        network: typeof liquidNetwork,
+        commision: number,
+        totalInputValue: number,
+        updater: liquid.Updater,
+        blindingKey?: Buffer | undefined,
+    ): Promise<void> {
+        // Add claim output to pset
+        const claimOutputScript = liquid.address.toOutputScript(contractAddress, network);
+        this.addOutput(network, updater, getLiquidNumber(requiredAmount), claimOutputScript, blindingKey);
+
+        // Add change output to pset
+        const changeAddress = await this.nbxplorer.getUnusedAddress(this.swapConfig.liquidXpub, 'lbtc', { change: true });
+        const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, network);
+        const changeAmount = getLiquidNumber(totalInputValue - requiredAmount - commision);
+        this.addOutput(network, updater, changeAmount, changeOutputScript, blindingKey);
+
+        // Add fee output to pset
+        const feeAmount = getLiquidNumber(commision);
+        this.addOutput(network, updater, feeAmount);
+    }
+
+    addOutput(
         network: typeof liquidNetwork,
         updater: liquid.Updater,
         amount: number, 
