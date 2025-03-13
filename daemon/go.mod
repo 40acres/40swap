@@ -1,6 +1,9 @@
 module github.com/40acres/40swap/daemon
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.1
+
 require (
 	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/lib/pq v1.10.9
