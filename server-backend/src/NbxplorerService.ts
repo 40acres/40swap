@@ -306,10 +306,11 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         // TODO apparently nbxplorer does not fail if the tx is invalid, it just logs an error
         // we should probably fix it in nbxplorer itself
 
-        // TODO: remove this once we have a better way to check the tx broadcasted result
-        const body = await response.json();
-        console.log('tx broadcasted result: ', body);
-
+        // TODO: remove this once we have a better way to check the tx broadcasted result. PS: tested only with liquid.
+        const body = await response.json() as { success?: boolean };
+        if (!body.success) {
+            console.log('tx broadcast result: ', body);
+        }
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when broadcasting a transaction');
         }

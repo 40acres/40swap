@@ -3,7 +3,6 @@ import * as liquid from 'liquidjs-lib';
 import { nbxplorerHotWallet, NbxplorerService, NBXplorerUtxo } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
 import { Network } from 'bitcoinjs-lib';
-import { liquid as liquidNetwork } from 'liquidjs-lib/src/networks.js';
 import { varuint } from 'liquidjs-lib/src/bufferutils.js';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { FourtySwapConfiguration } from './configuration';
@@ -96,22 +95,21 @@ export class LiquidPSETBuilder {
     private liquidService: LiquidService;
     private signatures: Buffer[] = [];
     private signingKeys: ECPairInterface[] = [];
+    private network: liquid.networks.Network;
 
     constructor(
         private nbxplorer: NbxplorerService,
-        private swapConfig: FourtySwapConfiguration['swap']
+        private swapConfig: FourtySwapConfiguration['swap'],
+        network: liquid.networks.Network,
     ) {
+        this.network = network;
         this.liquidService = new LiquidService(nbxplorer, swapConfig);
     }
 
     async buildLiquidPsbtTransaction(
-        requiredAmount: number,
-        contractAddress: string,
-        network: typeof liquidNetwork,
-        blindingKey?: Buffer | undefined,
-        timeoutBlockHeight?: number,
+        requiredAmount: number, contractAddress: string, blindingKey?: Buffer | undefined, timeoutBlockHeight?: number
     ): Promise<liquid.Transaction> {
-        const commision = 1000; // 0.1% TODO: get from other source
+        const commision = this.getCommissionAmount();
         const totalAmount = requiredAmount + commision;
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
 
@@ -123,11 +121,11 @@ export class LiquidPSETBuilder {
         await this.addInputs(utxos, pset, updater, timeoutBlockHeight);
 
         // Add required outputs (claim, change, fee) to pset
-        await this.addRequiredOutputs(requiredAmount, contractAddress, network, commision, totalInputValue, updater, blindingKey);
+        await this.addRequiredOutputs(requiredAmount, contractAddress, commision, totalInputValue, updater, blindingKey);
 
         // Sign pset inputs
         const signer = new liquid.Signer(pset);
-        await this.signInputs(utxos, pset, signer, network);
+        await this.signInputs(utxos, pset, signer);
 
         // Finalize pset
         const finalizer = new liquid.Finalizer(pset);
@@ -135,7 +133,6 @@ export class LiquidPSETBuilder {
 
         // Extract transaction from pset and return it
         const transaction = liquid.Extractor.extract(pset);
-        console.log('Transaction hex: ', transaction.toHex());
         return transaction;
     }
 
@@ -145,6 +142,11 @@ export class LiquidPSETBuilder {
 
     getNewUpdater(pset: liquid.Pset): liquid.Updater {
         return new liquid.Updater(pset);
+    }
+
+    // TODO: get dynamic commision
+    getCommissionAmount(): number {
+        return 1000;
     }
 
     async addInputs(
@@ -167,36 +169,31 @@ export class LiquidPSETBuilder {
     async addRequiredOutputs(
         requiredAmount: number,
         contractAddress: string,
-        network: typeof liquidNetwork,
         commision: number,
         totalInputValue: number,
         updater: liquid.Updater,
         blindingKey?: Buffer | undefined,
     ): Promise<void> {
         // Add claim output to pset
-        const claimOutputScript = liquid.address.toOutputScript(contractAddress, network);
-        this.addOutput(network, updater, getLiquidNumber(requiredAmount), claimOutputScript, blindingKey);
+        const claimOutputScript = liquid.address.toOutputScript(contractAddress, this.network);
+        this.addOutput(updater, getLiquidNumber(requiredAmount), claimOutputScript, blindingKey);
 
         // Add change output to pset
         const changeAddress = await this.nbxplorer.getUnusedAddress(this.swapConfig.liquidXpub, 'lbtc', { change: true });
-        const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, network);
+        const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, this.network);
         const changeAmount = getLiquidNumber(totalInputValue - requiredAmount - commision);
-        this.addOutput(network, updater, changeAmount, changeOutputScript, blindingKey);
+        this.addOutput(updater, changeAmount, changeOutputScript, blindingKey);
 
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);
-        this.addOutput(network, updater, feeAmount);
+        this.addOutput(updater, feeAmount);
     }
 
     addOutput(
-        network: typeof liquidNetwork,
-        updater: liquid.Updater,
-        amount: number, 
-        script?: Buffer | undefined, 
-        blindingKey?: Buffer | undefined
+        updater: liquid.Updater, amount: number, script?: Buffer | undefined, blindingKey?: Buffer | undefined
     ): void {
         const changeOutput = new liquid.CreatorOutput(
-            network.assetHash,
+            this.network.assetHash,
             amount,
             script ?? undefined,
             blindingKey !== undefined ? Buffer.from(blindingKey) : undefined,
@@ -205,17 +202,12 @@ export class LiquidPSETBuilder {
         updater.addOutputs([changeOutput]);
     }
 
-    signInputs(
-        utxos: NBXplorerUtxo[],
-        pset: liquid.Pset,
-        signer: liquid.Signer,
-        network: typeof liquidNetwork,
-    ): void {
+    signInputs(utxos: NBXplorerUtxo[], pset: liquid.Pset, signer: liquid.Signer): void {
         for (let i = 0; i < utxos.length; i++) {
             const utxo = utxos[i];
 
             // TODO: sign inputs without xpriv (using proxied rpc)
-            const node = bip32.fromBase58(this.swapConfig.liquidXpriv, network);
+            const node = bip32.fromBase58(this.swapConfig.liquidXpriv, this.network);
             const child = node.derivePath(utxo.keyPath);
             if (!child.privateKey) {
                 throw new Error('Could not obtain private key from derived node');
