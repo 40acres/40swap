@@ -120,21 +120,21 @@ export class LiquidPSETBuilder {
     }
 
     async buildLiquidPsbtTransaction(
-        requiredAmount: number, contractAddress: string, blindingKey?: Buffer | undefined, timeoutBlockHeight?: number
+        amount: number, contractAddress: string, blindingKey?: Buffer | undefined, timeoutBlockHeight?: number
     ): Promise<liquid.Transaction> {
         const commision = this.getCommissionAmount();
-        const totalAmount = requiredAmount + commision;
+        const totalAmount = amount + commision;
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
 
         // Create a new pset
         const pset = this.getNewPset(timeoutBlockHeight);
         const updater = this.getNewUpdater(pset);
 
-        // Add inputs to pset
+        // Add inputs to pset and sign them
         await this.addInputs(utxos, pset, updater, timeoutBlockHeight);
 
         // Add required outputs (claim, change, fee) to pset
-        await this.addRequiredOutputs(requiredAmount, contractAddress, commision, totalInputValue, updater, blindingKey);
+        await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, blindingKey);
 
         // Sign pset inputs
         const signer = new liquid.Signer(pset);
@@ -167,21 +167,21 @@ export class LiquidPSETBuilder {
     }
 
     async addRequiredOutputs(
-        requiredAmount: number,
-        contractAddress: string,
-        commision: number,
+        amount: number,
         totalInputValue: number,
+        commision: number,
         updater: liquid.Updater,
+        contractAddress: string,
         blindingKey?: Buffer | undefined,
     ): Promise<void> {
         // Add claim output to pset
         const claimOutputScript = liquid.address.toOutputScript(contractAddress, this.network);
-        this.addOutput(updater, getLiquidNumber(requiredAmount), claimOutputScript, blindingKey);
+        this.addOutput(updater, getLiquidNumber(amount), claimOutputScript, blindingKey);
 
         // Add change output to pset
         const changeAddress = await this.nbxplorer.getUnusedAddress(this.swapConfig.liquidXpub, 'lbtc', { change: true });
         const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, this.network);
-        const changeAmount = getLiquidNumber(totalInputValue - requiredAmount - commision);
+        const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
         this.addOutput(updater, changeAmount, changeOutputScript, blindingKey);
 
         // Add fee output to pset
