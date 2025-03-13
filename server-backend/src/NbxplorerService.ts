@@ -43,21 +43,26 @@ const nbxplorerHotWalletSchema = z.object({
 });
 export type nbxplorerHotWallet = z.infer<typeof nbxplorerHotWalletSchema>;
 
+const nbxplorerUtxoSchema = z.object({
+    feature: z.string(),
+    outpoint: z.string(),
+    index: z.number(),
+    transactionHash: z.string(),
+    scriptPubKey: z.string(),
+    address: z.string().nullish(),
+    value: z.number().positive(),
+    keyPath: z.string(),
+    timestamp: z.number().positive(),
+    confirmations: z.number().gte(0),
+});
+export type NBXplorerUtxo = z.infer<typeof nbxplorerUtxoSchema>;
+
 const nbxplorerUtxoListSchema = z.object({
     spentOutpoints: z.string().array(),
-    utxOs: z.array(z.object({
-        feature: z.string(),
-        outpoint: z.string(),
-        index: z.number(),
-        transactionHash: z.string(),
-        scriptPubKey: z.string(),
-        address: z.string().nullish(),
-        value: z.number().positive(),
-        keyPath: z.string(),
-        timestamp: z.number().positive(),
-        confirmations: z.number().gte(0),
-    })),
+    utxOs: nbxplorerUtxoSchema.array(),
 });
+export type NBXplorerUtxoList = z.infer<typeof nbxplorerUtxoListSchema>;
+
 const nbxplorerUtxosResponseSchema = z.object({
     trackedSource: z.string(),
     derivationStrategy: z.string(),

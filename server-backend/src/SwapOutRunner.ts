@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { buildLiquidPsbt, liquidReverseSwapScript } from './LiquidUtils.js';
+import { LiquidPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -104,15 +104,8 @@ export class SwapOutRunner {
                 swap.contractAddress = p2wsh.address;
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 this.swap = await this.repository.save(swap);
-                const psbtTx = await buildLiquidPsbt(
-                    this.swapConfig.liquidXpub,
-                    this.swapConfig.liquidXpriv,
-                    swap.outputAmount.mul(1e8).toNumber(),
-                    p2wsh.address,
-                    network,
-                    this.nbxplorer,
-                    p2wsh.blindkey, // TODO: add blinding key
-                    swap.timeoutBlockHeight,
+                const psbtTx = await new LiquidPSETBuilder(this.nbxplorer, this.swapConfig).buildLiquidPsbtTransaction(
+                    swap.outputAmount.mul(1e8).toNumber(), p2wsh.address, network, p2wsh.blindkey, swap.timeoutBlockHeight
                 );
                 await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
             } else {
