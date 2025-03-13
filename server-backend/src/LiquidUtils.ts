@@ -106,6 +106,19 @@ export class LiquidPSETBuilder {
         this.liquidService = new LiquidService(nbxplorer, swapConfig);
     }
 
+    getNewPset(timeoutBlockHeight?: number): liquid.Pset {
+        return liquid.Creator.newPset({locktime: timeoutBlockHeight ?? 0});
+    }
+
+    getNewUpdater(pset: liquid.Pset): liquid.Updater {
+        return new liquid.Updater(pset);
+    }
+
+    // TODO: get dynamic commision
+    getCommissionAmount(): number {
+        return 1000;
+    }
+
     async buildLiquidPsbtTransaction(
         requiredAmount: number, contractAddress: string, blindingKey?: Buffer | undefined, timeoutBlockHeight?: number
     ): Promise<liquid.Transaction> {
@@ -134,19 +147,6 @@ export class LiquidPSETBuilder {
         // Extract transaction from pset and return it
         const transaction = liquid.Extractor.extract(pset);
         return transaction;
-    }
-
-    getNewPset(timeoutBlockHeight?: number): liquid.Pset {
-        return liquid.Creator.newPset({locktime: timeoutBlockHeight ?? 0});
-    }
-
-    getNewUpdater(pset: liquid.Pset): liquid.Updater {
-        return new liquid.Updater(pset);
-    }
-
-    // TODO: get dynamic commision
-    getCommissionAmount(): number {
-        return 1000;
     }
 
     async addInputs(
