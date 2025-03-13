@@ -1,29 +1,26 @@
 package rpc
 
 import (
-	"context"
 	"fmt"
 	"net"
 
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
+type Repository interface {
+	// Add more repositories here
+}
+
 type Server struct {
 	UnimplementedSwapServiceServer
-	Port int
+	Port       uint32
+	Repository Repository
 }
 
-func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
-	log.Info("HELLO WORLD")
-	log.Infof("Received SwapOut request: %v", req)
-
-	return &SwapOutResponse{}, nil
-}
-
-func NewRPCServer(port int) *Server {
+func NewRPCServer(port uint32, repository Repository) *Server {
 	svr := &Server{
-		Port: port,
+		Port:       port,
+		Repository: repository,
 	}
 
 	return svr
