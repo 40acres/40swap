@@ -19,14 +19,14 @@ on:
     paths:
       - "daemon/**"
       - ".github/workflows/daemon.yaml"
-      
+
 concurrency:
   # Cancel any previous workflows if they are from a PR or push.
   group: ${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
-  GO_VERSION: 1.23.1
+  GO_VERSION: 1.24.1
 
 jobs:
   go-lint:
@@ -74,4 +74,4 @@ jobs:
 
       - name: Run Tests
         working-directory: daemon
-        run:  go test ./...
+        run: go test ./...
