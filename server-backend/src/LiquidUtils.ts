@@ -106,14 +106,6 @@ export class LiquidPSETBuilder {
         this.liquidService = new LiquidService(nbxplorer, swapConfig);
     }
 
-    getNewPset(timeoutBlockHeight?: number): liquid.Pset {
-        return liquid.Creator.newPset({locktime: timeoutBlockHeight ?? 0});
-    }
-
-    getNewUpdater(pset: liquid.Pset): liquid.Updater {
-        return new liquid.Updater(pset);
-    }
-
     // TODO: get dynamic commision
     getCommissionAmount(): number {
         return 1000;
@@ -127,8 +119,8 @@ export class LiquidPSETBuilder {
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
 
         // Create a new pset
-        const pset = this.getNewPset(timeoutBlockHeight);
-        const updater = this.getNewUpdater(pset);
+        const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight ?? 0});
+        const updater = new liquid.Updater(pset);
 
         // Add inputs to pset and sign them
         await this.addInputs(utxos, pset, updater, timeoutBlockHeight);
