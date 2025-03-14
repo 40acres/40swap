@@ -127,14 +127,15 @@ func (d *Database) ORM() *gorm.DB {
 }
 
 func (d *Database) MigrateDatabase() error {
-	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", d.GetConnectionURL())
+	dbURL := d.GetConnectionURL()
+	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
 	statusOutput, err := statusCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
 	}
 
 	if !strings.Contains(string(statusOutput), "Already at latest version") {
-		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", d.GetConnectionURL())
+		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
 		applyOutput, err := applyCmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))

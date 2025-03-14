@@ -2,7 +2,6 @@ package database
 
 import (
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/require"
