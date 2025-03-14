@@ -94,6 +94,8 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 	}
 	db.orm = orm
 
+	models.RegisterPreimageSerializer()
+
 	return &db, close, nil
 }
 
@@ -141,7 +143,7 @@ func (d *Database) MigrateDatabase() error {
 	if err := CreateEnumChain(d.orm); err != nil {
 		return fmt.Errorf("Could not create enum chain: %w", err)
 	}
-	if err := d.orm.AutoMigrate(&models.SwapOut{}); err != nil {
+	if err := d.orm.AutoMigrate(&models.SwapOut{}, &models.SwapIn{}); err != nil {
 		return fmt.Errorf("Could not migrate models: %w", err)
 	}
 
