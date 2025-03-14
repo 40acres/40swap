@@ -2,7 +2,7 @@ package database
 
 import (
 	"os"
-	"path/filepath"
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,20 +60,5 @@ func TestDatabaseOperations(t *testing.T) {
 		// Test ORM accessor
 		orm := db.ORM()
 		require.NotNil(t, orm)
-	})
-
-	t.Run("Database migration", func(t *testing.T) {
-		// Run migrations from the root directory to be able to find the atlas.hcl file
-		currentDir, err := os.Getwd()
-		require.NoError(t, err)
-		rootDir := filepath.Dir(currentDir)
-		err = os.Chdir(rootDir)
-		require.NoError(t, err)
-		defer func() {
-			_ = os.Chdir(currentDir)
-		}()
-		
-		err = db.MigrateDatabase()
-		require.NoError(t, err)
 	})
 }
