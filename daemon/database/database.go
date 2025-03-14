@@ -94,6 +94,8 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 	}
 	db.orm = orm
 
+	models.RegisterPreimageSerializer()
+
 	return &db, close, nil
 }
 
