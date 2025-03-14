@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/40acres/40swap/daemon/lib/lightning"
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/invoicesrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
