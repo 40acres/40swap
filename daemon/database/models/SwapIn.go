@@ -1,7 +1,14 @@
 package models
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"reflect"
 	"time"
+
+	"github.com/lightningnetwork/lnd/lntypes"
+	"gorm.io/gorm/schema"
 )
 
 type SwapIn struct {
@@ -27,8 +34,8 @@ type SwapIn struct {
 	RedeemScript string
 
 	// The lightning address where the money will be received
-	PaymentRequest string `gorm:"not null"`
-	PreImage       string
+	PaymentRequest string           `gorm:"not null"`
+	PreImage       lntypes.Preimage `gorm:"serializer:preimage"`
 
 	OnChainFeeSATS uint64 `gorm:"not null"`
 	ServiceFeeSATS uint64 `gorm:"not null"`
@@ -39,4 +46,53 @@ type SwapIn struct {
 
 func (SwapIn) TableName() string {
 	return "swap_ins"
+}
+
+// PreimageSerializer handles serialization/deserialization of lntypes.Preimage
+type PreimageSerializer struct {
+}
+
+// Scan implements serializer interface
+func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst reflect.Value, dbValue interface{}) (err error) {
+	if dbValue == nil {
+		return nil
+	}
+
+	preimageStr, ok := dbValue.(string)
+	if !ok {
+		if bytesVal, ok := dbValue.([]byte); ok {
+			preimageStr = string(bytesVal)
+		} else {
+			return errors.New(fmt.Sprint("Failed to cast preimage value:", dbValue))
+		}
+	}
+
+	bytes, err := lntypes.MakePreimageFromStr(preimageStr)
+	if err != nil {
+		return err
+	}
+
+	fieldValue := reflect.New(field.FieldType).Elem()
+	fieldValue.Set(reflect.ValueOf(bytes))
+	field.ReflectValueOf(ctx, dst).Set(fieldValue)
+
+	return nil
+}
+
+// Value implements serializer interface
+func (PreimageSerializer) Value(ctx context.Context, field *schema.Field, dst reflect.Value, fieldValue interface{}) (interface{}, error) {
+	if p, ok := fieldValue.(lntypes.Preimage); ok {
+		if len(p) == 0 {
+			return nil, nil
+		}
+
+		return p.String(), nil
+	}
+
+	return nil, errors.New("invalid preimage value")
+}
+
+func RegisterPreimageSerializer() {
+	// Register a custom serializer
+	schema.RegisterSerializer("preimage", PreimageSerializer{})
 }
