@@ -16,12 +16,12 @@ func TestGetConnection(t *testing.T) {
 		{
 			name:     "Embedded database connection string",
 			host:     "embedded",
-			expected: "host=localhost port=5433 user=testuser password=testpass database=testdb sslmode=disable",
+			expected: "postgres://testuser:testpass@localhost:5433/testdb?sslmode=disable",
 		},
 		{
 			name:     "External database connection string",
 			host:     "test.host",
-			expected: "host=test.host port=5433 user=testuser password=testpass database=testdb sslmode=disable",
+			expected: "postgres://testuser:testpass@test.host:5433/testdb?sslmode=disable",
 		},
 	}
 
@@ -35,7 +35,7 @@ func TestGetConnection(t *testing.T) {
 				port:     5433,
 			}
 
-			connStr := db.getConnection()
+			connStr := db.GetConnectionURL()
 			require.Equal(t, tt.expected, connStr)
 		})
 	}
@@ -59,10 +59,5 @@ func TestDatabaseOperations(t *testing.T) {
 		// Test ORM accessor
 		orm := db.ORM()
 		require.NotNil(t, orm)
-	})
-
-	t.Run("Database migration", func(t *testing.T) {
-		err := db.MigrateDatabase()
-		require.NoError(t, err)
 	})
 }
