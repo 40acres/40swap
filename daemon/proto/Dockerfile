@@ -8,7 +8,7 @@
 # - Go packages (protoc-gen-go and protoc-gen-go-grpc),
 # - apt packages (unzip).
 
-FROM golang:1.23
+FROM golang:1.24
 
 WORKDIR /work
 
