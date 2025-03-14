@@ -9,17 +9,17 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 )
 
-type FourtySwapClient struct {
+type Client struct {
 	client *api.Client
 }
 
-func NewFourtySwapClient(endpoint string) (*FourtySwapClient, error) {
+func NewClient(endpoint string) (*Client, error) {
 	client, err := api.NewClient(endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	return &FourtySwapClient{
+	return &Client{
 		client: client,
 	}, nil
 }
@@ -35,7 +35,7 @@ func chainToDtoChain(chain models.Chain) (api.SwapOutRequestDtoChain, error) {
 	}
 }
 
-func (f *FourtySwapClient) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
+func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
 	chain, err := chainToDtoChain(swapReq.Chain)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (f *FourtySwapClient) CreateSwapOut(ctx context.Context, swapReq CreateSwap
 	return &swapOutResponse, nil
 }
 
-func (f *FourtySwapClient) GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error) {
+func (f *Client) GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error) {
 	response, err := f.client.SwapOutControllerGetSwap(ctx, swapId)
 	if err != nil {
 		return nil, err
