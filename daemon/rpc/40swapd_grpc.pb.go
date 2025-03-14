@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	SwapService_SwapIn_FullMethodName  = "/SwapService/SwapIn"
 	SwapService_SwapOut_FullMethodName = "/SwapService/SwapOut"
 )
 
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SwapServiceClient interface {
 	// RPC methods
+	SwapIn(ctx context.Context, in *SwapInRequest, opts ...grpc.CallOption) (*SwapInResponse, error)
 	SwapOut(ctx context.Context, in *SwapOutRequest, opts ...grpc.CallOption) (*SwapOutResponse, error)
 }
 
@@ -36,6 +38,16 @@ type swapServiceClient struct {
 
 func NewSwapServiceClient(cc grpc.ClientConnInterface) SwapServiceClient {
 	return &swapServiceClient{cc}
+}
+
+func (c *swapServiceClient) SwapIn(ctx context.Context, in *SwapInRequest, opts ...grpc.CallOption) (*SwapInResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SwapInResponse)
+	err := c.cc.Invoke(ctx, SwapService_SwapIn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *swapServiceClient) SwapOut(ctx context.Context, in *SwapOutRequest, opts ...grpc.CallOption) (*SwapOutResponse, error) {
@@ -53,6 +65,7 @@ func (c *swapServiceClient) SwapOut(ctx context.Context, in *SwapOutRequest, opt
 // for forward compatibility.
 type SwapServiceServer interface {
 	// RPC methods
+	SwapIn(context.Context, *SwapInRequest) (*SwapInResponse, error)
 	SwapOut(context.Context, *SwapOutRequest) (*SwapOutResponse, error)
 	mustEmbedUnimplementedSwapServiceServer()
 }
@@ -64,6 +77,9 @@ type SwapServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSwapServiceServer struct{}
 
+func (UnimplementedSwapServiceServer) SwapIn(context.Context, *SwapInRequest) (*SwapInResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SwapIn not implemented")
+}
 func (UnimplementedSwapServiceServer) SwapOut(context.Context, *SwapOutRequest) (*SwapOutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SwapOut not implemented")
 }
@@ -86,6 +102,24 @@ func RegisterSwapServiceServer(s grpc.ServiceRegistrar, srv SwapServiceServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&SwapService_ServiceDesc, srv)
+}
+
+func _SwapService_SwapIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SwapInRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SwapServiceServer).SwapIn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SwapService_SwapIn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SwapServiceServer).SwapIn(ctx, req.(*SwapInRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _SwapService_SwapOut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -113,6 +147,10 @@ var SwapService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "SwapService",
 	HandlerType: (*SwapServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SwapIn",
+			Handler:    _SwapService_SwapIn_Handler,
+		},
 		{
 			MethodName: "SwapOut",
 			Handler:    _SwapService_SwapOut_Handler,
