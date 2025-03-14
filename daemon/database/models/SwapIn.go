@@ -13,14 +13,14 @@ type SwapIn struct {
 	Status      SwapStatus `gorm:"type:status_enum;not null"`
 	SourceChain Chain      `gorm:"type:chain_enum;not null"`
 
-	// The address where we will pay to
-	DestinationAddress string
-	DestinationTx      string
+	// The address where we will pay to and it's tx id
+	ClaimAddress string
+	ClaimTxId    string
 	// If we surpass the timeout block height we can ask for a refund
 	TimeoutBlockHeight uint64
-	// The address where the service will refund us to
+	// The address where the service will refund us to and it's tx id
 	RefundAddress    string
-	RefundTx         string
+	RefundTxId       string
 	RefundPrivatekey string `gorm:"not null"`
 
 	// The redeem script for the on-chain transaction
