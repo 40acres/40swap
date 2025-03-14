@@ -1,7 +1,7 @@
 package database
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -29,60 +28,72 @@ func (w *errorOnlyWriter) Write(p []byte) (n int, err error) {
 }
 
 type Database struct {
-	host       string
-	username   string
-	password   string
-	database   string
-	port       uint32
-	dataPath   string
-	connection interface{}
-	orm        *gorm.DB
+	host     string
+	username string
+	password string
+	database string
+	port     uint32
+	dataPath string
+	orm      *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port uint32, dataPath string, host ...string) *Database {
-	var dbHost string = "embedded"
-	if len(host) > 0 && host[0] != "embedded" {
-		dbHost = host[0]
-	}
+type Client interface {
+	MigrateDatabase() error
+	ORM() *gorm.DB
+}
 
-	db := &Database{
-		host:     dbHost,
+func NewDatabase(username, password, database string, port uint32, dataPath string, host string) (*Database, func() error, error) {
+	db := Database{
+		host:     host,
 		username: username,
 		password: password,
 		database: database,
 		port:     port,
 		dataPath: dataPath,
 	}
-	db.Connect()
-	db.StartDatabase()
-	db.orm = db.GetGorm()
 
-	return db
-}
-
-func (d *Database) Connect() any {
-	if d.host != "embedded" {
-		db, err := sqlx.Connect("postgres", d.GetConnection())
+	close := db.close
+	if host == "embedded" {
+		postgres, err := newEmbeddedDatabase(
+			username,
+			password,
+			database,
+			port,
+			dataPath)
 		if err != nil {
-			log.Fatalf("Error connecting to database with sqlx: %v", err)
+			return nil, nil, fmt.Errorf("could not connect to embedded database: %w", err)
 		}
-		d.connection = db
 
-		return db
+		close = func() error {
+			if err := db.close(); err != nil {
+				return fmt.Errorf("Could not close database connection: %w", err)
+			}
+
+			if err := postgres.Stop(); err != nil {
+				if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(port) {
+					killPostgres(port)
+
+					return nil
+				}
+
+				return fmt.Errorf("Could not stop embedded database: %w", err)
+			}
+
+			return nil
+		}
 	}
-	db := embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			DataPath(d.dataPath).
-			Username(d.username).
-			Password(d.password).
-			Database(d.database).
-			Port(d.port).
-			Logger(&errorOnlyWriter{logger: log.New()}),
-	)
 
-	d.connection = db
+	orm, err := db.getGorm()
+	if err != nil {
+		if closeErr := close(); closeErr != nil {
+			return nil, nil, fmt.Errorf("could not close database: %w", closeErr)
+		}
 
-	return db
+		return nil, nil, fmt.Errorf("could not get GORM: %w", err)
+	}
+	db.orm = orm
+
+	return &db, close, nil
 }
 
 func (d *Database) GetHost() string {
@@ -94,74 +105,36 @@ func (d *Database) GetHost() string {
 	return host
 }
 
-func (d *Database) GetConnection() string {
+func (d *Database) GetConnectionURL() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s database=%s sslmode=disable",
-		d.GetHost(),
-		d.port,
-		d.username,
-		d.password,
-		d.database)
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		d.username, d.password, d.GetHost(), d.port, d.database)
 }
 
-func (d *Database) StartDatabase() {
-	_, isEmbedded := d.connection.(*embeddedpostgres.EmbeddedPostgres)
-	if isEmbedded {
-		if err := d.connection.(*embeddedpostgres.EmbeddedPostgres).Start(); err != nil {
-			log.Fatalf("Could not start database: %v", err)
-		}
-	}
-
-	conn, err := sql.Open("postgres", d.GetConnection())
+func (d *Database) getGorm() (*gorm.DB, error) {
+	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Could not conect to db: %v", err)
-	}
-	defer conn.Close()
-	if err := conn.Ping(); err != nil {
-		log.Fatalf("Could not ping db: %v", err)
+		return nil, fmt.Errorf("Could not connect GORM: %w", err)
 	}
 
-	log.Info("✅ DB started")
-}
+	log.Info("✅ DB connected")
 
-func (d *Database) GetGorm() *gorm.DB {
-	gormDB, err := gorm.Open(postgres.Open(d.GetConnection()), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Could not connect GORM: %v", err)
-	}
-
-	return gormDB
+	return gormDB, nil
 }
 
 func (d *Database) ORM() *gorm.DB {
 	return d.orm
 }
 
-func (d *Database) Stop() {
-	switch conn := d.connection.(type) {
-	case *embeddedpostgres.EmbeddedPostgres:
-		if err := conn.Stop(); err != nil {
-			log.Fatalf("Could not stop embedded database: %v", err)
-		}
-	case *sqlx.DB:
-		if err := conn.Close(); err != nil {
-			log.Fatalf("Could not close sqlx database connection: %v", err)
-		}
-	}
-}
-
 func (d *Database) MigrateDatabase() error {
-	dbURL := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
-		d.username, d.password, d.GetHost(), d.port, d.database)
-	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
+	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", d.GetConnectionURL())
 	statusOutput, err := statusCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
 	}
 
 	if !strings.Contains(string(statusOutput), "Already at latest version") {
-		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
+		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", d.GetConnectionURL())
 		applyOutput, err := applyCmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))
@@ -172,4 +145,68 @@ func (d *Database) MigrateDatabase() error {
 	}
 
 	return nil
+}
+
+func (d *Database) close() error {
+	db, err := d.orm.DB()
+	if err != nil {
+		return fmt.Errorf("Could not get database connection: %w", err)
+	}
+
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("Could not close database connection: %w", err)
+	}
+
+	return nil
+}
+
+func newEmbeddedDatabase(username, password, database string, port uint32, dataPath string) (*embeddedpostgres.EmbeddedPostgres, error) {
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			DataPath(dataPath).
+			Username(username).
+			Password(password).
+			Database(database).
+			Port(port).
+			Logger(&errorOnlyWriter{logger: log.New()}),
+	)
+
+	if err := postgres.Start(); err != nil {
+		if strings.Contains(err.Error(), "process already listening on port") {
+			log.Info("✅ DB already started, skipping")
+
+			return postgres, nil
+		}
+
+		return nil, fmt.Errorf("❌ Could not start embedded database: %w", err)
+	}
+
+	log.Info("✅ DB started")
+
+	return postgres, nil
+}
+
+func isPostgresRunning(port uint32) bool {
+	if port < 1 || port > 65535 {
+		return false
+	}
+	//nolint:gosec
+	out, err := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-t").Output()
+	if err != nil {
+		return false
+	}
+
+	return len(out) > 0
+}
+
+func killPostgres(port uint32) {
+	if port < 1 || port > 65535 {
+		return
+	}
+	//nolint:gosec
+	out, err := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-t").Output()
+	if err == nil {
+		pid := strings.TrimSpace(string(out))
+		_ = exec.Command("kill", "-9", pid).Run()
+	}
 }

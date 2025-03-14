@@ -1,11 +1,12 @@
 module github.com/40acres/40swap/daemon
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	ariga.io/atlas-provider-gorm v0.5.0
 	github.com/fergusstrange/embedded-postgres v1.30.0
-	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/sirupsen/logrus v1.9.3
@@ -37,8 +38,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
