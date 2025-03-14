@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetConnection(t *testing.T) {
@@ -35,8 +35,8 @@ func TestGetConnection(t *testing.T) {
 				port:     5433,
 			}
 
-			connStr := db.GetConnection()
-			assert.Equal(t, tt.expected, connStr)
+			connStr := db.getConnection()
+			require.Equal(t, tt.expected, connStr)
 		})
 	}
 }
@@ -44,26 +44,25 @@ func TestGetConnection(t *testing.T) {
 func TestDatabaseOperations(t *testing.T) {
 	// Create a temporary directory for database files
 	tempDir, err := os.MkdirTemp("", "db_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	require.NoErrorf(t, err, "Failed to create temp dir")
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
 
-	db := NewDatabase("testuser", "testpass", "testdb", 5434, tempDir)
-	defer db.Stop()
+	db, close, err := NewDatabase("testuser", "testpass", "testdb", 5434, tempDir, "embedded")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, close())
+	})
 
 	t.Run("Database connection and ORM", func(t *testing.T) {
-		assert.NotNil(t, db.connection)
-		assert.NotNil(t, db.orm)
-
 		// Test ORM accessor
 		orm := db.ORM()
-		assert.NotNil(t, orm)
-		assert.Equal(t, db.orm, orm)
+		require.NotNil(t, orm)
 	})
 
 	t.Run("Database migration", func(t *testing.T) {
 		err := db.MigrateDatabase()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

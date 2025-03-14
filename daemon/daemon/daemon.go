@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Start(ctx context.Context, db *database.Database) error {
+func Start(ctx context.Context, db database.Client) error {
 	log.Info("Starting 40swapd")
 	// TODO
 

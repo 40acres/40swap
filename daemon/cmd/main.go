@@ -88,13 +88,13 @@ func main() {
 		Commands: []*cli.Command{
 			{
 				Name:  "start",
-				Usage: "Start the 40wapd daemon",
+				Usage: "Start the 40swapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
 					port, err := validatePort(c.Int("db-port"))
 					if err != nil {
 						return err
 					}
-					db := database.NewDatabase(
+					db, closeDb, err := database.NewDatabase(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
@@ -102,13 +102,22 @@ func main() {
 						c.String("db-data-path"),
 						c.String("db-host"),
 					)
-					defer db.Stop()
+					if err != nil {
+						return fmt.Errorf("❌ Could not connect to database: %w", err)
+					}
+					defer func() {
+						if err := closeDb(); err != nil {
+							log.Errorf("❌ Could not close database: %v", err)
+						}
+					}()
 
 					if c.String("db-data-path") == "" && c.String("db-host") == "embedded" {
 						dbErr := db.MigrateDatabase()
 						if dbErr != nil {
 							return dbErr
 						}
+					} else {
+						log.Info("🔍 Skipping database migration")
 					}
 
 					err = daemon.Start(ctx, db)
@@ -125,7 +134,7 @@ func main() {
 				Commands: []*cli.Command{
 					{
 						Name:  "out",
-						Usage: "Perform an  swap out",
+						Usage: "Perform a swap out",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							// TODO
 							swapcli.SwapOut()
