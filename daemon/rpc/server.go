@@ -15,13 +15,17 @@ type Server struct {
 	UnimplementedSwapServiceServer
 	Port       uint32
 	Repository Repository
+	grpcServer *grpc.Server
 }
 
 func NewRPCServer(port uint32, repository Repository) *Server {
 	svr := &Server{
 		Port:       port,
 		Repository: repository,
+		grpcServer: grpc.NewServer(),
 	}
+
+	RegisterSwapServiceServer(svr.grpcServer, svr)
 
 	return svr
 }
@@ -31,11 +35,14 @@ func (server *Server) ListenAndServe() error {
 	if err != nil {
 		return fmt.Errorf("failed to listen to port: %w", err)
 	}
-	grpcServer := grpc.NewServer()
-	RegisterSwapServiceServer(grpcServer, server)
-	if err := grpcServer.Serve(listener); err != nil {
+
+	if err := server.grpcServer.Serve(listener); err != nil {
 		return fmt.Errorf("failed to initialize grpc server: %w", err)
 	}
 
 	return nil
+}
+
+func (server *Server) Stop() {
+	server.grpcServer.GracefulStop()
 }

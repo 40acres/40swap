@@ -10,7 +10,6 @@ import (
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
-	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
@@ -117,16 +116,7 @@ func main() {
 						log.Info("🔍 Skipping database migration")
 					}
 
-					// gRPC server
-					server := rpc.NewRPCServer(grpcPort, db)
-					go func() {
-						err := server.ListenAndServe()
-						if err != nil {
-							log.Fatalf("couldn't start server: %v", err)
-						}
-					}()
-
-					err = daemon.Start(ctx, db)
+					err = daemon.Start(ctx, db, grpcPort)
 					if err != nil {
 						return err
 					}
