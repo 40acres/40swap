@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type SwapClient interface {
+type ClientInterface interface {
 	CreateSwapOut(address string, amount string) error
 	GetSwapOut(swapId string) error
 }
