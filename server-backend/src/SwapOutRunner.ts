@@ -16,6 +16,10 @@ import Decimal from 'decimal.js';
 import moment from 'moment/moment.js';
 import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
+import * as liquid from 'liquidjs-lib';
+import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
+import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
+import { LiquidPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -86,20 +90,41 @@ export class SwapOutRunner {
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;
             this.logger.debug(`Using timeoutBlockHeight=${swap.timeoutBlockHeight} (id=${swap.id})`);
-            swap.lockScript = reverseSwapScript(
-                this.swap.preImageHash,
-                swap.counterpartyPubKey,
-                ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey,
-                swap.timeoutBlockHeight,
-            );
-            const { network } = this.bitcoinConfig;
-            const { address: contractAddress } = payments.p2wsh({network, redeem: { output: swap.lockScript, network }});
-            assert(contractAddress != null);
-            swap.contractAddress = contractAddress;
-            await this.nbxplorer.trackAddress(contractAddress);
 
-            this.swap = await this.repository.save(swap);
-            await this.lnd.sendCoinsOnChain(contractAddress, swap.outputAmount.mul(1e8).toNumber());
+            if (swap.chain === 'LIQUID') {
+                swap.lockScript = liquidReverseSwapScript(
+                    swap.preImageHash, 
+                    swap.counterpartyPubKey, 
+                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
+                    swap.timeoutBlockHeight
+                );
+                const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
+                const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
+                assert(p2wsh.address != null);
+                swap.contractAddress = p2wsh.address;
+                await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
+                this.swap = await this.repository.save(swap);
+                const psetBuilder = new LiquidPSETBuilder(this.nbxplorer, this.swapConfig, network);
+                const psbtTx = await psetBuilder.buildLiquidPsbtTransaction(
+                    swap.outputAmount.mul(1e8).toNumber(), p2wsh.address, p2wsh.blindkey, swap.timeoutBlockHeight
+                );
+                console.log('psbtTx in hex: ', psbtTx.toHex());
+                await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
+            } else {
+                swap.lockScript = reverseSwapScript(
+                    this.swap.preImageHash,
+                    swap.counterpartyPubKey,
+                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey,
+                    swap.timeoutBlockHeight,
+                );
+                const { network } = this.bitcoinConfig;
+                const { address: contractAddress } = payments.p2wsh({network, redeem: { output: swap.lockScript, network }});
+                assert(contractAddress != null);
+                swap.contractAddress = contractAddress;
+                await this.nbxplorer.trackAddress(contractAddress);
+                this.swap = await this.repository.save(swap);
+                await this.lnd.sendCoinsOnChain(contractAddress, swap.outputAmount.mul(1e8).toNumber());
+            }
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
             const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));

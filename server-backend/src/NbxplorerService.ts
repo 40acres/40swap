@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, EntityManager } from 'typeorm';
 import { FourtySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 const nbxplorerBalanceSchema = z.object({
     unconfirmed: z.number(),
@@ -29,21 +30,39 @@ const nbxplorerAddressSchema = z.object({
 });
 export type NBXplorerAddress = z.infer<typeof nbxplorerAddressSchema>;
 
+const nbxplorerHotWalletSchema = z.object({
+    mnemonic: z.string(),
+    passphrase: z.string(),
+    wordList: z.string(),
+    wordCount: z.number().int(),
+    masterHDKey: z.string(),
+    accountHDKey: z.string(),
+    accountKeyPath: z.string(),
+    accountDescriptor: z.string(),
+    derivationScheme: z.string(),
+});
+export type nbxplorerHotWallet = z.infer<typeof nbxplorerHotWalletSchema>;
+
+const nbxplorerUtxoSchema = z.object({
+    feature: z.string(),
+    outpoint: z.string(),
+    index: z.number(),
+    transactionHash: z.string(),
+    scriptPubKey: z.string(),
+    address: z.string().nullish(),
+    value: z.number().positive(),
+    keyPath: z.string(),
+    timestamp: z.number().positive(),
+    confirmations: z.number().gte(0),
+});
+export type NBXplorerUtxo = z.infer<typeof nbxplorerUtxoSchema>;
+
 const nbxplorerUtxoListSchema = z.object({
     spentOutpoints: z.string().array(),
-    utxOs: z.array(z.object({
-        feature: z.string(),
-        outpoint: z.string(),
-        index: z.number(),
-        transactionHash: z.string(),
-        scriptPubKey: z.string(),
-        address: z.string().nullish(),
-        value: z.number().positive(),
-        keyPath: z.string(),
-        timestamp: z.number().positive(),
-        confirmations: z.number().gte(0),
-    })),
+    utxOs: nbxplorerUtxoSchema.array(),
 });
+export type NBXplorerUtxoList = z.infer<typeof nbxplorerUtxoListSchema>;
+
 const nbxplorerUtxosResponseSchema = z.object({
     trackedSource: z.string(),
     derivationStrategy: z.string(),
@@ -96,6 +115,43 @@ const nbxplorerWalletTransactionsResponseSchema = z.object({
     }),
 });
 export type NBXplorerWalletTransactions = z.infer<typeof nbxplorerWalletTransactionsResponseSchema>;
+
+interface NBXplorerLiquidAssetValue {
+    assetId: string;
+    value: number;
+}
+
+interface NBXplorerLiquidTransactionOutput {
+    keyPath: string;
+    scriptPubKey: string;
+    index: number;
+    feature: string | null;
+    value: NBXplorerLiquidAssetValue;
+    address: string;
+}
+
+interface NBXplorerLiquidTransactionInput {
+    prevout: string;
+    scriptSig: string;
+    witness: string[];
+    sequence: number;
+}
+
+export interface NBXplorerLiquidWalletTransaction {
+    blockHash: string;
+    confirmations: number;
+    height: number;
+    isMature: boolean;
+    transactionId: string;
+    transaction: string;
+    outputs: NBXplorerLiquidTransactionOutput[];
+    inputs: NBXplorerLiquidTransactionInput[]; 
+    timestamp: number;
+    balanceChange: NBXplorerLiquidAssetValue[];
+    replacedBy: string | null;
+    replacing: string | null;
+    replaceable: boolean;
+}
 
 const nbxplorerFeeRateResponseSchema = z.object({
     feeRate: z.number().positive(),
@@ -196,52 +252,73 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerBalanceSchema.parse(response);
     }
 
-    async track(xpub: string): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/derivations/${xpub}`, { method: 'POST' });
+    async track(xpub: string, cryptoCode: string = 'btc'): Promise<void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/derivations/${xpub}`, { method: 'POST' });
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an error when tracking xpub');
         }
     }
 
-    async trackAddress(address: string): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/addresses/${address}`, { method: 'POST' });
+    async trackAddress(address: string, cryptoCode: string = 'btc'): Promise<void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/addresses/${address}`, { method: 'POST' });
         if (response.status >= 300) {
-            throw new Error('nbxplorer threw an error when tracking xpub');
+            throw new Error(`nbxplorer threw an error when tracking xpub: ${address}`);
         }
     }
 
-    async getUnusedAddress(xpub: string, opts?: {
+    async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
         change?: boolean,
-        reserve?: boolean
+        reserve?: boolean,
     }): Promise<NBXplorerAddress> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
         const change = opts?.change ?? false;
         const reserve = opts?.reserve ?? false;
         const params = new URLSearchParams({
             feature: change ? 'Change' : 'Deposit',
             reserve: reserve.toString(),
         });
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/addresses/unused?${params}`)).json();
+        const response = await (await fetch(`${url}/derivations/${xpub}/addresses/unused?${params}`)).json();
         return nbxplorerAddressSchema.parse(response);
     }
-    async getUTXOs(xpub: string): Promise<NBXplorerUtxosResponse> {
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/utxos`)).json();
+
+    async generateHotWallet(cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await (await fetch(`${url}/derivations`, {
+            method: 'POST',
+        })).json();
+        return nbxplorerHotWalletSchema.parse(response);
+    }
+
+    async getUTXOs(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerUtxosResponse | void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await (await fetch(`${url}/derivations/${xpub}/utxos`)).json();
         return nbxplorerUtxosResponseSchema.parse(response);
     }
 
-    async broadcastTx(tx: Transaction): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/transactions`, {
+    async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/transactions`, {
             method: 'POST',
             body: tx.toBuffer(),
         });
         // TODO apparently nbxplorer does not fail if the tx is invalid, it just logs an error
         // we should probably fix it in nbxplorer itself
+
+        // TODO: remove this once we have a better way to check the tx broadcasted result. PS: tested only with liquid.
+        const body = await response.json() as { success?: boolean };
+        if (!body.success) {
+            console.log('tx broadcast result: ', body);
+        }
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when broadcasting a transaction');
         }
     }
 
-    async getTx(id: string): Promise<NBXplorerTransaction|null> {
-        const response = await fetch(`${this.config.baseUrl}/transactions/${id}`, {
+    async getTx(id: string, cryptoCode: string = 'btc'): Promise<NBXplorerTransaction|null> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/transactions/${id}`, {
             method: 'GET',
         });
         if (response.status === 404) {
@@ -277,6 +354,16 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerWalletTransactionsResponseSchema.parse(await response.json());
     }
 
+    async getWalletTransaction(xpub: string, txId: string, cryptoCode: string = 'lbtc'): Promise<NBXplorerLiquidWalletTransaction> {
+        const url = this.config.baseUrl.replace('btc', cryptoCode);
+        const response = await fetch(`${url}/derivations/${xpub}/transactions/${txId}`, {
+            method: 'GET',
+        });
+        if (response.status >= 300) {
+            throw new Error(`nbxplorer threw an error when fetching a transaction: ${txId}`);
+        }
+        return response.json() as Promise<NBXplorerLiquidWalletTransaction>;
+    }
 
     private abortController?: AbortController;
 
