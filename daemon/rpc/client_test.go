@@ -30,8 +30,8 @@ func TestClient(test *testing.T) {
 func TestClientInvalidRequest(test *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	port := 50051
-	server := NewRPCServer(port)
+	port := uint32(50051)
+	server := NewRPCServer(port, nil)
 	errChan := make(chan error)
 	go func() {
 		errChan <- server.ListenAndServe()
