@@ -94,7 +94,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					db, err := database.NewDatabase(
+					db, closeDb, err := database.NewDatabase(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
@@ -106,7 +106,7 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
 					defer func() {
-						if err := db.Close(); err != nil {
+						if err := closeDb(); err != nil {
 							log.Errorf("❌ Could not close database: %v", err)
 						}
 					}()
