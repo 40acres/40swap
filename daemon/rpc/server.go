@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/swaps"
 	"google.golang.org/grpc"
 )
 
 type Repository interface {
+	database.SwapInRepository
 	// Add more repositories here
 }
 
@@ -16,13 +19,15 @@ type Server struct {
 	Port       uint32
 	Repository Repository
 	grpcServer *grpc.Server
+	swaps      swaps.ClientInterface
 }
 
-func NewRPCServer(port uint32, repository Repository) *Server {
+func NewRPCServer(port uint32, repository Repository, swaps *swaps.Client) *Server {
 	svr := &Server{
 		Port:       port,
 		Repository: repository,
 		grpcServer: grpc.NewServer(),
+		swaps:      swaps,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)
