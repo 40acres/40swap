@@ -1,6 +1,6 @@
 module github.com/40acres/40swap/daemon
 
-go 1.23.0
+go 1.24.1
 
 replace github.com/lightningnetwork/lnd => github.com/lightningnetwork/lnd v0.18.2-beta
 
