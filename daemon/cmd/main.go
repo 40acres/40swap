@@ -10,6 +10,8 @@ import (
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/rpc"
+	"github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
@@ -80,6 +82,7 @@ func main() {
 				Value: false,
 			},
 			&grpcPort,
+			&serverUrl,
 		},
 		Commands: []*cli.Command{
 			{
@@ -123,7 +126,12 @@ func main() {
 						log.Info("🔍 Skipping database migration")
 					}
 
-					err = daemon.Start(ctx, db, grpcPort)
+					swapClient, err := swaps.NewClient(c.String("server-url"))
+					if err != nil {
+						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
+					}
+
+					err = daemon.Start(ctx, db, grpcPort, swapClient)
 					if err != nil {
 						return err
 					}
@@ -135,6 +143,46 @@ func main() {
 				Name:  "swap",
 				Usage: "Swap operations",
 				Commands: []*cli.Command{
+					{
+						Name:  "in",
+						Usage: "Perform a swap in",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "payreq",
+								Usage:    "The Lightning invoice where the swap will be paid to",
+								Aliases:  []string{"p"},
+								Required: true,
+							},
+							&regtest,
+							&testnet,
+							&grpcPort,
+						},
+						Action: func(ctx context.Context, c *cli.Command) error {
+							network := rpc.Network_MAINNET
+							switch {
+							case c.Bool("regtest"):
+								network = rpc.Network_REGTEST
+							case c.Bool("testnet"):
+								network = rpc.Network_TESTNET
+							}
+
+							grpcPort, err := validatePort(c.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+							_, err = client.SwapIn(ctx, &rpc.SwapInRequest{
+								Invoice: c.String("payreq"),
+								Network: network,
+							})
+							if err != nil {
+								return err
+							}
+
+							return nil
+						},
+					},
 					{
 						Name:  "out",
 						Usage: "Perform a swap out",
@@ -180,4 +228,9 @@ var grpcPort = cli.IntFlag{
 	Name:  "grpc-port",
 	Usage: "Grpc port for client to daemon communication",
 	Value: 50051,
+}
+var serverUrl = cli.StringFlag{
+	Name:  "server-url",
+	Usage: "Server URL",
+	Value: "http://localhost:7081",
 }
