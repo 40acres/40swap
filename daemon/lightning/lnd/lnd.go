@@ -136,11 +136,6 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	return client, nil
 }
 
-// AddInvoice creates an invoice in the lnd node
-func (dc *Client) AddInvoice(ctx context.Context, invoiceRequest *lnrpc.Invoice) (*lnrpc.AddInvoiceResponse, error) {
-	return dc.lndClient.AddInvoice(ctx, invoiceRequest)
-}
-
 // PayInvoice uses the lnd node to pay the invoice provided by the paymentRequest
 func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string) error {
 	// Decode payment request
@@ -275,7 +270,7 @@ func (dc *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decima
 		DescriptionHash: nil,                         // Optional description hash
 	}
 
-	res, err := dc.AddInvoice(ctx, invoiceReq)
+	res, err := dc.lndClient.AddInvoice(ctx, invoiceReq)
 	if err != nil {
 		return "", nil, err
 	}
