@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/40acres/40swap/daemon/database/models"
 	log "github.com/sirupsen/logrus"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -92,6 +93,8 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 		return nil, nil, fmt.Errorf("could not get GORM: %w", err)
 	}
 	db.orm = orm
+
+	models.RegisterPreimageSerializer()
 
 	return &db, close, nil
 }
