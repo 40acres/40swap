@@ -37,11 +37,6 @@ type Database struct {
 	orm      *gorm.DB
 }
 
-type Client interface {
-	MigrateDatabase() error
-	ORM() *gorm.DB
-}
-
 func NewDatabase(username, password, database string, port uint32, dataPath string, host string) (*Database, func() error, error) {
 	db := Database{
 		host:     host,

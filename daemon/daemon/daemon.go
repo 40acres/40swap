@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Start(ctx context.Context, db database.Client, grpcPort uint32) error {
+func Start(ctx context.Context, db *database.Database, grpcPort uint32) error {
 	log.Info("Starting 40swapd")
 
 	// gRPC server
