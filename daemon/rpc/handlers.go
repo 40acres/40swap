@@ -63,19 +63,6 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	}, nil
 }
 
-type SwapCreated struct {
-	ContractAddress    string
-	CreatedAt          string
-	InputAmount        float32
-	LockTx             *string
-	Outcome            string
-	OutputAmount       float32
-	RedeemScript       string
-	Status             string
-	SwapId             string
-	TimeoutBlockHeight float32
-}
-
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
 	log.Info("HELLO WORLD")
 	log.Infof("Received SwapOut request: %v", req)
