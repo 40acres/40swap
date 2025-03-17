@@ -96,7 +96,7 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 	return &db, close, nil
 }
 
-func (d *Database) GetHost() string {
+func (d *Database) getHost() string {
 	host := "localhost"
 	if d.host != "embedded" {
 		host = d.host
@@ -108,7 +108,7 @@ func (d *Database) GetHost() string {
 func (d *Database) GetConnectionURL() string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
-		d.username, d.password, d.GetHost(), d.port, d.database)
+		d.username, d.password, d.getHost(), d.port, d.database)
 }
 
 func (d *Database) getGorm() (*gorm.DB, error) {
