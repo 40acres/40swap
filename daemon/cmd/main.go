@@ -10,7 +10,6 @@ import (
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
-	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
@@ -29,16 +28,6 @@ func validatePort(port int64) (uint32, error) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// gRPC server
-	port := 50051
-	server := rpc.NewRPCServer(port)
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatalf("couldn't start server: %v", err)
-		}
-	}()
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -85,6 +74,7 @@ func main() {
 				Usage: "Database path",
 				Value: "./.data",
 			},
+			&grpcPort,
 		},
 		Commands: []*cli.Command{
 			{
@@ -95,6 +85,12 @@ func main() {
 					if err != nil {
 						return err
 					}
+
+					grpcPort, err := validatePort(c.Int("grpc-port"))
+					if err != nil {
+						return err
+					}
+
 					db, closeDb, err := database.NewDatabase(
 						c.String("db-user"),
 						c.String("db-password"),
@@ -121,7 +117,7 @@ func main() {
 						log.Info("🔍 Skipping database migration")
 					}
 
-					err = daemon.Start(ctx, db)
+					err = daemon.Start(ctx, db, grpcPort)
 					if err != nil {
 						return err
 					}
@@ -163,4 +159,19 @@ func main() {
 	if app_err != nil {
 		log.Fatal(app_err)
 	}
+}
+
+var regtest = cli.BoolFlag{
+	Name:  "regtest",
+	Usage: "Use regtest network",
+}
+var testnet = cli.BoolFlag{
+	Name:  "testnet",
+	Usage: "Use testnet network",
+}
+
+var grpcPort = cli.IntFlag{
+	Name:  "grpc-port",
+	Usage: "Grpc port for client to daemon communication",
+	Value: 50051,
 }

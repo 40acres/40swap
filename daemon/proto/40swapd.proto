@@ -4,6 +4,7 @@ option go_package = "./rpc";
 
 service SwapService {
   // RPC methods
+  rpc SwapIn(SwapInRequest) returns (SwapInResponse);
   rpc SwapOut(SwapOutRequest) returns (SwapOutResponse);
 }
 
@@ -13,7 +14,22 @@ enum Chain {
   LIQUID = 1;
 }
 
+enum Network {
+  MAINNET = 0;
+  TESTNET = 1;
+  REGTEST = 2;
+}
+
 // Message definitions
+message SwapInRequest {
+  string invoice = 1;
+  Network network = 2;
+}
+
+message SwapInResponse {
+  string swapId = 1;
+}
+
 message SwapOutRequest {
   Chain chain = 1;
   // Amount in satoshis
