@@ -24,14 +24,14 @@ func NewClient(endpoint string) (*Client, error) {
 	}, nil
 }
 
-func chainToDtoChain(chain models.Chain) (api.SwapOutRequestDtoChain, error) {
+func chainToDtoChain(chain models.Chain) (string, error) {
 	switch chain {
 	case models.Bitcoin:
-		return api.BITCOIN, nil
+		return string(api.BITCOIN), nil
 	case models.Liquid:
-		return api.LIQUID, nil
+		return string(api.LIQUID), nil
 	default:
-		return api.BITCOIN, fmt.Errorf("invalid chain: %s", chain)
+		return string(api.BITCOIN), fmt.Errorf("invalid chain: %s", chain)
 	}
 }
 
@@ -42,7 +42,7 @@ func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest
 	}
 
 	body := api.SwapOutControllerCreateSwapJSONRequestBody{
-		Chain:        chain,
+		Chain:        api.SwapOutRequestDtoChain(chain),
 		ClaimPubKey:  swapReq.ClaimPubKey,
 		InputAmount:  float32(swapReq.Amount.ToBtc().InexactFloat64()),
 		PreImageHash: swapReq.PreImageHash,
@@ -85,4 +85,35 @@ func (f *Client) GetSwapOut(ctx context.Context, swapId string) (*SwapOutRespons
 	}
 
 	return &swapOutResponse, nil
+}
+
+func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest) (*SwapInResponse, error) {
+	chain, err := chainToDtoChain(swapReq.Chain)
+	if err != nil {
+		return nil, err
+	}
+
+	body := api.SwapInControllerCreateSwapJSONRequestBody{
+		Chain:           api.SwapInRequestDtoChain(chain),
+		Invoice:         swapReq.Invoice,
+		RefundPublicKey: swapReq.RefundPublicKey,
+	}
+
+	response, err := f.client.SwapInControllerCreateSwap(ctx, body)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode >= 400 {
+		return nil, fmt.Errorf("failed to create swap: swap: %d - %s", response.StatusCode, response.Status)
+	}
+
+	// Marshal response into a struct
+	var swapInResponse SwapInResponse
+	err = json.NewDecoder(response.Body).Decode(&swapInResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &swapInResponse, nil
 }
