@@ -8,7 +8,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/40acres/40swap/daemon/database/models"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
@@ -97,17 +96,23 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 	return &db, close, nil
 }
 
-func (d *Database) getConnection() string {
+func (d *Database) getHost() string {
 	host := "localhost"
 	if d.host != "embedded" {
 		host = d.host
 	}
 
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s database=%s sslmode=disable", host, d.port, d.username, d.password, d.database)
+	return host
+}
+
+func (d *Database) GetConnectionURL() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		d.username, d.password, d.getHost(), d.port, d.database)
 }
 
 func (d *Database) getGorm() (*gorm.DB, error) {
-	gormDB, err := gorm.Open(postgres.Open(d.getConnection()), &gorm.Config{})
+	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect GORM: %w", err)
 	}
@@ -121,6 +126,28 @@ func (d *Database) ORM() *gorm.DB {
 	return d.orm
 }
 
+func (d *Database) MigrateDatabase() error {
+	dbURL := d.GetConnectionURL()
+	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
+	statusOutput, err := statusCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
+	}
+
+	if !strings.Contains(string(statusOutput), "Already at latest version") {
+		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
+		applyOutput, err := applyCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))
+		}
+		log.Info("✅ Migrations applied successfully")
+	} else {
+		log.Info("✅ Database is up to date with migrations")
+	}
+
+	return nil
+}
+
 func (d *Database) close() error {
 	db, err := d.orm.DB()
 	if err != nil {
@@ -130,22 +157,6 @@ func (d *Database) close() error {
 	if err := db.Close(); err != nil {
 		return fmt.Errorf("Could not close database connection: %w", err)
 	}
-
-	return nil
-}
-
-func (d *Database) MigrateDatabase() error {
-	if err := CreateEnumStatus(d.orm); err != nil {
-		return fmt.Errorf("Could not create enum status: %w", err)
-	}
-	if err := CreateEnumChain(d.orm); err != nil {
-		return fmt.Errorf("Could not create enum chain: %w", err)
-	}
-	if err := d.orm.AutoMigrate(&models.SwapOut{}); err != nil {
-		return fmt.Errorf("Could not migrate models: %w", err)
-	}
-
-	log.Info("✅ DB migrated")
 
 	return nil
 }

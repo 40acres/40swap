@@ -14,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
+	_ "ariga.io/atlas-provider-gorm/gormschema"
 	_ "github.com/lib/pq"
 )
 
