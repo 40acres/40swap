@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/money"
 	"github.com/shopspring/decimal"
 )
 
@@ -16,7 +17,7 @@ type CreateSwapOutRequest struct {
 	Chain        models.Chain
 	PreImageHash string
 	ClaimPubKey  string
-	Amount       decimal.Decimal
+	Amount       money.Money
 }
 
 type SwapOutResponse struct {

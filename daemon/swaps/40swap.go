@@ -44,7 +44,7 @@ func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest
 	body := api.SwapOutControllerCreateSwapJSONRequestBody{
 		Chain:        chain,
 		ClaimPubKey:  swapReq.ClaimPubKey,
-		InputAmount:  float32(swapReq.Amount.InexactFloat64()),
+		InputAmount:  float32(swapReq.Amount.ToBtc().InexactFloat64()),
 		PreImageHash: swapReq.PreImageHash,
 	}
 
