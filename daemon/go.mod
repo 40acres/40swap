@@ -206,8 +206,6 @@ require (
 )
 
 require (
-	github.com/lightningnetwork/lnd v0.0.2
-	github.com/shopspring/decimal v1.4.0
 	github.com/urfave/cli/v3 v3.0.0-beta1
 	golang.org/x/sys v0.31.0 // indirect
 )
