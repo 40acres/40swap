@@ -108,7 +108,7 @@ func main() {
 						}
 					}()
 
-					if c.String("db-data-path") == "" && c.String("db-host") == "embedded" {
+					if c.String("db-host") == "embedded" {
 						dbErr := db.MigrateDatabase()
 						if dbErr != nil {
 							return dbErr
