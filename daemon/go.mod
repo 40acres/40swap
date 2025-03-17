@@ -7,6 +7,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/lib/pq v1.10.9
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/shopspring/decimal v1.4.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.70.0
