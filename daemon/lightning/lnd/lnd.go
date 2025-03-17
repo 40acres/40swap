@@ -283,20 +283,6 @@ func (dc *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decima
 	return res.PaymentRequest, res.RHash, nil
 }
 
-// GetGraphStatus returns the status of the lnd node. It checks if the node is synced to the graph and to the chain
-// and some basic information such as
-func (dc *Client) GetGraphStatus(ctx context.Context) (*lightning.GraphStatus, error) {
-	getInfoResponse, err := dc.lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	return &lightning.GraphStatus{
-		GraphSynced: getInfoResponse.SyncedToGraph,
-		ChainSynced: getInfoResponse.SyncedToChain,
-	}, nil
-}
-
 // CloseConnection closes the connection with the lnd node
 func (dc *Client) CloseConnection() {
 	dc.closeConnection()

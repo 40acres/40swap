@@ -22,7 +22,6 @@ type GraphStatus struct {
 
 //go:generate mockgen -destination=mock.go -package=lightning . Client
 type Client interface {
-	GetGraphStatus(ctx context.Context) (*GraphStatus, error)
 	PayInvoice(ctx context.Context, paymentRequest string) error
 	MonitorPaymentRequest(ctx context.Context, paymentHash string) (Preimage, NetworkFeeSats, error)
 	MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error)
