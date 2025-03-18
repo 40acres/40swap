@@ -98,6 +98,7 @@ export class SwapOutRunner {
                     ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
                     swap.timeoutBlockHeight
                 );
+                console.log('htlc in hex', swap.lockScript.toString('hex'));
                 const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
                 const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
                 assert(p2wsh.address != null);
@@ -106,7 +107,10 @@ export class SwapOutRunner {
                 this.swap = await this.repository.save(swap);
                 const psetBuilder = new LiquidPSETBuilder(this.nbxplorer, this.swapConfig, network);
                 const psbtTx = await psetBuilder.buildLiquidPsbtTransaction(
-                    swap.outputAmount.mul(1e8).toNumber(), p2wsh.address, p2wsh.blindkey, swap.timeoutBlockHeight
+                    swap.outputAmount.mul(1e8).toNumber(), 
+                    p2wsh.address, 
+                    Buffer.alloc(0), // blindingKey
+                    swap.timeoutBlockHeight
                 );
                 console.log('psbtTx in hex: ', psbtTx.toHex());
                 await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');

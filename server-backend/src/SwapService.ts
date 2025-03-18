@@ -180,7 +180,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     async createSwapOutLightningToLiquidSwap(request: SwapChainRequest): Promise<SwapOut> {
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
-        const claimPubKey = Buffer.from(request.claimPubKey, 'hex');
         const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
@@ -205,7 +204,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             timeoutBlockHeight,
             sweepAddress: await this.lnd.getNewAddress(),
             unlockPrivKey: Buffer.from(refundKeys.privKey),
-            counterpartyPubKey: claimPubKey,
+            counterpartyPubKey: Buffer.from(request.claimPubKey, 'hex'),
             unlockTx: null,
             preImage: null,
             lockTx: null,

@@ -112,7 +112,7 @@ export class LiquidPSETBuilder {
     }
 
     async buildLiquidPsbtTransaction(
-        amount: number, contractAddress: string, blindingKey?: Buffer | undefined, timeoutBlockHeight?: number
+        amount: number, contractAddress: string, blindingKey: Buffer, timeoutBlockHeight?: number
     ): Promise<liquid.Transaction> {
         const commision = this.getCommissionAmount();
         const totalAmount = amount + commision;
@@ -127,6 +127,9 @@ export class LiquidPSETBuilder {
 
         // Add required outputs (claim, change, fee) to pset
         await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, blindingKey);
+
+        // Blind pset
+        // await this.blindPset(utxos, pset, blindingKey);
 
         // Sign pset inputs
         const signer = new liquid.Signer(pset);
@@ -188,8 +191,8 @@ export class LiquidPSETBuilder {
             this.network.assetHash,
             amount,
             script ?? undefined,
-            blindingKey !== undefined ? Buffer.from(blindingKey) : undefined,
-            blindingKey !== undefined ? 0 : undefined
+            // blindingKey !== undefined ? blindingKey : undefined,
+            // blindingKey !== undefined ? 0 : undefined
         );
         updater.addOutputs([changeOutput]);
     }

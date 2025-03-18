@@ -96,6 +96,17 @@ export const swapChainRequestSchema = z.object({
 });
 export type SwapChainRequest = z.infer<typeof swapChainRequestSchema>;
 
+export const claimLiquidRequestSchema = z.object({
+    spendingTx: z.string(),
+    privKey: z.string(),
+    destinationAddress: z.string(),
+    preImage: z.string(),
+    contractAddress: z.string(),
+    witnessScript: z.string(),
+    feeRate: z.number(),
+});
+export type ClaimLiquidRequest = z.infer<typeof claimLiquidRequestSchema>;
+
 export const intiateSwapFromLNToLQResponse = z.object({
     invoice: z.string(),
     hash: z.string(),
@@ -104,8 +115,8 @@ export const intiateSwapFromLNToLQResponse = z.object({
     claimPubKey: z.string(),
     refundPubKey: z.string(),
     locktime: z.number(),
-    amount: z.number()
-});chainSchema
+    amount: z.number(),
+});
 export type IntiateSwapFromLNToLQResponse = z.infer<typeof intiateSwapFromLNToLQResponse>;
 export type RedeemSwapFromLNToLQRequest = z.infer<typeof intiateSwapFromLNToLQResponse>;
 
@@ -114,7 +125,7 @@ export const getSwapChainResponseSchema = swapResponseSchema.extend({
     status: swapOutStatusSchema,
     redeemScript: z.string().optional(),
     contractAddress: z.string().optional(),
-});chainSchema
+});
 export type GetSwapChainResponse = z.infer<typeof getSwapOutResponseSchema>;
 
 export const frontendConfigurationSchema = z.object({
