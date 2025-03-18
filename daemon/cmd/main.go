@@ -131,7 +131,10 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
 					}
 
-					err = daemon.Start(ctx, db, grpcPort, swapClient)
+					server := rpc.NewRPCServer(grpcPort, db, swapClient)
+					defer server.Stop()
+
+					err = daemon.Start(ctx, server)
 					if err != nil {
 						return err
 					}
