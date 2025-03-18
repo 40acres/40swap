@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/40acres/40swap/daemon/crypto"
@@ -25,14 +26,14 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("could not decode invoice: %w", err)
 	}
 
-	refundPrivateKey, RefundPublicKey, err := crypto.GenerateECKeyPair()
+	refundPrivateKey, err := crypto.GenerateECKey()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate EC key pair: %w", err)
 	}
 
 	swap, err := server.swaps.CreateSwapIn(ctx, &swaps.CreateSwapInRequest{
 		Chain:           models.Bitcoin,
-		RefundPublicKey: RefundPublicKey,
+		RefundPublicKey: hex.EncodeToString(refundPrivateKey.PubKey().SerializeCompressed()),
 		Invoice:         req.Invoice,
 	})
 	if err != nil {
@@ -47,7 +48,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		SourceChain:        models.Bitcoin,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: uint64(swap.TimeoutBlockHeight),
-		RefundPrivatekey:   refundPrivateKey,
+		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     req.Invoice,
 		ServiceFeeSATS:     uint64(swap.InputAmount) - uint64(swap.OutputAmount),
