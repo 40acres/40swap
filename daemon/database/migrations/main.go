@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
+	models.RegisterPreimageSerializer()
+
 	stmts, err := gormschema.New("postgres").Load(&models.SwapIn{}, &models.SwapOut{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load gorm schema: %v\n", err)
