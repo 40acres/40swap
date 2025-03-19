@@ -36,5 +36,5 @@ func (s SwapStatus) Value() (driver.Value, error) {
 }
 
 func SwapStatusEnumSQL() string {
-	return `CREATE TYPE swap_status AS ENUM ('pending', 'completed', 'failed');`
+	return `CREATE TYPE swap_status AS ENUM ('pending', 'in_progress', 'completed', 'failed');`
 }
