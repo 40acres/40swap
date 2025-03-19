@@ -31,13 +31,11 @@ generate:
 test:
     go test ./...
 
-# Run command from the cmd directory
-[working-directory: 'cmd']
 run *cmd:
-    go run . {{cmd}}
+    go run ./cmd/main.go {{cmd}}
 
 run-daemon: install-deps
-    go tool air -- start -db-keep-alive
+    go tool air -- start -db-keep-alive -server-url=http://localhost:7081
 
 # Lint the project
 lint:
@@ -54,3 +52,6 @@ apply-migrations *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=di
 # Show migrations status
 db-status *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
     atlas migrate status --env gorm --url {{url}}
+
+db-clean *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
+    atlas schema clean --env gorm --url {{url}}
