@@ -47,11 +47,11 @@ services:
     volumes:
       - lnd-lsp-data:/root/.lnd
     expose:
-      - '8080'
-      - '10009'
-      - '9735'
+      - "8080"
+      - "10009"
+      - "9735"
     ports:
-      - '10002:10009'
+      - "10002:10009"
   lnd-user:
     image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_user
@@ -63,9 +63,9 @@ services:
     volumes:
       - lnd-user-data:/root/.lnd
     expose:
-      - '8080'
-      - '10009'
-      - '9735'
+      - "8080"
+      - "10009"
+      - "9735"
   lnd-alice:
     image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_alice
@@ -77,9 +77,9 @@ services:
     volumes:
       - lnd-alice-data:/root/.lnd
     expose:
-      - '8080'
-      - '10009'
-      - '9735'
+      - "8080"
+      - "10009"
+      - "9735"
   nbxplorer:
     image: nicolasdorier/nbxplorer:2.5.17
     container_name: 40swap_nbxplorer
@@ -100,7 +100,7 @@ services:
       NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:18443/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:18333
-      NBXPLORER_POSTGRES: Host=postgres;Port=5432;Database=40swap;Username=40swap;Password=40swap
+      NBXPLORER_POSTGRES: Host=postgres;Port=5432;Database=nbxplorer;Username=40swap;Password=40swap
       NBXPLORER_BTCRPCUSER: "40swap"
       NBXPLORER_BTCRPCPASSWORD: "pass"
       NBXPLORER_MAXGAPSIZE: 400
@@ -131,13 +131,13 @@ services:
       HOST: 0.0.0.0
       MACAROON_PATH: /shared/data/chain/bitcoin/regtest
       LN_SERVER_URL: https://lnd-user:8080
-      CONFIG_PATH: ''
+      CONFIG_PATH: ""
       LN_IMPLEMENTATION: LND
       RTL_SSO: 0
-      RTL_COOKIE_PATH: ''
-      LOGOUT_REDIRECT_LINK: ''
+      RTL_COOKIE_PATH: ""
+      LOGOUT_REDIRECT_LINK: ""
       RTL_CONFIG_PATH: /RTL
-      BITCOIND_CONFIG_PATH: ''
+      BITCOIND_CONFIG_PATH: ""
       CHANNEL_BACKUP_PATH: /shared/lnd/backup
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
@@ -158,13 +158,13 @@ services:
       HOST: 0.0.0.0
       MACAROON_PATH: /shared/data/chain/bitcoin/regtest
       LN_SERVER_URL: https://lnd-lsp:8080
-      CONFIG_PATH: ''
+      CONFIG_PATH: ""
       LN_IMPLEMENTATION: LND
       RTL_SSO: 0
-      RTL_COOKIE_PATH: ''
-      LOGOUT_REDIRECT_LINK: ''
+      RTL_COOKIE_PATH: ""
+      LOGOUT_REDIRECT_LINK: ""
       RTL_CONFIG_PATH: /RTL
-      BITCOIND_CONFIG_PATH: ''
+      BITCOIND_CONFIG_PATH: ""
       CHANNEL_BACKUP_PATH: /shared/lnd/backup
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
