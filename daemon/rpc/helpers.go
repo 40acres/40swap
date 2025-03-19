@@ -39,3 +39,16 @@ func ToRPCChainType(chain models.Chain) Chain {
 		return Chain_BITCOIN
 	}
 }
+
+func ToModelsSwapStatusType(status string) models.SwapStatus {
+	switch status {
+	case "IN_PROGRESS":
+		return models.StatusInProgress
+	case "DONE":
+		return models.StatusCompleted
+	case "CONTRACT_REFUNDED_UNCONFIRMED":
+		return models.StatusFailed
+	default:
+		return models.StatusPending
+	}
+}

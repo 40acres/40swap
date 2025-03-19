@@ -75,6 +75,7 @@ func NewDatabase(username, password, database string, port uint32, dataPath, hos
 
 					return fmt.Errorf("Could not stop embedded database: %w", err)
 				}
+				log.Info("✅ DB stopped")
 			}
 
 			return nil
@@ -128,18 +129,21 @@ func (d *Database) ORM() *gorm.DB {
 
 func (d *Database) MigrateDatabase() error {
 	dbURL := d.GetConnectionURL()
-	statusCmd := exec.Command("cd", "..", "&&", "atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
+	statusCmd := exec.Command("atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
 	statusOutput, err := statusCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
 	}
+	log.Debug(string(statusOutput))
 
 	if !strings.Contains(string(statusOutput), "Already at latest version") {
-		applyCmd := exec.Command("cd", "..", "&&", "atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
+		applyCmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
 		applyOutput, err := applyCmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))
 		}
+
+		log.Debug(string(applyOutput))
 		log.Info("✅ Migrations applied successfully")
 	} else {
 		log.Info("✅ Database is up to date with migrations")

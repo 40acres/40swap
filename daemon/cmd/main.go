@@ -185,7 +185,7 @@ func main() {
 							}
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
-							_, err = client.SwapIn(ctx, &rpc.SwapInRequest{
+							res, err := client.SwapIn(ctx, &rpc.SwapInRequest{
 								Chain:   chain,
 								Network: network,
 								Invoice: c.String("payreq"),
@@ -193,6 +193,8 @@ func main() {
 							if err != nil {
 								return err
 							}
+
+							log.Infof("Swap in created: %s", res)
 
 							return nil
 						},

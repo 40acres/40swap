@@ -8,9 +8,10 @@ import (
 type SwapStatus string
 
 const (
-	StatusPending   SwapStatus = "pending"
-	StatusCompleted SwapStatus = "completed"
-	StatusFailed    SwapStatus = "failed"
+	StatusPending    SwapStatus = "pending"
+	StatusInProgress SwapStatus = "in_progress"
+	StatusCompleted  SwapStatus = "completed"
+	StatusFailed     SwapStatus = "failed"
 )
 
 func (s SwapStatus) IsValid() bool {
