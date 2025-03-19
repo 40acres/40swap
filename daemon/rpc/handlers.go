@@ -9,7 +9,7 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
-	decodepay "github.com/nbd-wtf/ln-decodepay"
+	"github.com/lightningnetwork/lnd/zpay32"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,11 +17,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	log.Infof("Received SwapIn request: %v", req)
 	network := ToLightningNetworkType(req.Network)
 
-	if err := lightning.CheckInvoicePrefix(req.Invoice, network); err != nil {
-		return nil, err
-	}
-
-	invoice, err := decodepay.Decodepay(req.Invoice)
+	invoice, err := zpay32.Decode(req.Invoice, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("could not decode invoice: %w", err)
 	}
@@ -43,7 +39,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	err = server.Repository.SaveSwapIn(&models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
-		AmountSATS:         uint64(invoice.MSatoshi / 1000),
+		AmountSATS:         uint64(*invoice.MilliSat / 1000),
 		Status:             models.SwapStatus(swap.Status),
 		SourceChain:        models.Bitcoin,
 		ClaimAddress:       swap.ContractAddress,

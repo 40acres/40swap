@@ -2,11 +2,9 @@ package lightning
 
 import (
 	"encoding/hex"
-	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/chaincfg"
 )
 
 // ParsePubKey parses a hex-encoded public key (bitcon secp256k1) string into a btcec public key object
@@ -30,23 +28,15 @@ const Mainnet Network = "mainnet"
 const Regtest Network = "regtest"
 const Testnet Network = "testnet"
 
-func CheckInvoicePrefix(bolt11 string, network Network) error {
-	firstNumber := strings.IndexAny(bolt11, "1234567890")
-	if firstNumber < 2 {
-		return errors.New("invalid bolt11 invoice")
-	}
-
-	chainPrefix := strings.ToLower(bolt11[2:firstNumber])
-	switch {
-	case strings.EqualFold(chainPrefix, "bcrt") && network == Regtest:
-		break
-	case strings.EqualFold(chainPrefix, "tb") && network == Testnet:
-		break
-	case strings.EqualFold(chainPrefix, "bc") && network == Mainnet:
-		break
+func ToChainCfgNetwork(network Network) *chaincfg.Params {
+	switch network {
+	case Mainnet:
+		return &chaincfg.MainNetParams
+	case Regtest:
+		return &chaincfg.RegressionNetParams
+	case Testnet:
+		return &chaincfg.TestNet3Params
 	default:
-		return fmt.Errorf("invoice is invalid for %s network", network)
+		return nil
 	}
-
-	return nil
 }
