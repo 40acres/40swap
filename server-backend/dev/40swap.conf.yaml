@@ -22,4 +22,5 @@ swap:
   lockBlockDelta:
     in: 432
     out: 20
-  liquidXpub: tpubD6NzVbkrYhZ4WoHvyntYNyZHympmYycxXWgzqjEUnFY3Nu6EwQ4bhodzMtnzTUiaPEDz8L7PqpaK52AubyHVevtYzNKKHuJMWS2eMJXvSBo
+  liquidXpriv: tprv8ZgxMBicQKsPdoR2HGfXb76y3bw475AG2DTVocEjAJaPgqNLjjx5sBm8XC1YriWzjaUcWEJDAVQ7717LEyAz5Q5bJxiGzJJDK2MgW2vX58S
+  liquidXpub: tpubD6NzVbkrYhZ4XGSpAvL7zWm5cdSzGQMAbX4H68H2aaNnXKd7N8mg3gNzhN1LeL6rtgNK394cUtiomLB31rWnhfJgiKFYCSJuq63FFfC1mm3

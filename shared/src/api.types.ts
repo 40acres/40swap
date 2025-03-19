@@ -97,13 +97,9 @@ export const swapChainRequestSchema = z.object({
 export type SwapChainRequest = z.infer<typeof swapChainRequestSchema>;
 
 export const claimLiquidRequestSchema = z.object({
-    spendingTx: z.string(),
     privKey: z.string(),
-    destinationAddress: z.string(),
     preImage: z.string(),
-    contractAddress: z.string(),
-    witnessScript: z.string(),
-    feeRate: z.number(),
+    destinationAddress: z.string()
 });
 export type ClaimLiquidRequest = z.infer<typeof claimLiquidRequestSchema>;
 
