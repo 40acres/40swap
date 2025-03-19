@@ -6,7 +6,6 @@ import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-u
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { address, Psbt, Transaction } from 'bitcoinjs-lib';
-import * as liquid from 'liquidjs-lib';
 import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
@@ -72,7 +71,7 @@ export class SwapOutController {
     @Post('/:id/claim/liquid')
     @ApiCreatedResponse({description: 'Claim a swap out'})
     async claimLiquidTx(@Body() txRequest: ClaimLiquidRequestDto, @Param('id') id: string): Promise<string> {
-        return await (await this.swapService.buildLiquidClaimTx(
+        return await (await this.swapService.buildAndSendLiquidClaimTx(
             id, txRequest.privKey, txRequest.destinationAddress, txRequest.preImage
         )).toHex();
     }

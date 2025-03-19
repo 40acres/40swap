@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { LiquidPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
+import { LiquidLockPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -98,21 +98,19 @@ export class SwapOutRunner {
                     ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
                     swap.timeoutBlockHeight
                 );
-                console.log('htlc in hex', swap.lockScript.toString('hex'));
                 const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
                 const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
                 assert(p2wsh.address != null);
                 swap.contractAddress = p2wsh.address;
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
-                const psetBuilder = new LiquidPSETBuilder(this.nbxplorer, this.swapConfig, network);
-                const psbtTx = await psetBuilder.buildLiquidLockTx(
+                const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.swapConfig, network);
+                const psbtTx = await psetBuilder.getTx(
                     swap.outputAmount.mul(1e8).toNumber(), 
                     p2wsh.address, 
                     Buffer.alloc(0), // blindingKey
                     swap.timeoutBlockHeight
                 );
                 this.swap.lockTx = liquid.Transaction.fromHex(psbtTx.toHex()).toBuffer();
-                console.log('psbtTx in hex: ', psbtTx.toHex());
                 this.swap = await this.repository.save(swap);
                 await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
             } else {

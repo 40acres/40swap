@@ -22,7 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
-import { getContractVoutInfo, getKeysFromHotWallet, LiquidPSETBuilder } from './LiquidUtils.js';
+import { getKeysFromHotWallet, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 import * as liquid from 'liquidjs-lib';
 
 
@@ -289,7 +289,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         }
     }
 
-    async buildLiquidClaimTx(
+    async buildAndSendLiquidClaimTx(
         swapId: string, privKey: string,  destinationAddress: string,  preImage: string
     ): Promise<liquid.Transaction> {
         const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
@@ -299,8 +299,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (!swap || !swap.lockScript || !swap.lockTx) {
             throw new BadRequestException('Cannot find ready  swap');
         }
-        const psetBuilder = new LiquidPSETBuilder(this.nbxplorer, this.swapConfig, network);
-        const spendingTx = liquid.Transaction.fromBuffer(swap.lockTx!);
-        return await psetBuilder.buildLiquidClaimTx(swap, spendingTx, privKey, destinationAddress, preImage);
+        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.swapConfig, network);
+        const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
+        const tx = await psetBuilder.getTx(swap, lockTx, privKey, destinationAddress, preImage);
+        await this.nbxplorer.broadcastTx(tx, 'lbtc');
+        return tx;
     }
 }
