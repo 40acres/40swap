@@ -235,5 +235,5 @@ var grpcPort = cli.IntFlag{
 var serverUrl = cli.StringFlag{
 	Name:  "server-url",
 	Usage: "Server URL",
-	Value: "http://localhost:7081",
+	Value: "https://app.40swap.com",
 }

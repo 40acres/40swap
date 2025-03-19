@@ -226,7 +226,6 @@ require (
 )
 
 require (
-	github.com/nbd-wtf/ln-decodepay v1.13.0
 	github.com/urfave/cli/v3 v3.0.0-beta1
 	golang.org/x/sys v0.31.0 // indirect
 )

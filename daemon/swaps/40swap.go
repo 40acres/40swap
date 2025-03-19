@@ -105,7 +105,13 @@ func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest)
 	}
 
 	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("failed to create swap: swap: %d - %s", response.StatusCode, response.Status)
+		body := map[string]any{}
+		err = json.NewDecoder(response.Body).Decode(&body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("failed to create swap: swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
 	}
 
 	// Marshal response into a struct
