@@ -39,6 +39,7 @@ type CreateSwapInRequest struct {
 }
 
 type SwapInResponse struct {
+	// ContractAddress is the claim address for the swap
 	ContractAddress    string  `json:"contractAddress"`
 	CreatedAt          string  `json:"createdAt"`
 	InputAmount        float32 `json:"inputAmount"`
