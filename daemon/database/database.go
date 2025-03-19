@@ -38,7 +38,7 @@ type Database struct {
 	orm      *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port uint32, dataPath string, host string) (*Database, func() error, error) {
+func NewDatabase(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
 	db := Database{
 		host:     host,
 		username: username,
@@ -65,14 +65,16 @@ func NewDatabase(username, password, database string, port uint32, dataPath stri
 				return fmt.Errorf("Could not close database connection: %w", err)
 			}
 
-			if err := postgres.Stop(); err != nil {
-				if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(port) {
-					killPostgres(port)
+			if !keepAlive {
+				if err := postgres.Stop(); err != nil {
+					if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(port) {
+						killPostgres(port)
 
-					return nil
+						return nil
+					}
+
+					return fmt.Errorf("Could not stop embedded database: %w", err)
 				}
-
-				return fmt.Errorf("Could not stop embedded database: %w", err)
 			}
 
 			return nil
