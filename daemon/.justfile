@@ -6,6 +6,18 @@ help:
 tidy:
     go mod tidy
 
+[macos]
+install-deps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Checking dependencies..."
+    
+    # atlas
+    if ! command -v atlas &> /dev/null; then
+        curl -sSf https://atlasgo.sh | sh
+    fi
+
 # Build the project
 [working-directory: 'cmd']
 build: tidy
@@ -23,6 +35,9 @@ test:
 [working-directory: 'cmd']
 run *cmd:
     go run . {{cmd}}
+
+run-daemon: install-deps
+    go tool air -- start -db-keep-alive
 
 # Lint the project
 lint:

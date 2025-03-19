@@ -74,6 +74,11 @@ func main() {
 				Usage: "Database path",
 				Value: "./.data",
 			},
+			&cli.BoolFlag{
+				Name:  "db-keep-alive",
+				Usage: "Keep the database running after the daemon stops for embedded databases",
+				Value: false,
+			},
 			&grpcPort,
 		},
 		Commands: []*cli.Command{
@@ -98,6 +103,7 @@ func main() {
 						port,
 						c.String("db-data-path"),
 						c.String("db-host"),
+						c.Bool("db-keep-alive"),
 					)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
