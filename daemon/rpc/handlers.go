@@ -27,8 +27,10 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("could not generate EC key pair: %w", err)
 	}
 
+	chain := ToModelsChainType(req.Chain)
+
 	swap, err := server.swaps.CreateSwapIn(ctx, &swaps.CreateSwapInRequest{
-		Chain:           models.Bitcoin,
+		Chain:           chain,
 		RefundPublicKey: hex.EncodeToString(refundPrivateKey.PubKey().SerializeCompressed()),
 		Invoice:         req.Invoice,
 	})
@@ -41,7 +43,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		//nolint:gosec
 		AmountSATS:         uint64(*invoice.MilliSat / 1000),
 		Status:             models.SwapStatus(swap.Status),
-		SourceChain:        models.Bitcoin,
+		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: uint64(swap.TimeoutBlockHeight),
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
@@ -56,7 +58,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	log.Info("Swap created: ", swap.SwapId)
 
 	return &SwapInResponse{
-		SwapId: swap.SwapId,
+		SwapId:       swap.SwapId,
+		ClaimAddress: swap.ContractAddress,
 	}, nil
 }
 

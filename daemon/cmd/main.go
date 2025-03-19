@@ -156,11 +156,21 @@ func main() {
 								Aliases:  []string{"p"},
 								Required: true,
 							},
+							&grpcPort,
 							&regtest,
 							&testnet,
-							&grpcPort,
+							&bitcoin,
+							&liquid,
 						},
 						Action: func(ctx context.Context, c *cli.Command) error {
+							chain := rpc.Chain_BITCOIN
+							switch {
+							case c.Bool("bitcoin"):
+								chain = rpc.Chain_BITCOIN
+							case c.Bool("liquid"):
+								chain = rpc.Chain_LIQUID
+							}
+
 							network := rpc.Network_MAINNET
 							switch {
 							case c.Bool("regtest"):
@@ -176,8 +186,9 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 							_, err = client.SwapIn(ctx, &rpc.SwapInRequest{
-								Invoice: c.String("payreq"),
+								Chain:   chain,
 								Network: network,
+								Invoice: c.String("payreq"),
 							})
 							if err != nil {
 								return err
@@ -218,6 +229,7 @@ func main() {
 	}
 }
 
+// Lightnig networks
 var regtest = cli.BoolFlag{
 	Name:  "regtest",
 	Usage: "Use regtest network",
@@ -227,6 +239,17 @@ var testnet = cli.BoolFlag{
 	Usage: "Use testnet network",
 }
 
+// Chains
+var bitcoin = cli.BoolFlag{
+	Name:  "bitcoin",
+	Usage: "Use Bitcoin chain",
+}
+var liquid = cli.BoolFlag{
+	Name:  "liquid",
+	Usage: "Use Liquid chain",
+}
+
+// Ports and hosts
 var grpcPort = cli.IntFlag{
 	Name:  "grpc-port",
 	Usage: "Grpc port for client to daemon communication",

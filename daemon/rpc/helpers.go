@@ -1,6 +1,9 @@
 package rpc
 
-import "github.com/40acres/40swap/daemon/lightning"
+import (
+	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
+)
 
 func ToLightningNetworkType(network Network) lightning.Network {
 	switch network {
@@ -12,5 +15,27 @@ func ToLightningNetworkType(network Network) lightning.Network {
 		return lightning.Testnet
 	default:
 		return lightning.Mainnet
+	}
+}
+
+func ToModelsChainType(chain Chain) models.Chain {
+	switch chain {
+	case Chain_BITCOIN:
+		return models.Bitcoin
+	case Chain_LIQUID:
+		return models.Liquid
+	default:
+		return models.Bitcoin
+	}
+}
+
+func ToRPCChainType(chain models.Chain) Chain {
+	switch chain {
+	case models.Bitcoin:
+		return Chain_BITCOIN
+	case models.Liquid:
+		return Chain_LIQUID
+	default:
+		return Chain_BITCOIN
 	}
 }

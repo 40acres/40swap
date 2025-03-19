@@ -22,12 +22,14 @@ enum Network {
 
 // Message definitions
 message SwapInRequest {
-  string invoice = 1;
+  Chain chain = 1;
   Network network = 2;
+  string invoice = 3;
 }
 
 message SwapInResponse {
   string swapId = 1;
+  string claim_address = 2;
 }
 
 message SwapOutRequest {
