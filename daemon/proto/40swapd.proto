@@ -26,6 +26,7 @@ message SwapInRequest {
   optional string invoice = 2;
   optional uint32 amountSats = 3;
   optional uint32 expiry = 4;
+  string refund_to = 5;
 }
 
 message SwapInResponse {

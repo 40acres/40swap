@@ -153,7 +153,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, network)
+					err = daemon.Start(ctx, server, db, swapClient, network)
 					if err != nil {
 						return err
 					}
@@ -183,6 +183,20 @@ func main() {
 								Name:    "expiry",
 								Usage:   "The expiry time in seconds",
 								Aliases: []string{"e"},
+							},
+							&cli.StringFlag{
+								Name: "refund-to",
+								// TODO descriptor and xpub
+								Usage:    "The address where the swap will be refunded to",
+								Aliases:  []string{"r"},
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name: "refund-to",
+								// TODO descriptor and xpub
+								Usage:    "The address where the swap will be refunded to",
+								Aliases:  []string{"r"},
+								Required: true,
 							},
 							&grpcPort,
 							&bitcoin,
@@ -223,6 +237,10 @@ func main() {
 							if c.Uint("expiry") != 0 {
 								expiry := uint32(c.Uint("expiry")) // nolint:gosec
 								swapInRequest.Expiry = &expiry
+							}
+
+							if c.String("refund-to") != "" {
+								swapInRequest.RefundTo = c.String("refund-to")
 							}
 
 							res, err := client.SwapIn(ctx, &swapInRequest)
