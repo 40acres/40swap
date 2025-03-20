@@ -24,7 +24,7 @@ import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { getKeysFromHotWallet, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 import * as liquid from 'liquidjs-lib';
-
+import { LiquidService } from './LiquidService.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -33,10 +33,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     private readonly logger = new Logger(SwapService.name);
     private readonly runningSwaps: Map<string, SwapInRunner | SwapOutRunner>;
     private readonly swapConfig: FourtySwapConfiguration['swap'];
+    private readonly elementsConfig: FourtySwapConfiguration['elements'];
 
     constructor(
         private bitcoinConfig: BitcoinConfigurationDetails,
         private bitcoinService: BitcoinService,
+        private liquidService: LiquidService,
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
         private lnd: LndService,
@@ -44,6 +46,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     ) {
         this.runningSwaps = new Map();
         this.swapConfig = config.getOrThrow('swap', { infer: true });
+        this.elementsConfig = config.getOrThrow('elements', { infer: true });
     }
 
     getCheckedAmount(amount: Decimal): Decimal {
@@ -174,6 +177,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
+            this.elementsConfig,
         );
         this.runAndMonitor(swap, runner);
         return swap;
@@ -215,7 +219,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             unlockTxHeight: 0,
         } satisfies Omit<SwapOut, 'createdAt' | 'modifiedAt'>);
         const runner = new SwapOutRunner(
-            swap, repository, this.bitcoinConfig, this.bitcoinService, this.nbxplorer, this.lnd, this.swapConfig
+            swap, repository, this.bitcoinConfig, this.bitcoinService, this.nbxplorer, this.lnd, this.swapConfig, this.elementsConfig
         );
         this.runAndMonitor(swap, runner);
         return swap;
@@ -242,14 +246,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async onApplicationBootstrap(): Promise<void> {
-        // Track the Liquid wallet in NBXplorer
-        try {
-            await this.nbxplorer.track(this.swapConfig.liquidXpub, 'lbtc');
-        } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.logger.error(`Failed to get or track Liquid wallet: ${errorMessage}`);
-        }
-        
         // Resume existing swaps
         const swapInRepository = this.dataSource.getRepository(SwapIn);
         const swapOutRepository = this.dataSource.getRepository(SwapOut);
@@ -276,6 +272,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.nbxplorer,
                 this.lnd,
                 this.swapConfig,
+                this.elementsConfig,
             );
             this.logger.log(`Resuming swap (id=${swap.id})`);
             this.runAndMonitor(swap, runner);
@@ -299,7 +296,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (!swap || !swap.lockScript || !swap.lockTx) {
             throw new BadRequestException('Cannot find ready  swap');
         }
-        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.swapConfig, network);
+        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.elementsConfig, network);
         const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
         const tx = await psetBuilder.getTx(swap, lockTx, privKey, destinationAddress, preImage);
         await this.nbxplorer.broadcastTx(tx, 'lbtc');

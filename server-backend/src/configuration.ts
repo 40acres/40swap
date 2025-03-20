@@ -57,8 +57,12 @@ export const configSchema = z.object({
         expiryDuration: z.string()
             .transform(d => moment.duration(d))
             .refine(d => d.toISOString() !== 'P0D'),
-        liquidXpriv: z.string(),
-        liquidXpub: z.string(),
+    }),
+    elements: z.object({
+        network: z.enum(['bitcoin', 'regtest', 'testnet']),
+        rpcUrl: z.string().url(),
+        rpcUsername: z.string(),
+        rpcPassword: z.string(),
     }),
 });
 

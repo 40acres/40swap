@@ -22,5 +22,8 @@ swap:
   lockBlockDelta:
     in: 432
     out: 20
-  liquidXpriv: tprv8ZgxMBicQKsPd87w2wik2M78XH99EWpB77xQWUkxinugzfD7H1PTx1Z4zN9vmmsdhKqwgWu7ZUQXHox62K51rhdnKG1wrViQ8aT4FQqmHWE
-  liquidXpub: tpubD6NzVbkrYhZ4Wb9ivbPLRkmF6Jf5Pr15gRZBnzoG94i5q9TsuQD48WAwAVSFgMk1k4HfpsfNbZ36fcxdrGXBw7Jviu16Ujt3k5N2EdqfF6g
+elements:
+  network: regtest
+  rpcUrl: http://localhost:18884
+  rpcUsername: 40swap
+  rpcPassword: pass

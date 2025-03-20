@@ -37,6 +37,7 @@ export class SwapOutRunner {
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
         private swapConfig: FourtySwapConfiguration['swap'],
+        private elementsConfig: FourtySwapConfiguration['elements'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -103,7 +104,7 @@ export class SwapOutRunner {
                 assert(p2wsh.address != null);
                 swap.contractAddress = p2wsh.address;
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
-                const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.swapConfig, network);
+                const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
                 const psbtTx = await psetBuilder.getTx(
                     swap.outputAmount.mul(1e8).toNumber(), 
                     p2wsh.address, 
