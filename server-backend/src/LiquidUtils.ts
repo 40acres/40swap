@@ -259,7 +259,7 @@ export abstract class LiquidPSETBuilder {
         try {
             // Call the wallet's RPC to process the PSET
             // You'll need to implement this RPC client method
-            const result = await this.liquidService.callCustomRPC('walletprocesspsbt', [
+            const result = await this.liquidService.callRPC('walletprocesspsbt', [
                 psetBase64,
                 true,  // "sign" parameter
                 'ALL',  // sighash type - ensure it matches what's in the PSBT
@@ -340,7 +340,7 @@ export abstract class LiquidPSETBuilder {
     }
 
     async finalizePset(pset: liquid.Pset): Promise<liquid.Pset> {
-        const result = await this.liquidService.callCustomRPC('finalizepsbt', [pset.toBase64()]);
+        const result = await this.liquidService.callRPC('finalizepsbt', [pset.toBase64()]);
         return liquid.Pset.fromBase64(result.psbt);
     }
 

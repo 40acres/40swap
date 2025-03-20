@@ -1,14 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ECPairFactory } from 'ecpair';
-import * as ecc from 'tiny-secp256k1';
 import { NbxplorerService, NBXplorerUtxo, NBXplorerUtxosResponse } from './NbxplorerService.js';
 import { FourtySwapConfiguration } from './configuration.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
-import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import axios from 'axios';
-import * as bip32 from 'bip32';
 
-const ECPair = ECPairFactory(ecc);
 
 export class LiquidConfigurationDetails {
     readonly rpcUrl!: string;
@@ -62,17 +57,47 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
 
     private async initializeXpub(): Promise<void> {
-        const newAddress = await this.getNewAddress();
-        const privKey = await this.getPrivKey(newAddress);
+        // const newAddress = await this.getNewAddress();
+        // const privKey = await this.getPrivKey(newAddress);
         
-        // Determine network based on configuration
-        const network = this.elementsConfig.network === 'bitcoin' ? liquidNetwork : liquidRegtest;
-        const keyPair = ECPair.fromWIF(privKey, network);
-        const node = bip32.BIP32Factory(ecc).fromPrivateKey(keyPair.privateKey!, Buffer.alloc(32), network);
-        const xpub = node.neutered().toBase58();
-        await this.nbxplorer.track(xpub, 'lbtc');
-        this.setXpub(xpub);
-        this.logger.log('Liquid xpub initialized successfully');
+        // TODO: Implement another way to get the xpub
+        // const network = this.elementsConfig.network === 'bitcoin' ? liquidNetwork : liquidRegtest;
+        // const keyPair = ECPair.fromWIF(privKey, network);
+        // const node = bip32.BIP32Factory(ecc).fromPrivateKey(keyPair.privateKey!, Buffer.alloc(32), network);
+        // const xpub = node.neutered().toBase58();
+        // await this.nbxplorer.track(xpub, 'lbtc');
+        // this.setXpub(xpub);
+        // this.logger.log('Liquid xpub initialized successfully');
+
+        // TODO: Implement another way to get the xpub using rpc
+        // const newAddress = await this.getNewAddress();
+        // const privKey = await this.getPrivKey(newAddress);
+        // const network = this.elementsConfig.network === 'bitcoin' ? liquidNetwork : liquidRegtest;
+        // const keyPair = ECPair.fromWIF(privKey, network);
+        // const node = bip32.BIP32Factory(ecc).fromPrivateKey(keyPair.privateKey!, Buffer.alloc(32), network);
+        // const xpub = node.neutered().toBase58();
+        await this.nbxplorer.track(this.elementsConfig.xpub, 'lbtc');
+        // this.setXpub(xpub);
+        // this.logger.log('Liquid xpub initialized successfully');
+        // const walletName = 'mywatchonlywallet';
+        // await this.callRPC('createwallet', [walletName, true, false, '', false, true]);
+        // const descriptorBase = `wpkh(${xpub}/0/*)`;
+        // const descInfo = await this.callRPC('getdescriptorinfo', [descriptorBase]);
+        // const checksum = descInfo.checksum;
+        // const descriptorFinal = `${descriptorBase}#${checksum}`;
+        // await this.callRPC(
+        //     'importdescriptors',
+        //     [[{
+        //         desc: descriptorFinal,
+        //         timestamp: 'now',
+        //         range: [0, 1000],
+        //         internal: false,
+        //     }]],
+        //     walletName
+        // );
+
+        this.setXpub(this.elementsConfig.xpub);
+        this.logger.log('Descriptor imported successfully in wallet');
     }
 
     setXpub(xpub: string): void {
@@ -81,9 +106,10 @@ export class LiquidService implements OnApplicationBootstrap  {
         this.logger.log(`Xpub set to: ${xpub}`);
     }
 
-    async callRPC(method: string, params: any[] = []): Promise<any> {
+    async callRPC(method: string, params: any[] = [], walletName: string = ''): Promise<any> {
+        const url = walletName ? `${this.rpcUrl}/wallet/${walletName}` : this.rpcUrl;
         try {
-            const response = await axios.post(this.rpcUrl, {
+            const response = await axios.post(url, {
                 jsonrpc: '1.0',
                 id: 'curltest',
                 method,
@@ -137,10 +163,6 @@ export class LiquidService implements OnApplicationBootstrap  {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
         return { utxos: selectedUtxos, totalInputValue };
-    }
-
-    async callCustomRPC(method: string, params: any[] = []): Promise<any> {
-        return this.callRPC(method, params);
     }
   
     async signPsbt(psbtBase64: string): Promise<string> {

@@ -60,6 +60,7 @@ export const configSchema = z.object({
     }),
     elements: z.object({
         network: z.enum(['bitcoin', 'regtest', 'testnet']),
+        xpub: z.string(),
         rpcUrl: z.string().url(),
         rpcUsername: z.string(),
         rpcPassword: z.string(),
