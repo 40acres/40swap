@@ -13,6 +13,7 @@ type ClientInterface interface {
 	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
 	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
+	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
 }
 
 type CreateSwapOutRequest struct {

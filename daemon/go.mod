@@ -13,6 +13,7 @@ require (
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/fergusstrange/embedded-postgres v1.30.0
+	github.com/frain-dev/convoy v1.2.0
 	github.com/lib/pq v1.10.9
 	github.com/lightningnetwork/lnd v0.18.3-beta.rc3
 	github.com/oapi-codegen/runtime v1.1.1

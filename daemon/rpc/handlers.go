@@ -10,6 +10,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -41,7 +42,12 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	invoice, err := zpay32.Decode(*req.Invoice, lightning.ToChainCfgNetwork(network))
 	if err != nil {
-		return nil, fmt.Errorf("could not decode invoice: %w", err)
+		return nil, fmt.Errorf("invalid invoice: %w", err)
+	}
+
+	_, err = btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
+	if err != nil {
+		return nil, fmt.Errorf("invalid refund address: %w", err)
 	}
 
 	refundPrivateKey, err := btcec.NewPrivateKey()
