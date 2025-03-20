@@ -24,14 +24,14 @@ func NewClient(endpoint string) (*Client, error) {
 	}, nil
 }
 
-func chainToDtoChain(chain models.Chain) (string, error) {
+func chainToDtoChain(chain models.Chain) (api.ChainDtoChain, error) {
 	switch chain {
 	case models.Bitcoin:
-		return string(api.BITCOIN), nil
+		return api.ChainDtoChainBITCOIN, nil
 	case models.Liquid:
-		return string(api.LIQUID), nil
+		return api.ChainDtoChainLIQUID, nil
 	default:
-		return string(api.BITCOIN), fmt.Errorf("invalid chain: %s", chain)
+		return api.ChainDtoChainBITCOIN, fmt.Errorf("invalid chain: %s", chain)
 	}
 }
 
