@@ -7,6 +7,7 @@ import (
 
 	"github.com/40acres/40swap/daemon/api"
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/frain-dev/convoy/pkg/log"
 )
 
 type Client struct {
@@ -115,6 +116,34 @@ func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest)
 		}
 
 		return nil, fmt.Errorf("failed to create swap: swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
+	}
+
+	// Marshal response into a struct
+	var swapInResponse SwapInResponse
+	err = json.NewDecoder(response.Body).Decode(&swapInResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &swapInResponse, nil
+}
+
+func (f *Client) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error) {
+	response, err := f.client.SwapInControllerGetSwap(ctx, swapId)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode >= 400 {
+		body := map[string]any{}
+		err = json.NewDecoder(response.Body).Decode(&body)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Info(body)
+
+		return nil, fmt.Errorf("failed to get swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
 	}
 
 	// Marshal response into a struct
