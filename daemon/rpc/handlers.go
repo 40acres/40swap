@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/40acres/40swap/daemon/crypto"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/lightningnetwork/lnd/zpay32"
 	log "github.com/sirupsen/logrus"
 )
@@ -22,7 +22,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("could not decode invoice: %w", err)
 	}
 
-	refundPrivateKey, err := crypto.GenerateECKey()
+	refundPrivateKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate EC key pair: %w", err)
 	}
