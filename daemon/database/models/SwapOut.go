@@ -6,7 +6,7 @@ import (
 
 type SwapOut struct {
 	gorm.Model
-	Status             SwapStatus `gorm:"type:status_enum;not null"`
+	Status             SwapStatus `gorm:"type:swap_status;not null"`
 	AmountSATS         uint64     `gorm:"not null"`
 	DestinationAddress string     `gorm:"not null"`
 	ServiceFeeSATS     uint64     `gorm:"not null"`

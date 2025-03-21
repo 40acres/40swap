@@ -54,3 +54,6 @@ apply-migrations *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=di
 # Show migrations status
 db-status *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
     atlas migrate status --env gorm --url {{url}}
+
+rehash:
+    atlas migrate hash --dir "file://database/migrations"

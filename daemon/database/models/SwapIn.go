@@ -17,7 +17,7 @@ type SwapIn struct {
 	// The swap identifier for the swap service
 	SwapID      string     `gorm:"not null"`
 	AmountSATS  uint64     `gorm:"not null"`
-	Status      SwapStatus `gorm:"type:status_enum;not null"`
+	Status      SwapStatus `gorm:"type:swap_status;not null"`
 	SourceChain Chain      `gorm:"type:chain_enum;not null"`
 
 	// The address where we will pay to and it's tx id
