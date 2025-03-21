@@ -10,6 +10,7 @@ import (
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/lightning/lnd"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
@@ -141,7 +142,12 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
 					}
 
-					server := rpc.NewRPCServer(grpcPort, db, swapClient, network)
+					lnClient, err := lnd.NewClient(ctx, lnd.WithNetwork(rpc.ToLightningNetworkType(network)))
+					if err != nil {
+						return fmt.Errorf("❌ Could not connect to LND: %w", err)
+					}
+
+					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
 					err = daemon.Start(ctx, server, network)
@@ -167,8 +173,6 @@ func main() {
 								Required: true,
 							},
 							&grpcPort,
-							&regtest,
-							&testnet,
 							&bitcoin,
 							&liquid,
 						},
@@ -181,24 +185,17 @@ func main() {
 								chain = rpc.Chain_LIQUID
 							}
 
-							network := rpc.Network_MAINNET
-							switch {
-							case c.Bool("regtest"):
-								network = rpc.Network_REGTEST
-							case c.Bool("testnet"):
-								network = rpc.Network_TESTNET
-							}
-
 							grpcPort, err := validatePort(c.Int("grpc-port"))
 							if err != nil {
 								return err
 							}
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							payreq := c.String("payreq")
 							res, err := client.SwapIn(ctx, &rpc.SwapInRequest{
 								Chain:   chain,
-								Network: network,
-								Invoice: c.String("payreq"),
+								Invoice: &payreq,
 							})
 							if err != nil {
 								return err

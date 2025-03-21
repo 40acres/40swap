@@ -4,20 +4,41 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/lightningnetwork/lnd/zpay32"
+	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
 
 func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInResponse, error) {
 	log.Infof("Received SwapIn request: %v", req)
-	network := ToLightningNetworkType(req.Network)
+	network := ToLightningNetworkType(server.network)
 
-	invoice, err := zpay32.Decode(req.Invoice, lightning.ToChainCfgNetwork(network))
+	if req.Invoice == nil {
+		if req.AmountSats == nil {
+			return nil, fmt.Errorf("either invoice or amountSats must be provided")
+		}
+		amt := decimal.NewFromUint64(uint64(*req.AmountSats))
+
+		// 3 days
+		expiry := 3 * 24 * 60 * 60 * time.Second
+		if req.Expiry != nil {
+			expiry = time.Duration(*req.Expiry) * time.Second
+		}
+
+		invoice, _, err := server.lnClient.GenerateInvoice(ctx, amt, expiry, "")
+		if err != nil {
+			return nil, fmt.Errorf("could not generate invoice: %w", err)
+		}
+		req.Invoice = &invoice
+	}
+
+	invoice, err := zpay32.Decode(*req.Invoice, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("could not decode invoice: %w", err)
 	}
@@ -32,7 +53,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	swap, err := server.swaps.CreateSwapIn(ctx, &swaps.CreateSwapInRequest{
 		Chain:           chain,
 		RefundPublicKey: hex.EncodeToString(refundPrivateKey.PubKey().SerializeCompressed()),
-		Invoice:         req.Invoice,
+		Invoice:         *req.Invoice,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not create swap: %w", err)
@@ -48,7 +69,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		TimeoutBlockHeight: uint64(swap.TimeoutBlockHeight),
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
-		PaymentRequest:     req.Invoice,
+		PaymentRequest:     *req.Invoice,
 		ServiceFeeSATS:     uint64(swap.InputAmount) - uint64(swap.OutputAmount),
 	})
 	if err != nil {
