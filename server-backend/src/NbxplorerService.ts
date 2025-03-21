@@ -323,8 +323,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         if (response.status >= 300) {
             throw new Error(`nbxplorer threw an error when tracking address: ${address}`);
         }
-        console.log('trackAddress: ', address);
-        console.log(response);
     }
 
     async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
@@ -368,7 +366,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         // TODO: remove this once we have a better way to check the tx broadcasted result. PS: tested only with liquid.
         const body = await response.json() as { success?: boolean };
         if (!body.success) {
-            console.log('tx broadcast result: ', body);
+            this.logger.debug('tx broadcast result: ', body);
         }
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when broadcasting a transaction');

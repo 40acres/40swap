@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
+import { LiquidTransactionOutput, NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
@@ -168,7 +168,6 @@ export class SwapOutRunner {
         const addressRegex = /ADDRESS:(.*)/;
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
-            console.log(event);
             const txAddress = match[1];
             if (swap.contractAddress === txAddress) {
                 if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {
@@ -185,7 +184,9 @@ export class SwapOutRunner {
         const { swap } = this;
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
-        const expectedAmount = new Decimal(output.value).div(1e8);
+        const expectedAmount = swap.chain === 'LIQUID' ? 
+            new Decimal((output as unknown as LiquidTransactionOutput).value.value).div(1e8) : 
+            new Decimal(output.value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.error(`Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`);
@@ -210,8 +211,12 @@ export class SwapOutRunner {
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         assert(swap.lockTx != null);
-        const lockTx = Transaction.fromBuffer(swap.lockTx);
-        const unlockTx = Transaction.fromHex(event.data.transactionData.transaction);
+        const lockTx = swap.chain === 'LIQUID' ? 
+            liquid.Transaction.fromBuffer(swap.lockTx) : 
+            Transaction.fromBuffer(swap.lockTx);
+        const unlockTx = swap.chain === 'LIQUID' ? 
+            liquid.Transaction.fromHex(event.data.transactionData.transaction) : 
+            Transaction.fromHex(event.data.transactionData.transaction);
 
         swap.unlockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
         if (event.data.transactionData.height != null) {
@@ -221,7 +226,10 @@ export class SwapOutRunner {
 
         const isSendingToRefundAddress = unlockTx.outs.find(o => {
             try {
-                return address.fromOutputScript(o.script, this.bitcoinConfig.network) === swap.sweepAddress;
+                const sweepAddress = swap.chain === 'LIQUID' ? 
+                    liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest) : 
+                    address.fromOutputScript(o.script, this.bitcoinConfig.network);
+                return sweepAddress === swap.sweepAddress;
             } catch (e) {
                 return false;
             }
