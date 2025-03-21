@@ -8,14 +8,18 @@ import (
 type SwapStatus string
 
 const (
-	StatusPending   SwapStatus = "pending"
-	StatusCompleted SwapStatus = "completed"
-	StatusFailed    SwapStatus = "failed"
+	// happy path
+	StatusCreated                      SwapStatus = "CREATED"
+	StatusInvoicePaymentIntentReceived SwapStatus = "INVOICE_PAYMENT_INTENT_RECEIVED"
+	StatusFundedUnconfirmed            SwapStatus = "CONTRACT_FUNDED_UNCONFIRMED"
+	StatusFunded                       SwapStatus = "CONTRACT_FUNDED"
+	StatusInvoicePaid                  SwapStatus = "INVOICE_PAID"
+	StatusContractClaimedUnconfirmed   SwapStatus = "CONTRACT_CLAIMED_UNCONFIRMED"
+	StatusDone                         SwapStatus = "DONE"
+	// if it expires after CONTRACT_FUNDED
+	StatusContractRefundedUnconfirmed SwapStatus = "CONTRACT_REFUNDED_UNCONFIRMED"
+	StatusContractExpired             SwapStatus = "CONTRACT_EXPIRED"
 )
-
-func (s SwapStatus) IsValid() bool {
-	return s == StatusPending || s == StatusCompleted || s == StatusFailed
-}
 
 func (s SwapStatus) String() string {
 	return string(s)
@@ -36,5 +40,16 @@ func (s SwapStatus) Value() (driver.Value, error) {
 }
 
 func SwapStatusEnumSQL() string {
-	return `CREATE TYPE swap_status AS ENUM ('pending', 'in_progress', 'completed', 'failed');`
+	return `CREATE TYPE "public"."swap_status" AS ENUM (
+		'CREATED',
+		'INVOICE_PAYMENT_INTENT_RECEIVED',
+		'CONTRACT_FUNDED_UNCONFIRMED',
+		'CONTRACT_FUNDED',
+		'INVOICE_PAID',
+		'CONTRACT_CLAIMED_UNCONFIRMED',
+		'DONE',
+		'CONTRACT_REFUNDED_UNCONFIRMED',
+		'CONTRACT_EXPIRED'
+	);
+	`
 }

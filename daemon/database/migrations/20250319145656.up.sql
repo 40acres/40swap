@@ -1,7 +1,7 @@
 -- Add new schema named "public"
 CREATE SCHEMA IF NOT EXISTS "public";
 -- create enum type "swap_status"
-CREATE TYPE "public"."swap_status" AS ENUM ('pending', 'in_progress', 'completed', 'failed');
+CREATE TYPE "public"."swap_status" AS ENUM ('CREATED', 'INVOICE_PAYMENT_INTENT_RECEIVED', 'CONTRACT_FUNDED_UNCONFIRMED', 'CONTRACT_FUNDED', 'INVOICE_PAID', 'CONTRACT_CLAIMED_UNCONFIRMED', 'DONE', 'CONTRACT_REFUNDED_UNCONFIRMED', 'CONTRACT_EXPIRED');
 -- create enum type "chain_enum"
 CREATE TYPE "public"."chain_enum" AS ENUM ('bitcoin', 'liquid');
 -- create "swap_ins" table
