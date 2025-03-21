@@ -168,6 +168,7 @@ export class SwapOutRunner {
         const addressRegex = /ADDRESS:(.*)/;
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
+            console.log(event);
             const txAddress = match[1];
             if (swap.contractAddress === txAddress) {
                 if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {

@@ -24,6 +24,8 @@ swap:
     out: 20
 elements:
   network: regtest
+  xpriv: tprv8ZgxMBicQKsPdhzoMw6zkogtVtf5jN4EAg1jBH1XdpGrCAyvuzEzoxoDAhAxPbNcewPCErWfr4GZVRWcaeNp7k6qREPxZRXcJfZTf9E926M
+  xpub: tpubD6NzVbkrYhZ4XB2bFambADM14vB1thF8jycWTo3q465F2fEhYP4azTR5LrRNsHtAQiZGHaH5aNNiGp6Fx6VD1nhLg3bz8ZZkW98wknGHiC8
   rpcUrl: http://localhost:18884
   rpcUsername: 40swap
   rpcPassword: pass

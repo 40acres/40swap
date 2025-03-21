@@ -304,7 +304,7 @@ export abstract class LiquidPSETBuilder {
         }
     }
 
-    signInputsWithXPriv(xpriv: string, utxos: NBXplorerUtxo[], pset: liquid.Pset, signer: liquid.Signer): void {
+    async signInputsWithXPriv(xpriv: string, utxos: NBXplorerUtxo[], pset: liquid.Pset, signer: liquid.Signer): Promise<liquid.Pset> {
         for (let i = 0; i < utxos.length; i++) {
             const utxo = utxos[i];
             const node = bip32.fromBase58(xpriv, this.network);
@@ -312,6 +312,7 @@ export abstract class LiquidPSETBuilder {
             const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey!));
             this.signInput(pset, signer, signingKeyPair, i);
         }
+        return pset;
     }
 
     signInput(
@@ -387,13 +388,14 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 
         // Sign pset inputs
         const signer = new liquid.Signer(pset);
-        const signedPset = await this.signInputs(utxos, pset, signer);
+        const signedPset = await this.signInputsWithXPriv(this.elementsConfig.xpriv, utxos, pset, signer);
 
         // Finalize pset
-        const finalizedPset = await this.finalizePset(signedPset);
+        const finalizer = new liquid.Finalizer(signedPset);
+        this.finalizePsetWithUtxos(utxos, finalizer);
 
         // Extract transaction from pset and return it
-        const transaction = liquid.Extractor.extract(finalizedPset);
+        const transaction = liquid.Extractor.extract(signedPset);
         return transaction;
     }
 }

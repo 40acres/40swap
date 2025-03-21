@@ -185,7 +185,62 @@ const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
         hash: z.string().min(1),
     }),
 });
-const nbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, nbxplorerTransactionEvent]);
+const liquidAssetValueSchema = z.object({
+    assetId: z.string(),
+    value: z.number(),
+});
+
+const liquidTransactionOutputSchema = z.object({
+    keyPath: z.string().optional(),
+    scriptPubKey: z.string(),
+    index: z.number().int(),
+    feature: z.string().nullish(),
+    value: liquidAssetValueSchema,
+    address: z.string(),
+});
+
+const liquidBlockEventSchema = nbxplorerBaseEvent.extend({
+    type: z.literal('newblock'),
+    data: z.object({
+        height: z.number().int().positive(),
+        hash: z.string().min(1),
+        previousBlockHash: z.string().min(1),
+        confirmations: z.number().int().positive(),
+        cryptoCode: z.string(),
+    }),
+});
+
+const liquidTransactionInputSchema = z.object({
+    inputIndex: z.number(),
+    transactionId: z.string(),
+    keyPath: z.string().optional(),
+    scriptPubKey: z.string(),
+    index: z.number(),
+    feature: z.string().nullish(),
+    value: z.number(),
+    address: z.string(),
+});
+
+const liquidTransactionEventSchema = nbxplorerBaseEvent.extend({
+    type: z.literal('newtransaction'),
+    data: z.object({
+        blockId: z.string().nullish(),
+        trackedSource: z.string(),
+        derivationStrategy: z.string().optional(),
+        transactionData: nbxplorerTransactionSchema,
+        outputs: liquidTransactionOutputSchema.array(),
+        inputs: liquidTransactionInputSchema.array(),
+        replacing: z.array(z.any()).default([]),
+        cryptoCode: z.string(),
+    }),
+});
+
+// Export types
+export type LiquidAssetValue = z.infer<typeof liquidAssetValueSchema>;
+export type LiquidTransactionOutput = z.infer<typeof liquidTransactionOutputSchema>;
+const nbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
+export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
+export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
 export type NBXplorerBlockEvent = z.infer<typeof nbxplorerBlockEvent>;
 export type NBXplorerNewTransactionEvent = z.infer<typeof nbxplorerTransactionEvent>;
 export type NBXplorerEvent = z.infer<typeof nbxplorerEvent>;
@@ -230,6 +285,8 @@ const nbxplorerNetworkStatus = z.object({
 export type NBXplorerNetworkStatus = z.infer<typeof nbxplorerNetworkStatus>;
 
 const STATE_KEY = 'NBXplorer.lastEventId';
+const LIQUID_STATE_KEY = 'NBXplorer.lastLiquidEventId';
+
 
 @Injectable()
 export class NbxplorerService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -264,8 +321,10 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         const url = this.config.baseUrl.replace('btc', cryptoCode);
         const response = await fetch(`${url}/addresses/${address}`, { method: 'POST' });
         if (response.status >= 300) {
-            throw new Error(`nbxplorer threw an error when tracking xpub: ${address}`);
+            throw new Error(`nbxplorer threw an error when tracking address: ${address}`);
         }
+        console.log('trackAddress: ', address);
+        console.log(response);
     }
 
     async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
@@ -387,6 +446,26 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.logger.log('Bitcoin event listener stopped');
     }
 
+
+    async processLiquidEvents(): Promise<void> {
+        while (!this.shutdownRequested) {
+            const lastEventId = await this.getLastLiquidEventId();
+            const events = await this.getLiquidEvents({ lastEventId });
+            for (const event of events) {
+                if (this.shutdownRequested) {
+                    break;
+                }
+                await this.dataSource.transaction(async dbTx => {
+                    await this.saveLastLiquidEventId(event.eventId, dbTx);
+                    if (event.type === 'newblock' || event.type === 'newtransaction') {
+                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                    }
+                });
+            }
+        }
+        this.logger.log('Liquid event listener stopped');
+    }
+
     private lastEventId = 0;
 
     private async getLastEventId(): Promise<number> {
@@ -402,6 +481,19 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         await dbTx.getRepository(ApplicationState).update({ key: STATE_KEY }, { value: eventId });
     }
 
+    private async getLastLiquidEventId(): Promise<number> {
+        const applicationStateRepo = this.dataSource.getRepository(ApplicationState);
+        const lastEventId = (await applicationStateRepo.findOne({ where: { key: LIQUID_STATE_KEY } }))?.value as number ?? 0;
+        if (lastEventId === 0) {
+            await applicationStateRepo.save({ key: LIQUID_STATE_KEY, value: 0 });
+        }
+        return lastEventId;
+    }
+
+    private async saveLastLiquidEventId(eventId: number, dbTx: EntityManager): Promise<void> {
+        await dbTx.getRepository(ApplicationState).update({ key: LIQUID_STATE_KEY }, { value: eventId });
+    }
+
     private async getEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
         this.logger.debug(`Fetching blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
         this.abortController = new AbortController();
@@ -409,6 +501,34 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         try {
             const response = await fetch(
                 `${this.config.baseUrl}/events?` + new URLSearchParams({
+                    lastEventId: params.lastEventId.toFixed(0),
+                    limit: '200',
+                    longPolling: 'true',
+                }),
+                {
+                    // @ts-ignore
+                    signal: this.abortController.signal,
+                });
+            this.abortController = undefined;
+            clearTimeout(timeout);
+            return nbxplorerEvent.array().parse(await response.json());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+            if (e.type === 'aborted') {
+                return [];
+            }
+            throw e;
+        }
+    }
+
+    private async getLiquidEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
+        this.logger.debug(`Fetching liquid blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
+        this.abortController = new AbortController();
+        const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
+        try {
+            const url = this.config.baseUrl.replace('btc', 'lbtc');
+            const response = await fetch(
+                `${url}/events?` + new URLSearchParams({
                     lastEventId: params.lastEventId.toFixed(0),
                     limit: '200',
                     longPolling: 'true',
@@ -481,7 +601,10 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     onApplicationBootstrap(): void {
-        this.eventProcessingPromise = this.processBitcoinEvents();
+        this.eventProcessingPromise = Promise.all([
+            this.processBitcoinEvents(),
+            this.processLiquidEvents(),
+        ]);
     }
 
     onApplicationShutdown(): Promise<unknown> {
