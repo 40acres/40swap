@@ -1,6 +1,7 @@
 package swaps
 
 import (
+	"context"
 	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
@@ -9,8 +10,9 @@ import (
 )
 
 type ClientInterface interface {
-	CreateSwapOut(address string, amount string) error
-	GetSwapOut(swapId string) error
+	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
+	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
+	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
 }
 
 type CreateSwapOutRequest struct {
@@ -28,4 +30,24 @@ type SwapOutResponse struct {
 	OutputAmount       decimal.Decimal   `json:"outputAmount"`
 	Status             models.SwapStatus `json:"status"`
 	CreatedAt          time.Time         `json:"createdAt"`
+}
+
+type CreateSwapInRequest struct {
+	Chain           models.Chain
+	Invoice         string
+	RefundPublicKey string
+}
+
+type SwapInResponse struct {
+	// ContractAddress is the claim address for the swap
+	ContractAddress    string  `json:"contractAddress"`
+	CreatedAt          string  `json:"createdAt"`
+	InputAmount        float32 `json:"inputAmount"`
+	LockTx             *string `json:"lockTx"`
+	Outcome            string  `json:"outcome"`
+	OutputAmount       float32 `json:"outputAmount"`
+	RedeemScript       string  `json:"redeemScript"`
+	Status             string  `json:"status"`
+	SwapId             string  `json:"swapId"`
+	TimeoutBlockHeight float32 `json:"timeoutBlockHeight"`
 }

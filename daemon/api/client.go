@@ -16,6 +16,12 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ChainDtoChain.
+const (
+	ChainDtoChainBITCOIN ChainDtoChain = "BITCOIN"
+	ChainDtoChainLIQUID  ChainDtoChain = "LIQUID"
+)
+
 // Defines values for GetSwapInResponseDtoOutcome.
 const (
 	EXPIRED  GetSwapInResponseDtoOutcome = "EXPIRED"
@@ -49,9 +55,17 @@ const (
 
 // Defines values for SwapOutRequestDtoChain.
 const (
-	BITCOIN SwapOutRequestDtoChain = "BITCOIN"
-	LIQUID  SwapOutRequestDtoChain = "LIQUID"
+	SwapOutRequestDtoChainBITCOIN SwapOutRequestDtoChain = "BITCOIN"
+	SwapOutRequestDtoChainLIQUID  SwapOutRequestDtoChain = "LIQUID"
 )
+
+// ChainDto defines model for ChainDto.
+type ChainDto struct {
+	Chain *ChainDtoChain `json:"chain,omitempty"`
+}
+
+// ChainDtoChain defines model for ChainDto.Chain.
+type ChainDtoChain string
 
 // GetSwapInResponseDto defines model for GetSwapInResponseDto.
 type GetSwapInResponseDto struct {

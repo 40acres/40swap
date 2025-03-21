@@ -22,7 +22,6 @@ import (
 type MockClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientMockRecorder
-	isgomock struct{}
 }
 
 // MockClientMockRecorder is the mock recorder for MockClient.
@@ -43,9 +42,9 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // GenerateInvoice mocks base method.
-func (m *MockClient) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (string, []byte, error) {
+func (m *MockClient) GenerateInvoice(arg0 context.Context, arg1 decimal.Decimal, arg2 time.Duration, arg3 string) (string, []byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateInvoice", ctx, amountSats, expiry, memo)
+	ret := m.ctrl.Call(m, "GenerateInvoice", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].([]byte)
 	ret2, _ := ret[2].(error)
@@ -53,45 +52,30 @@ func (m *MockClient) GenerateInvoice(ctx context.Context, amountSats decimal.Dec
 }
 
 // GenerateInvoice indicates an expected call of GenerateInvoice.
-func (mr *MockClientMockRecorder) GenerateInvoice(ctx, amountSats, expiry, memo any) *gomock.Call {
+func (mr *MockClientMockRecorder) GenerateInvoice(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateInvoice", reflect.TypeOf((*MockClient)(nil).GenerateInvoice), ctx, amountSats, expiry, memo)
-}
-
-// GetGraphStatus mocks base method.
-func (m *MockClient) GetGraphStatus(ctx context.Context) (*GraphStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetGraphStatus", ctx)
-	ret0, _ := ret[0].(*GraphStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetGraphStatus indicates an expected call of GetGraphStatus.
-func (mr *MockClientMockRecorder) GetGraphStatus(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGraphStatus", reflect.TypeOf((*MockClient)(nil).GetGraphStatus), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateInvoice", reflect.TypeOf((*MockClient)(nil).GenerateInvoice), arg0, arg1, arg2, arg3)
 }
 
 // MonitorPaymentReception mocks base method.
-func (m *MockClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (string, error) {
+func (m *MockClient) MonitorPaymentReception(arg0 context.Context, arg1 []byte) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MonitorPaymentReception", ctx, rhash)
+	ret := m.ctrl.Call(m, "MonitorPaymentReception", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MonitorPaymentReception indicates an expected call of MonitorPaymentReception.
-func (mr *MockClientMockRecorder) MonitorPaymentReception(ctx, rhash any) *gomock.Call {
+func (mr *MockClientMockRecorder) MonitorPaymentReception(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MonitorPaymentReception", reflect.TypeOf((*MockClient)(nil).MonitorPaymentReception), ctx, rhash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MonitorPaymentReception", reflect.TypeOf((*MockClient)(nil).MonitorPaymentReception), arg0, arg1)
 }
 
 // MonitorPaymentRequest mocks base method.
-func (m *MockClient) MonitorPaymentRequest(ctx context.Context, paymentHash string) (string, int64, error) {
+func (m *MockClient) MonitorPaymentRequest(arg0 context.Context, arg1 string) (string, int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MonitorPaymentRequest", ctx, paymentHash)
+	ret := m.ctrl.Call(m, "MonitorPaymentRequest", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(int64)
 	ret2, _ := ret[2].(error)
@@ -99,21 +83,21 @@ func (m *MockClient) MonitorPaymentRequest(ctx context.Context, paymentHash stri
 }
 
 // MonitorPaymentRequest indicates an expected call of MonitorPaymentRequest.
-func (mr *MockClientMockRecorder) MonitorPaymentRequest(ctx, paymentHash any) *gomock.Call {
+func (mr *MockClientMockRecorder) MonitorPaymentRequest(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MonitorPaymentRequest", reflect.TypeOf((*MockClient)(nil).MonitorPaymentRequest), ctx, paymentHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MonitorPaymentRequest", reflect.TypeOf((*MockClient)(nil).MonitorPaymentRequest), arg0, arg1)
 }
 
 // PayInvoice mocks base method.
-func (m *MockClient) PayInvoice(ctx context.Context, paymentRequest string) error {
+func (m *MockClient) PayInvoice(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PayInvoice", ctx, paymentRequest)
+	ret := m.ctrl.Call(m, "PayInvoice", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PayInvoice indicates an expected call of PayInvoice.
-func (mr *MockClientMockRecorder) PayInvoice(ctx, paymentRequest any) *gomock.Call {
+func (mr *MockClientMockRecorder) PayInvoice(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayInvoice", reflect.TypeOf((*MockClient)(nil).PayInvoice), ctx, paymentRequest)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayInvoice", reflect.TypeOf((*MockClient)(nil).PayInvoice), arg0, arg1)
 }

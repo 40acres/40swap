@@ -66,6 +66,8 @@ services:
       - "8080"
       - "10009"
       - "9735"
+    ports:
+      - "10001:10009"
   lnd-alice:
     image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_alice
