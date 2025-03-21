@@ -9,11 +9,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Start(ctx context.Context, db *database.Database, grpcPort uint32) error {
+func Start(ctx context.Context, db *database.Database, grpcPort uint32, network rpc.Network) error {
 	log.Info("Starting 40swapd")
 
 	// gRPC server
-	server := rpc.NewRPCServer(grpcPort, db)
+	server := rpc.NewRPCServer(grpcPort, db, network)
 	defer server.Stop()
 	go func() {
 		err := server.ListenAndServe()

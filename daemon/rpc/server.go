@@ -16,13 +16,15 @@ type Server struct {
 	Port       uint32
 	Repository Repository
 	grpcServer *grpc.Server
+	network    Network
 }
 
-func NewRPCServer(port uint32, repository Repository) *Server {
+func NewRPCServer(port uint32, repository Repository, network Network) *Server {
 	svr := &Server{
 		Port:       port,
 		Repository: repository,
 		grpcServer: grpc.NewServer(),
+		network:    network,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)
