@@ -10,6 +10,7 @@ import (
 	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
@@ -80,6 +81,8 @@ func main() {
 				Value: false,
 			},
 			&grpcPort,
+			&testnet,
+			&regtest,
 		},
 		Commands: []*cli.Command{
 			{
@@ -123,7 +126,15 @@ func main() {
 						log.Info("🔍 Skipping database migration")
 					}
 
-					err = daemon.Start(ctx, db, grpcPort)
+					// Get the network
+					network := rpc.Network_MAINNET
+					if c.Bool("regtest") {
+						network = rpc.Network_REGTEST
+					} else if c.Bool("testnet") {
+						network = rpc.Network_TESTNET
+					}
+
+					err = daemon.Start(ctx, db, grpcPort, network)
 					if err != nil {
 						return err
 					}
