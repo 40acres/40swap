@@ -110,6 +110,9 @@ func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest)
 		if err != nil {
 			return nil, err
 		}
+		if response.StatusCode == 400 {
+			return nil, fmt.Errorf("Failed to create swap: %s", body["message"])
+		}
 
 		return nil, fmt.Errorf("failed to create swap: swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
 	}

@@ -84,6 +84,9 @@ func main() {
 			},
 			&grpcPort,
 			&serverUrl,
+			&tlsCert,
+			&macaroon,
+			&lndHost,
 			&testnet,
 			&regtest,
 		},
@@ -142,7 +145,12 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
 					}
 
-					lnClient, err := lnd.NewClient(ctx, lnd.WithNetwork(rpc.ToLightningNetworkType(network)))
+					lnClient, err := lnd.NewClient(ctx,
+						lnd.WithLndEndpoint(c.String("lnd-host")),
+						lnd.WithMacaroonFilePath(c.String("macaroon")),
+						lnd.WithTLSCertFilePath(c.String("tls-cert")),
+						lnd.WithNetwork(rpc.ToLightningNetworkType(network)),
+					)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to LND: %w", err)
 					}
@@ -167,10 +175,19 @@ func main() {
 						Usage: "Perform a swap in",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name:     "payreq",
-								Usage:    "The Lightning invoice where the swap will be paid to",
-								Aliases:  []string{"p"},
-								Required: true,
+								Name:    "payreq",
+								Usage:   "The Lightning invoice where the swap will be paid to",
+								Aliases: []string{"p"},
+							},
+							&cli.UintFlag{
+								Name:    "amt",
+								Usage:   "The amount in sats to swap in",
+								Aliases: []string{"a"},
+							},
+							&cli.UintFlag{
+								Name:    "expiry",
+								Usage:   "The expiry time in seconds",
+								Aliases: []string{"e"},
 							},
 							&grpcPort,
 							&bitcoin,
@@ -192,11 +209,29 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
+							swapInRequest := rpc.SwapInRequest{
+								Chain: chain,
+							}
 							payreq := c.String("payreq")
-							res, err := client.SwapIn(ctx, &rpc.SwapInRequest{
-								Chain:   chain,
-								Invoice: &payreq,
-							})
+							if payreq == "" && c.Uint("amt") == 0 {
+								return fmt.Errorf("either payreq or amt must be provided")
+							}
+
+							if payreq != "" {
+								swapInRequest.Invoice = &payreq
+							}
+
+							if c.Uint("amt") != 0 {
+								amt := uint32(c.Uint("amt")) // nolint:gosec
+								swapInRequest.AmountSats = &amt
+							}
+
+							if c.Uint("expiry") != 0 {
+								expiry := uint32(c.Uint("expiry")) // nolint:gosec
+								swapInRequest.Expiry = &expiry
+							}
+
+							res, err := client.SwapIn(ctx, &swapInRequest)
 							if err != nil {
 								return err
 							}
@@ -268,4 +303,21 @@ var serverUrl = cli.StringFlag{
 	Name:  "server-url",
 	Usage: "Server URL",
 	Value: "https://app.40swap.com",
+}
+
+// config files
+var tlsCert = cli.StringFlag{
+	Name:  "tls-cert",
+	Usage: "TLS certificate file",
+	Value: "/root/.lnd/tls.cert",
+}
+var macaroon = cli.StringFlag{
+	Name:  "macaroon",
+	Usage: "Macaroon file",
+	Value: "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+}
+var lndHost = cli.StringFlag{
+	Name:  "lnd-host",
+	Usage: "LND host",
+	Value: "localhost:10009",
 }

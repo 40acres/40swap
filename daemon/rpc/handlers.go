@@ -35,6 +35,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		if err != nil {
 			return nil, fmt.Errorf("could not generate invoice: %w", err)
 		}
+
 		req.Invoice = &invoice
 	}
 
