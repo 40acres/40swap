@@ -20,14 +20,16 @@ type Server struct {
 	Repository Repository
 	grpcServer *grpc.Server
 	swaps      swaps.ClientInterface
+	network    Network
 }
 
-func NewRPCServer(port uint32, repository Repository, swaps *swaps.Client) *Server {
+func NewRPCServer(port uint32, repository Repository, swaps *swaps.Client, network Network) *Server {
 	svr := &Server{
 		Port:       port,
 		Repository: repository,
 		grpcServer: grpc.NewServer(),
 		swaps:      swaps,
+		network:    network,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)

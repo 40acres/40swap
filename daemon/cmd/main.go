@@ -83,6 +83,8 @@ func main() {
 			},
 			&grpcPort,
 			&serverUrl,
+			&testnet,
+			&regtest,
 		},
 		Commands: []*cli.Command{
 			{
@@ -126,15 +128,23 @@ func main() {
 						log.Info("🔍 Skipping database migration")
 					}
 
+					// Get the network
+					network := rpc.Network_MAINNET
+					if c.Bool("regtest") {
+						network = rpc.Network_REGTEST
+					} else if c.Bool("testnet") {
+						network = rpc.Network_TESTNET
+					}
+
 					swapClient, err := swaps.NewClient(c.String("server-url"))
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
 					}
 
-					server := rpc.NewRPCServer(grpcPort, db, swapClient)
+					server := rpc.NewRPCServer(grpcPort, db, swapClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server)
+					err = daemon.Start(ctx, server, network)
 					if err != nil {
 						return err
 					}

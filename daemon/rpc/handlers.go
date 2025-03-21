@@ -42,7 +42,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		SwapID: swap.SwapId,
 		//nolint:gosec
 		AmountSATS:         uint64(*invoice.MilliSat / 1000),
-		Status:             ToModelsSwapStatusType(swap.Status),
+		Status:             models.SwapStatus(swap.Status),
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: uint64(swap.TimeoutBlockHeight),

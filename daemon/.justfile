@@ -55,3 +55,6 @@ db-status *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
 
 db-clean *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
     atlas schema clean --env gorm --url {{url}}
+
+rehash:
+    atlas migrate hash --dir "file://database/migrations"

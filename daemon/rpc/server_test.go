@@ -5,14 +5,14 @@ import (
 )
 
 func TestNewRPCServer(test *testing.T) {
-	server := NewRPCServer(50051, nil, nil)
+	server := NewRPCServer(50051, nil, nil, Network_REGTEST)
 	if server == nil {
 		test.Fatalf("Expected non-nil server")
 	}
 }
 
 func TestListenAndServe(test *testing.T) {
-	server := NewRPCServer(50051, nil, nil)
+	server := NewRPCServer(50051, nil, nil, Network_REGTEST)
 	errChan := make(chan error)
 	go func() {
 		errChan <- server.ListenAndServe()

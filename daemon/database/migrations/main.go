@@ -20,7 +20,7 @@ func main() {
 
 	// Add schema selection and enum types creation
 	enumStmts := models.SwapStatusEnumSQL() + "\n" + models.ChainEnumSQL() + "\n"
-	stmts = enumStmts + stmts
+	stmts = "CREATE SCHEMA IF NOT EXISTS public;" + enumStmts + stmts
 
 	if _, err := io.WriteString(os.Stdout, stmts); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write to stdout: %v\n", err)
