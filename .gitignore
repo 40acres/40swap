@@ -23,3 +23,5 @@ daemon/cmd/cmd
 .data/
 daemon/tmp
 build-errors.log
+daemon/tls.cert
+daemon/admin.macaroon

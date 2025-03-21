@@ -34,8 +34,8 @@ test:
 run *cmd:
     go run ./cmd/main.go {{cmd}}
 
-run-daemon: install-deps
-    go tool air -- start -db-keep-alive -server-url=http://localhost:7081
+run-daemon: install-deps copy-lnd-data
+    go tool air -- start -regtest -db-keep-alive -server-url=http://localhost:7081 -tls-cert=./tls.cert -macaroon=./admin.macaroon -lnd-host=localhost:10001
 
 # Lint the project
 lint:
@@ -58,3 +58,7 @@ db-clean *url="postgres://40swap:40swap@localhost:5432/40swap?sslmode=disable":
 
 rehash:
     atlas migrate hash --dir "file://database/migrations"
+
+copy-lnd-data:
+    docker cp 40swap_lnd_user:/root/.lnd/tls.cert .
+    docker cp 40swap_lnd_user:/root/.lnd/data/chain/bitcoin/regtest/admin.macaroon .
