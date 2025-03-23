@@ -8,7 +8,7 @@ db:
   database: '40swap'
 bitcoin:
   network: regtest
-  requiredConfirmations: 3
+  requiredConfirmations: 5
 nbxplorer:
   baseUrl: http://localhost:32838/v1/cryptos/btc
   fallbackFeeRate: 10
@@ -24,8 +24,8 @@ swap:
     out: 20
 elements:
   network: regtest
-  xpriv: tprv8ZgxMBicQKsPfJvmbUJWJz3RSXjRZKWgpQsZ2xhVr6kqD5Ssm47o7kYm1FeneWQAVrqhauSkqsZE9vSsCRBB8ZdkWK5LygkvciGRs53xFNX
-  xpub: tpubD6NzVbkrYhZ4YmxZV7y6iPhY1ZFMiehbPiULKUjoGNZE3ZhePSwPJFAdBQ1Xbn9aAtZsP7xseEyLntwiyarCmP8QUbV8XqH2qHR3karXUEK
+  xpriv: tprv8ZgxMBicQKsPd1kVFqkGkhQwfJvea5qxHfZWR4GutyTAWHkFp7ai3Xr2ieSh9UdA6Zgd28ABz8KrQZ53dY6ziZZAWGVS6FhyTPNkjdduted
+  xpub: tpubD6NzVbkrYhZ4WUnH9VQsA754ELSajR2rryAHhaKDKFFZLn12SWQJE2Tttmq5pSt78BXmSBiHw3atwYCEZzjfCRdQa5N9KH7sxtLfJmf42rm
   rpcUrl: http://localhost:18884
   rpcUsername: 40swap
   rpcPassword: pass

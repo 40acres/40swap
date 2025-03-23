@@ -111,7 +111,6 @@ export class SwapOutRunner {
                     Buffer.alloc(0), // blindingKey
                     swap.timeoutBlockHeight
                 );
-                this.swap.lockTx = liquid.Transaction.fromHex(psbtTx.toHex()).toBuffer();
                 this.swap = await this.repository.save(swap);
                 await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
             } else {
@@ -130,9 +129,14 @@ export class SwapOutRunner {
                 await this.lnd.sendCoinsOnChain(contractAddress, swap.outputAmount.mul(1e8).toNumber());
             }
         } else if (status === 'CONTRACT_EXPIRED') {
+            // TODO: Add liquid support to refunt path
             assert(swap.lockTx != null);
-            const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
-            await this.nbxplorer.broadcastTx(refundTx);
+            if (swap.chain === 'LIQUID') {
+                return;
+            } else {
+                const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
+                await this.nbxplorer.broadcastTx(refundTx);
+            }
         }
     }
 

@@ -153,7 +153,9 @@ export abstract class LiquidPSETBuilder {
         return 1000;
     }
 
-    abstract getTx(...args: unknown[]): Promise<liquid.Transaction>;
+    // abstract getTx(...args: unknown[]): Promise<liquid.Transaction>;
+
+    // abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
     async getUtxoTx(utxo: NBXplorerUtxo, xpub: string): Promise<liquid.Transaction> {
         const walletTx = await this.nbxplorer.getWalletTransaction(xpub, utxo.transactionHash, 'lbtc');
@@ -401,13 +403,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 }
 
 export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
-    async getTx(
-        swap: SwapOut,
-        spendingTx: liquid.Transaction, 
-        privKey: string, 
-        destinationAddress: string, 
-        preImage: string
-    ): Promise<liquid.Transaction> {
+    async getPset(swap: SwapOut, spendingTx: liquid.Transaction, destinationAddress: string,): Promise<liquid.Pset> {
         // Find the contract vout info
         const { contractOutputIndex, outputValue, witnessUtxo } = getContractVoutInfo(
             spendingTx, swap.contractAddress!, this.network
@@ -420,6 +416,7 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
         // Add input - use contractOutputIndex for the vout
         const psetInputIndex = 0;
         const sequence = 0;
+        const sighashType = liquid.Transaction.SIGHASH_ALL;
         this.addWitnessUtxoInput(
             updater,
             pset,
@@ -429,7 +426,7 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
             sequence,
             witnessUtxo,
             swap.lockScript!,
-            liquid.Transaction.SIGHASH_ALL,
+            sighashType,
         );
         
         // Calculate output amount and fee
@@ -442,22 +439,7 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
         
         // Add fee output - required for Liquid
         this.addOutput(updater, feeAmount);
-        
-        // Sign input
-        const signer = new liquid.Signer(pset);
-        const keyPair = ECPair.fromWIF(privKey, this.network);
-        this.signInput(pset, signer, keyPair, psetInputIndex, liquid.Transaction.SIGHASH_ALL);
-        
-        // Finalize input
-        const finalizer = new liquid.Finalizer(pset);
-        this.finalizePsetWithStack(finalizer, psetInputIndex, [
-            this.signatures[0],
-            Buffer.from(preImage, 'hex'),
-            swap.lockScript!,
-        ]);
-        
-        // Extract transaction
-        const transaction = liquid.Extractor.extract(pset);
-        return transaction;
+
+        return pset;
     }
 }

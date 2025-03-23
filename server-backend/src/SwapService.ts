@@ -286,20 +286,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         }
     }
 
-    async buildAndSendLiquidClaimTx(
-        swapId: string, privKey: string,  destinationAddress: string,  preImage: string
-    ): Promise<liquid.Transaction> {
+    async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {
         const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-        const swap = await this.dataSource.getRepository(SwapOut).findOne({
-            where: { id: swapId },
-        });
-        if (!swap || !swap.lockScript || !swap.lockTx) {
-            throw new BadRequestException('Cannot find ready  swap');
-        }
         const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.elementsConfig, network);
         const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
-        const tx = await psetBuilder.getTx(swap, lockTx, privKey, destinationAddress, preImage);
-        await this.nbxplorer.broadcastTx(tx, 'lbtc');
-        return tx;
+        return await psetBuilder.getPset(swap, lockTx, destinationAddress);
     }
 }

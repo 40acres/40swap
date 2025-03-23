@@ -6,13 +6,15 @@ import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-u
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { address, Psbt, Transaction } from 'bitcoinjs-lib';
+import * as liquid from 'liquidjs-lib';
 import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
+
 import {
-    claimLiquidRequestSchema,
     GetSwapOutResponse,
     PsbtResponse,
     psbtResponseSchema,
@@ -21,6 +23,7 @@ import {
     swapOutRequestSchema,
     txRequestSchema,
 } from '@40swap/shared';
+import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 
 
 const ECPair = ECPairFactory(ecc);
@@ -30,7 +33,6 @@ class TxRequestDto extends createZodDto(txRequestSchema) {}
 class GetSwapOutResponseDto extends createZodDto(swapOutRequestSchema) {}
 class PsbtResponseDto extends createZodDto(psbtResponseSchema) {}
 class SwapChainRequestDto extends createZodDto(swapChainRequestSchema) {}
-class ClaimLiquidRequestDto extends createZodDto(claimLiquidRequestSchema) {}
 
 @Controller('/swap/out')
 export class SwapOutController {
@@ -68,12 +70,81 @@ export class SwapOutController {
         return this.mapToResponse(swap);
     }
 
+    // TODO: remove this, only for testing
+    @Post('/claim/liquid/signed')
+    @ApiCreatedResponse({description: 'Claim a swap out'})
+    async getLiquidClaimTX(@Body() txRequest: TxRequestDto, @Query('privKey') privKey: string, @Query('preimage') preimage: string): Promise<{ tx: string }> {
+        const pset = liquid.Pset.fromBase64(txRequest.tx);
+        const inputIndex = 0;
+        const input = pset.inputs[inputIndex];
+        if (!input.witnessScript) {
+            throw new Error('El input no tiene witnessScript');
+        }
+        const preimageBuffer = Buffer.from(preimage, 'hex');
+        const keyPair = ECPair.fromWIF(privKey, liquidRegtest);
+        const sighashType = liquid.Transaction.SIGHASH_ALL;
+        const signature = liquid.script.signature.encode(
+            keyPair.sign(pset.getInputPreimage(inputIndex, sighashType)),
+            sighashType,
+        );
+        const signer = new liquid.Signer(pset);
+        signer.addSignature(
+            inputIndex,
+            {
+                partialSig: {
+                    pubkey: keyPair.publicKey,
+                    signature,
+                },
+            },
+            liquid.Pset.ECDSASigValidator(ecc),
+        );
+        const finalizer = new liquid.Finalizer(pset);
+        finalizer.finalizeInput(inputIndex, () => {
+            const finalScriptWitness = liquid.witnessStackToScriptWitness([signature,preimageBuffer,input.witnessScript!]);
+            return {finalScriptWitness};
+        });
+        const transaction = liquid.Extractor.extract(pset);
+        console.log('Transaction:', transaction.toHex());
+        return { tx: transaction.toHex() };
+    }
+
     @Post('/:id/claim/liquid')
     @ApiCreatedResponse({description: 'Claim a swap out'})
-    async claimLiquidTx(@Body() txRequest: ClaimLiquidRequestDto, @Param('id') id: string): Promise<string> {
-        return await (await this.swapService.buildAndSendLiquidClaimTx(
-            id, txRequest.privKey, txRequest.destinationAddress, txRequest.preImage
-        )).toHex();
+    async posttLiquidClaimTX(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
+        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        assert(swap.lockTx != null);
+        try {
+            const lockTx = liquid.Transaction.fromBuffer(swap.lockTx);
+            const claimTx = liquid.Transaction.fromHex(txRequest.tx);
+            if (claimTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                throw new BadRequestException('invalid claim tx');
+            }
+            await this.nbxplorer.broadcastTx(claimTx, 'lbtc');
+        } catch (e) {
+            throw new BadRequestException('invalid liquid tx');
+        }
+    }
+
+    @Get('/:id/claim/liquid')
+    @ApiOkResponse({description: 'Get a claim PSBT for a liquid swap out', type: PsbtResponseDto})
+    async getLiquidClaimPset(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
+        if (outputAddress == null) {
+            throw new BadRequestException('address is required');
+        }
+        try {
+            const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
+            liquid.address.toOutputScript(outputAddress, network);
+        } catch (e) {
+            throw new BadRequestException(`invalid address ${outputAddress}`);
+        }
+        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        assert(swap.lockTx != null, 'swap lockTx is null');
+        if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED') {
+            throw new BadRequestException('swap is already being claimed');
+        }
+        assert(swap.status === 'CONTRACT_FUNDED', 'swap is not ready');
+        const pset = await this.swapService.buildLiquidClaimPset(swap, outputAddress);
+        return { psbt: pset.toBase64() };
     }
 
     @Post('/:id/claim')
