@@ -105,14 +105,15 @@ export class SwapOutRunner {
                 swap.contractAddress = p2wsh.address;
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
-                const psbtTx = await psetBuilder.getTx(
+                const pset = await psetBuilder.getPset(
                     swap.outputAmount.mul(1e8).toNumber(), 
                     p2wsh.address, 
-                    Buffer.alloc(0), // blindingKey
+                    Buffer.alloc(0), // TODO: add a proper blinding key
                     swap.timeoutBlockHeight
                 );
+                const psetTx = liquid.Extractor.extract(pset);
                 this.swap = await this.repository.save(swap);
-                await this.nbxplorer.broadcastTx(psbtTx, 'lbtc');
+                await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else {
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,

@@ -133,29 +133,83 @@ export function getContractVoutInfo(
 }
 
 
-export abstract class LiquidPSETBuilder {
+export class PSETUtils {
+    constructor(
+        protected network: liquid.networks.Network,
+    ) {}
+
+
+    addInput(pset: liquid.Pset, txId: string, inputIndex: number,  sequence: number): void {
+        const input = new liquid.CreatorInput(txId, inputIndex, sequence);
+        pset.addInput(input.toPartialInput());
+    }
+
+    addOutput(
+        updater: liquid.Updater, amount: number, script?: Buffer | undefined, blindingKey?: Buffer | undefined
+    ): void {
+        const changeOutput = new liquid.CreatorOutput(
+            this.network.assetHash,
+            amount,
+            script ?? undefined,
+            // blindingKey !== undefined ? blindingKey : undefined,
+            // blindingKey !== undefined ? 0 : undefined
+        );
+        updater.addOutputs([changeOutput]);
+    }
+
+    signIndex(
+        pset: liquid.Pset, 
+        signer: liquid.Signer, 
+        signingKeyPair: ECPairInterface, 
+        index: number, 
+        sigHashType: number = liquid.Transaction.SIGHASH_ALL
+    ): Buffer {
+        const signature = liquid.script.signature.encode(
+            signingKeyPair.sign(pset.getInputPreimage(index, sigHashType)),
+            liquid.Transaction.SIGHASH_ALL,
+        );
+        signer.addSignature(
+            index,
+            {
+                partialSig: {
+                    pubkey: signingKeyPair.publicKey,
+                    signature,
+                },
+            },
+            liquid.Pset.ECDSASigValidator(ecc),
+        );
+        return signature;
+    }
+
+    finalizeIndexWithStack(finalizer: liquid.Finalizer, index: number, stack: Buffer[]): void {
+        finalizer.finalizeInput(index, () => {
+            const finalScriptWitness = liquid.witnessStackToScriptWitness(stack);
+            return {finalScriptWitness};
+        });
+    }
+}
+
+
+export abstract class LiquidPSETBuilder extends PSETUtils {
     public signatures: Buffer[] = [];
     protected liquidService: LiquidService;
     protected signingKeys: ECPairInterface[] = [];
-    protected network: liquid.networks.Network;
 
     constructor(
         protected nbxplorer: NbxplorerService,
         protected elementsConfig: FourtySwapConfiguration['elements'],
         network: liquid.networks.Network,
     ) {
-        this.network = network;
+        super(network);
         this.liquidService = new LiquidService(nbxplorer, elementsConfig);
     }
+
+    abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
     // TODO: get dynamic commision
     getCommissionAmount(): number {
         return 1000;
     }
-
-    // abstract getTx(...args: unknown[]): Promise<liquid.Transaction>;
-
-    // abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
     async getUtxoTx(utxo: NBXplorerUtxo, xpub: string): Promise<liquid.Transaction> {
         const walletTx = await this.nbxplorer.getWalletTransaction(xpub, utxo.transactionHash, 'lbtc');
@@ -172,11 +226,6 @@ export abstract class LiquidPSETBuilder {
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
         });
-    }
-
-    addInput(pset: liquid.Pset, txId: string, inputIndex: number,  sequence: number): void {
-        const input = new liquid.CreatorInput(txId, inputIndex, sequence);
-        pset.addInput(input.toPartialInput());
     }
 
     addNonWitnessUtxoInput(
@@ -231,19 +280,6 @@ export abstract class LiquidPSETBuilder {
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);
         this.addOutput(updater, feeAmount);
-    }
-
-    addOutput(
-        updater: liquid.Updater, amount: number, script?: Buffer | undefined, blindingKey?: Buffer | undefined
-    ): void {
-        const changeOutput = new liquid.CreatorOutput(
-            this.network.assetHash,
-            amount,
-            script ?? undefined,
-            // blindingKey !== undefined ? blindingKey : undefined,
-            // blindingKey !== undefined ? 0 : undefined
-        );
-        updater.addOutputs([changeOutput]);
     }
 
     /**
@@ -312,32 +348,19 @@ export abstract class LiquidPSETBuilder {
             const node = bip32.fromBase58(xpriv, this.network);
             const child = node.derivePath(utxo.keyPath);
             const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey!));
-            this.signInput(pset, signer, signingKeyPair, i);
+            this.signInputIndex(pset, signer, signingKeyPair, i);
         }
         return pset;
     }
 
-    signInput(
+    signInputIndex(
         pset: liquid.Pset, 
         signer: liquid.Signer, 
         signingKeyPair: ECPairInterface, 
         index: number, 
         sigHashType: number = liquid.Transaction.SIGHASH_ALL
     ): void {
-        const signature = liquid.script.signature.encode(
-            signingKeyPair.sign(pset.getInputPreimage(index, sigHashType)),
-            liquid.Transaction.SIGHASH_ALL,
-        );
-        signer.addSignature(
-            index,
-            {
-                partialSig: {
-                    pubkey: signingKeyPair.publicKey,
-                    signature,
-                },
-            },
-            liquid.Pset.ECDSASigValidator(ecc),
-        );
+        const signature = this.signIndex(pset, signer, signingKeyPair, index, sigHashType);
         this.signatures.push(signature);
         this.signingKeys.push(signingKeyPair);
     }
@@ -349,28 +372,21 @@ export abstract class LiquidPSETBuilder {
 
     finalizePsetWithUtxos(utxos: NBXplorerUtxo[], finalizer: liquid.Finalizer): void {
         for (let i = 0; i < utxos.length; i++) {
-            this.finalizePsetWithStack(finalizer, i, [
+            this.finalizeIndexWithStack(finalizer, i, [
                 this.signatures[i],
                 this.signingKeys[i].publicKey,
             ]);
         }
     }
-
-    finalizePsetWithStack(finalizer: liquid.Finalizer, index: number, stack: Buffer[]): void {
-        finalizer.finalizeInput(index, () => {
-            const finalScriptWitness = liquid.witnessStackToScriptWitness(stack);
-            return {finalScriptWitness};
-        });
-    }
 }
 
 export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
-    async getTx(
+    async getPset(
         amount: number, 
         contractAddress: string, 
         blindingKey: Buffer, 
         timeoutBlockHeight?: number
-    ): Promise<liquid.Transaction> {
+    ): Promise<liquid.Pset> {
         const commision = this.getCommissionAmount();
         const totalAmount = amount + commision;
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
@@ -395,10 +411,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // Finalize pset
         const finalizer = new liquid.Finalizer(signedPset);
         this.finalizePsetWithUtxos(utxos, finalizer);
-
-        // Extract transaction from pset and return it
-        const transaction = liquid.Extractor.extract(signedPset);
-        return transaction;
+        return signedPset;
     }
 }
 
