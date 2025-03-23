@@ -194,8 +194,9 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         });
         const refundHotWallet = await this.nbxplorer.generateHotWallet('lbtc');
         const refundKeys = getKeysFromHotWallet(refundHotWallet, network);
-        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
-
+        const refundAddress = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true });
+        // TODO: get right value
+        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in - 101;
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
@@ -208,7 +209,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             preImageHash,
             invoice,
             timeoutBlockHeight,
-            sweepAddress: await this.lnd.getNewAddress(),
+            sweepAddress: refundAddress.address,
             unlockPrivKey: Buffer.from(refundKeys.privKey),
             counterpartyPubKey: Buffer.from(request.claimPubKey, 'hex'),
             unlockTx: null,

@@ -99,12 +99,11 @@ export class SwapOutController {
             liquid.Pset.ECDSASigValidator(ecc),
         );
         const finalizer = new liquid.Finalizer(pset);
+        const stack = [signature,preimageBuffer,input.witnessScript!];
         finalizer.finalizeInput(inputIndex, () => {
-            const finalScriptWitness = liquid.witnessStackToScriptWitness([signature,preimageBuffer,input.witnessScript!]);
-            return {finalScriptWitness};
+            return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
         });
         const transaction = liquid.Extractor.extract(pset);
-        console.log('Transaction:', transaction.toHex());
         return { tx: transaction.toHex() };
     }
 

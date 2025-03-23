@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { LiquidLockPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
+import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -133,7 +133,12 @@ export class SwapOutRunner {
             // TODO: Add liquid support to refunt path
             assert(swap.lockTx != null);
             if (swap.chain === 'LIQUID') {
-                return;
+                const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
+                const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
+                const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx));
+                const psetTx = liquid.Extractor.extract(pset);
+                await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
+                await this.lnd.cancelInvoice(swap.preImageHash);
             } else {
                 const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
                 await this.nbxplorer.broadcastTx(refundTx);
@@ -269,6 +274,8 @@ export class SwapOutRunner {
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         const { swap } = this;
         if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
+            console.log('Timeout Block Height:', swap.timeoutBlockHeight);
+            console.log('Current Block Height:', event.data.height);
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
             await this.onStatusChange('CONTRACT_EXPIRED');

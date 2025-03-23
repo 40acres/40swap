@@ -166,7 +166,7 @@ export class PSETUtils {
     ): Buffer {
         const signature = liquid.script.signature.encode(
             signingKeyPair.sign(pset.getInputPreimage(index, sigHashType)),
-            liquid.Transaction.SIGHASH_ALL,
+            sigHashType
         );
         signer.addSignature(
             index,
@@ -453,6 +453,59 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
         // Add fee output - required for Liquid
         this.addOutput(updater, feeAmount);
 
+        return pset;
+    }
+}
+
+export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
+    async getPset(swap: SwapOut, spendingTx: liquid.Transaction): Promise<liquid.Pset> {
+        // Find the contract vout info
+        const { contractOutputIndex, outputValue, witnessUtxo } = getContractVoutInfo(
+            spendingTx, swap.contractAddress!, this.network
+        );
+        
+        // Create a new pset
+        const pset = liquid.Creator.newPset({
+            locktime: swap.timeoutBlockHeight,
+        });
+        const updater = new liquid.Updater(pset);
+        
+        // Add input - use contractOutputIndex for the vout
+        const psetInputIndex = 0;
+        const sequence = 0xfffffffe;
+        const sighashType = liquid.Transaction.SIGHASH_ALL;
+        this.addWitnessUtxoInput(
+            updater,
+            pset,
+            spendingTx,
+            psetInputIndex,
+            contractOutputIndex,
+            sequence,
+            witnessUtxo,
+            swap.lockScript!,
+            sighashType,
+        );
+        
+        // Calculate output amount and fee
+        const feeAmount = this.getCommissionAmount();
+        const outputAmount = outputValue - feeAmount;
+        
+        // Add output
+        const outputScript = liquid.address.toOutputScript(swap.sweepAddress!, this.network);
+        this.addOutput(updater, outputAmount, outputScript);
+        
+        // Add fee output - required for Liquid
+        this.addOutput(updater, feeAmount);
+
+        // Sign pset inputs
+        const signer = new liquid.Signer(pset);
+        const signingKeyPair = ECPair.fromPrivateKey(swap.unlockPrivKey);
+        const signature = this.signIndex(pset, signer, signingKeyPair, psetInputIndex, sighashType);
+
+        // Finalize pset
+        const finalizer = new liquid.Finalizer(pset);
+        const stack = [signature, Buffer.from(''), pset.inputs[psetInputIndex].witnessScript!];
+        this.finalizeIndexWithStack(finalizer, psetInputIndex, stack);
         return pset;
     }
 }
