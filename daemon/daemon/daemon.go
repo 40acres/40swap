@@ -71,12 +71,13 @@ func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
 }
 
 func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.SwapIn) error {
-	log.Infof("processing swap with id: %s", currentSwap.SwapID)
+	logger := log.WithField("id", currentSwap.SwapID)
+	logger.Info("processing swap")
 
 	newSwap, err := m.swapClient.GetSwapIn(ctx, currentSwap.SwapID)
 	switch {
 	case errors.Is(err, swaps.ErrSwapNotFound):
-		log.Infof("swap with id: %s not found", currentSwap.SwapID)
+		logger.Warn("swap not found")
 
 		// TODO: create field OUTCOME
 		currentSwap.Status = models.StatusDone
@@ -93,13 +94,32 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	switch currentSwap.Status {
 	case models.StatusCreated:
 		// Do nothing
+		logger.Debug("Waiting for payment")
 	case models.StatusContractFundedUnconfirmed:
+		logger.Debug("On-chain payment detected, waiting for confirmation")
 	case models.StatusContractFunded:
+		logger.Debug("Contract funded, waiting for 40swap to pay the invoice")
 	case models.StatusInvoicePaid:
+		logger.Debug("Lightning invoice paid, claiming on-chain tx")
 	case models.StatusContractClaimedUnconfirmed:
+		logger.Debug("40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation")
 	case models.StatusDone:
+		// TODO: save outcome
+		if newSwap.Outcome == "REFUNDED" {
+			logger.Debug("Failed. The funds have been refunded")
+		} else if newSwap.Outcome == "EXPIRED" {
+			logger.Debug("Failed. The contract has expired, waiting to be refunded")
+		} else {
+			logger.Debug("Success. The funds have been claimed")
+		}
 	case models.StatusContractRefundedUnconfirmed:
+		log.Debug("The refund has been sent, waiting for on-chain confirmation")
 	case models.StatusContractExpired:
+		if true { // check refund was requested
+			log.Info("On-chain contract expired. initiating a refund'")
+		} else {
+			log.Debug("On-chain contract expired. Refund is in-progress")
+		}
 	}
 
 	if changed {
