@@ -13,7 +13,7 @@ func (d *Database) SaveSwapIn(swapIn *models.SwapIn) error {
 
 func (d *Database) GetPendingSwapIns() ([]models.SwapIn, error) {
 	var swapIns []models.SwapIn
-	err := d.orm.Where("status = ?", models.StatusPending).Find(&swapIns).Error
+	err := d.orm.Where("status != ?", models.StatusDone).Find(&swapIns).Error
 
 	return swapIns, err
 }
