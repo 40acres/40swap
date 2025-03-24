@@ -141,6 +141,10 @@ func (f *Client) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse,
 			return nil, err
 		}
 
+		if response.StatusCode == 404 {
+			return nil, ErrSwapNotFound
+		}
+
 		log.Info(body)
 
 		return nil, fmt.Errorf("failed to get swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
