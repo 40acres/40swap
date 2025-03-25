@@ -35,6 +35,11 @@ func chainToDtoChain(chain models.Chain) (api.SwapOutRequestDtoChain, error) {
 	}
 }
 
+type clientError struct {
+	StatusCode int    `json:"statusCode"`
+	Message    string `json:"message"`
+}
+
 func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
 	chain, err := chainToDtoChain(swapReq.Chain)
 	if err != nil {
@@ -54,7 +59,14 @@ func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest
 	}
 
 	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("failed to create swap: swap: %d - %s", response.StatusCode, response.Status)
+
+		var bodyResponse clientError
+		err = json.NewDecoder(response.Body).Decode(&bodyResponse)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("failed to create swap: swap: %d - %s: %s", bodyResponse.StatusCode, response.Status, bodyResponse.Message)
 	}
 
 	// Marshal response into a struct

@@ -4,27 +4,35 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/40acres/40swap/daemon/swaps"
 	"google.golang.org/grpc"
 )
 
 type Repository interface {
 	// Add more repositories here
+	database.SwapOutRepository
 }
 
 type Server struct {
 	UnimplementedSwapServiceServer
-	Port       uint32
-	Repository Repository
-	grpcServer *grpc.Server
-	network    Network
+	Port            uint32
+	Repository      Repository
+	grpcServer      *grpc.Server
+	lightningClient lightning.Client
+	swapClient      swaps.ClientInterface
+	network         Network
 }
 
-func NewRPCServer(port uint32, repository Repository, network Network) *Server {
+func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, network Network) *Server {
 	svr := &Server{
-		Port:       port,
-		Repository: repository,
-		grpcServer: grpc.NewServer(),
-		network:    network,
+		Port:            port,
+		Repository:      repository,
+		grpcServer:      grpc.NewServer(),
+		swapClient:      swapClient,
+		lightningClient: lightningClient,
+		network:         network,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)

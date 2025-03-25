@@ -22,7 +22,7 @@ type GraphStatus struct {
 
 //go:generate mockgen -destination=mock.go -package=lightning . Client
 type Client interface {
-	PayInvoice(ctx context.Context, paymentRequest string) error
+	PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error
 	MonitorPaymentRequest(ctx context.Context, paymentHash string) (Preimage, NetworkFeeSats, error)
 	MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error)
 	GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error)

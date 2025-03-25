@@ -10,7 +10,19 @@
          "request": "launch",
          "mode": "debug",
          "program": "${workspaceFolder}/daemon/cmd/main.go",
-         "args": ["start"]
-      }
+         "args": ["start"],
+         "env": {
+            "MACAROON_FILE_PATH": "../admin.macaroon",
+            "TLS_CERT_FILE_PATH": "../tls.cert",
+            "SWAP_SERVER_ENDPOINT": "http://localhost:7081",
+         }
+      },
+      {
+         "name": "Debug daemon",
+         "type": "go",
+         "request": "attach",
+         "mode": "local",
+         "processId": "cmd"
+      },
    ]
 }

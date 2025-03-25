@@ -7,10 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/lightning/lnd"
 	"github.com/40acres/40swap/daemon/rpc"
+	"github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
@@ -81,8 +82,8 @@ func main() {
 				Value: false,
 			},
 			&grpcPort,
-			&testnet,
 			&regtest,
+			&testnet,
 		},
 		Commands: []*cli.Command{
 			{
@@ -134,7 +135,39 @@ func main() {
 						network = rpc.Network_TESTNET
 					}
 
-					err = daemon.Start(ctx, db, grpcPort, network)
+					macaroonFilePath, ok := os.LookupEnv("MACAROON_FILE_PATH")
+					if !ok {
+						return fmt.Errorf("❌ MACAROON_FILE_PATH not set")
+					}
+
+					tlsCertFilePath, ok := os.LookupEnv("TLS_CERT_FILE_PATH")
+					if !ok {
+						return fmt.Errorf("❌ TLS_CERT_FILE_PATH not set")
+					}
+
+					// Lightning client
+					opts := []lnd.Option{
+						lnd.WithMacaroonFilePath(macaroonFilePath),
+						lnd.WithTLSCertFilePath(tlsCertFilePath),
+						lnd.WithNetwork(lnd.Regtest), // TODO: use the network parser from Rodri's PR once is merged
+					}
+					lightningClient, err := lnd.NewClient(ctx, opts...)
+					if err != nil {
+						return err
+					}
+
+					swapServerEndpoint, ok := os.LookupEnv("SWAP_SERVER_ENDPOINT")
+					if !ok {
+						return fmt.Errorf("❌ SWAP_ENDPOINT not set")
+					}
+
+					// Swaps client
+					swapClient, err := swaps.NewClient(swapServerEndpoint)
+					if err != nil {
+						return err
+					}
+
+					err = daemon.Start(ctx, db, grpcPort, lightningClient, swapClient, network)
 					if err != nil {
 						return err
 					}
@@ -149,9 +182,29 @@ func main() {
 					{
 						Name:  "out",
 						Usage: "Perform a swap out",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&amountSats,
+							&address,
+						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							// TODO
-							swapcli.SwapOut()
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							swapOutRequest := rpc.SwapOutRequest{
+								Chain:      rpc.Chain_BITCOIN,
+								AmountSats: uint32(cmd.Int("amt")),
+								Address:    cmd.String("address"),
+							}
+
+							_, err = client.SwapOut(ctx, &swapOutRequest)
+							if err != nil {
+								return err
+							}
 
 							return nil
 						},
@@ -191,4 +244,16 @@ var grpcPort = cli.IntFlag{
 	Name:  "grpc-port",
 	Usage: "Grpc port for client to daemon communication",
 	Value: 50051,
+}
+
+var amountSats = cli.IntFlag{
+	Name:     "amt",
+	Usage:    "Amount in sats to swap",
+	Required: true,
+}
+
+var address = cli.StringFlag{
+	Name:     "address",
+	Usage:    "Address to swap to",
+	Required: true,
 }

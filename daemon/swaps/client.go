@@ -1,6 +1,7 @@
 package swaps
 
 import (
+	"context"
 	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
@@ -9,8 +10,8 @@ import (
 )
 
 type ClientInterface interface {
-	CreateSwapOut(address string, amount string) error
-	GetSwapOut(swapId string) error
+	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
+	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
 }
 
 type CreateSwapOutRequest struct {
