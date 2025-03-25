@@ -60,19 +60,5 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("error paying the invoice: %w", err)
 	}
 
-	// Get fees and update model
-	_, fees, err := server.lightningClient.MonitorPaymentRequest(ctx, swap.Invoice)
-	if err != nil {
-		log.Error("Error monitoring the lightning payment: ", err)
-		return nil, fmt.Errorf("error monitoring the lightning payment: %w", err)
-	}
-
-	swapModel.OffchainFeeSATS = uint64(fees)
-
-	err = server.Repository.SaveSwapOut(&swapModel)
-	if err != nil {
-		return nil, err
-	}
-
 	return &SwapOutResponse{}, nil
 }
