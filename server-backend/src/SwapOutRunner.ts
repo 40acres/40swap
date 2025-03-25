@@ -130,7 +130,6 @@ export class SwapOutRunner {
                 await this.lnd.sendCoinsOnChain(contractAddress, swap.outputAmount.mul(1e8).toNumber());
             }
         } else if (status === 'CONTRACT_EXPIRED') {
-            // TODO: Add liquid support to refunt path
             assert(swap.lockTx != null);
             if (swap.chain === 'LIQUID') {
                 const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
