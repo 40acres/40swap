@@ -59,7 +59,6 @@ func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest
 	}
 
 	if response.StatusCode >= 400 {
-
 		var bodyResponse clientError
 		err = json.NewDecoder(response.Body).Decode(&bodyResponse)
 		if err != nil {

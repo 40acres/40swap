@@ -195,9 +195,17 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
+							amt := cmd.Int("amt")
+							if amt < 0 {
+								return fmt.Errorf("❌ Amount must be greater than 0")
+							}
+							if amt > int64(^uint32(0)) {
+								return fmt.Errorf("❌ Amount must be less than %d", ^uint32(0))
+							}
+
 							swapOutRequest := rpc.SwapOutRequest{
 								Chain:      rpc.Chain_BITCOIN,
-								AmountSats: uint32(cmd.Int("amt")),
+								AmountSats: uint32(cmd.Int("amt")), // nolint:gosec
 								Address:    cmd.String("address"),
 							}
 

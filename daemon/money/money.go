@@ -16,7 +16,8 @@ func NewFromBtc(amount decimal.Decimal) (Money, error) {
 	if amount.IsNegative() {
 		return 0, ErrNegativeAmount
 	}
-	return Money(amount.Mul(decimal.NewFromInt(1e8)).IntPart()), nil // nolint
+
+	return Money(amount.Mul(decimal.NewFromInt(1e8)).IntPart()), nil // nolint:gosec
 }
 
 func (m Money) ToBtc() decimal.Decimal {

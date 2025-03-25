@@ -23,6 +23,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	swap, err := server.CreateSwapOut(ctx, pubkey, req.AmountSats)
 	if err != nil {
 		log.Error("Error creating swap: ", err)
+
 		return nil, fmt.Errorf("error creating the swap: %w", err)
 	}
 
@@ -57,6 +58,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	err = server.lightningClient.PayInvoice(ctx, swap.Invoice, swapModel.MaxRoutingFeeRatio)
 	if err != nil {
 		log.Error("Error paying the invoice: ", err)
+
 		return nil, fmt.Errorf("error paying the invoice: %w", err)
 	}
 
