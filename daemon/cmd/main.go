@@ -191,13 +191,6 @@ func main() {
 								Aliases:  []string{"r"},
 								Required: true,
 							},
-							&cli.StringFlag{
-								Name: "refund-to",
-								// TODO descriptor and xpub
-								Usage:    "The address where the swap will be refunded to",
-								Aliases:  []string{"r"},
-								Required: true,
-							},
 							&grpcPort,
 							&bitcoin,
 						},

@@ -1,5 +1,7 @@
 set fallback := true
 
+set fallback := true
+
 # List all the recipes
 help:
     @just -l

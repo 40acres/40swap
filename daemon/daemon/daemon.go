@@ -90,8 +90,9 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		return fmt.Errorf("failed to get swap in: %w", err)
 	}
 
-	changed := currentSwap.Status == models.SwapStatus(newSwap.Status)
-	switch currentSwap.Status {
+	newStatus := models.SwapStatus(newSwap.Status)
+	changed := currentSwap.Status != newStatus
+	switch newStatus {
 	case models.StatusCreated:
 		// Do nothing
 		logger.Debug("Waiting for payment")
@@ -123,13 +124,14 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	}
 
 	if changed {
+		currentSwap.Status = newStatus
 		err := m.repository.SaveSwapIn(&currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)
 		}
 	}
 
-	log.Infof("swap in processed with id: %s", currentSwap.SwapID)
+	logger.Infof("swap in processed")
 
 	return nil
 }
