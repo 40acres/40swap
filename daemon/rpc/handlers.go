@@ -66,10 +66,16 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("could not create swap: %w", err)
 	}
 
+	invoiceAmountSats := decimal.NewFromInt(int64(invoice.MilliSat.ToSatoshis()))
+	inputAmountBtc := decimal.NewFromFloat32(swap.InputAmount)
+	// TODO: fetch from config controller
+	serviceFee := decimal.NewFromFloat(0.5)
+	serviceFeeSats := invoiceAmountSats.Mul(serviceFee).IntPart()
+
 	err = server.Repository.SaveSwapIn(&models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
-		AmountSATS:         uint64(*invoice.MilliSat / 1000),
+		AmountSATS:         uint64(invoiceAmountSats.IntPart()),
 		Status:             models.SwapStatus(swap.Status),
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
@@ -77,7 +83,9 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
-		ServiceFeeSATS:     uint64(swap.InputAmount) - uint64(swap.OutputAmount),
+		ServiceFeeSATS:     uint64(serviceFeeSats), // nolint:gosec,
+		// TODO: Save offchain fee as well
+		OnChainFeeSATS: 0,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
@@ -87,6 +95,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	return &SwapInResponse{
 		SwapId:       swap.SwapId,
+		AmountSats:   uint32(inputAmountBtc.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
 		ClaimAddress: swap.ContractAddress,
 	}, nil
 }
