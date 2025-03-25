@@ -17,6 +17,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	_ "ariga.io/atlas-provider-gorm/gormschema"
+	_ "github.com/40acres/40swap/daemon/logging"
 	_ "github.com/lib/pq"
 )
 
