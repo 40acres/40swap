@@ -195,6 +195,7 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
+							// Validate amount
 							amt := cmd.Int("amt")
 							if amt < 0 {
 								return fmt.Errorf("❌ Amount must be greater than 0")
