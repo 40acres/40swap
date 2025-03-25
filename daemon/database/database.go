@@ -127,25 +127,24 @@ func (d *Database) ORM() *gorm.DB {
 }
 
 func (d *Database) MigrateDatabase() error {
-	dbURL := d.GetConnectionURL()
-	statusCmd := exec.Command("cd", "..", "&&", "atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
-	statusOutput, err := statusCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
-	}
+	return NewMigrator(d.orm).Migrate()
+}
 
-	if !strings.Contains(string(statusOutput), "Already at latest version") {
-		applyCmd := exec.Command("cd", "..", "&&", "atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
-		applyOutput, err := applyCmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))
-		}
-		log.Info("✅ Migrations applied successfully")
-	} else {
-		log.Info("✅ Database is up to date with migrations")
-	}
+func (d *Database) MigrateTo(to string) error {
+	return NewMigrator(d.orm).MigrateTo(to)
+}
 
-	return nil
+func (d *Database) Rollback() error {
+	return NewMigrator(d.orm).Rollback()
+}
+
+// Reset will WIPE all tables on the database. Use it carefully.
+func (d *Database) Reset() error {
+	return NewMigrator(d.orm).Reset()
+}
+
+func (d *Database) Generate(path string) error {
+	return generate(d.orm, path)
 }
 
 func (d *Database) close() error {

@@ -7,14 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
-	_ "ariga.io/atlas-provider-gorm/gormschema"
 	_ "github.com/40acres/40swap/daemon/logging"
 	_ "github.com/lib/pq"
 )
@@ -90,25 +88,12 @@ func main() {
 				Name:  "start",
 				Usage: "Start the 40swapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
-					port, err := validatePort(c.Int("db-port"))
-					if err != nil {
-						return err
-					}
-
 					grpcPort, err := validatePort(c.Int("grpc-port"))
 					if err != nil {
 						return err
 					}
 
-					db, closeDb, err := database.NewDatabase(
-						c.String("db-user"),
-						c.String("db-password"),
-						c.String("db-name"),
-						port,
-						c.String("db-data-path"),
-						c.String("db-host"),
-						c.Bool("db-keep-alive"),
-					)
+					db, closeDb, err := StartDatabase(c)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
@@ -152,7 +137,123 @@ func main() {
 						Usage: "Perform a swap out",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							// TODO
-							swapcli.SwapOut()
+
+							return nil
+						},
+					},
+				},
+			},
+			{
+				Name:  "database",
+				Usage: "Database operations",
+				Commands: []*cli.Command{
+					{
+						Name:  "migrate",
+						Usage: "Migrate the database",
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							db, closeDb, err := StartDatabase(cmd)
+							if err != nil {
+								return fmt.Errorf("❌ Could not connect to database: %w", err)
+							}
+							defer func() {
+								if err := closeDb(); err != nil {
+									log.Errorf("❌ Could not close database: %v", err)
+								}
+							}()
+
+							if cmd.String("db-host") == "embedded" {
+								dbErr := db.MigrateDatabase()
+								if dbErr != nil {
+									return dbErr
+								}
+							} else {
+								log.Info("🔍 Skipping database migration")
+							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "rollback",
+						Usage: "Rollback the database",
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							db, closeDb, err := StartDatabase(cmd)
+							if err != nil {
+								return fmt.Errorf("❌ Could not connect to database: %w", err)
+							}
+							defer func() {
+								if err := closeDb(); err != nil {
+									log.Errorf("❌ Could not close database: %v", err)
+								}
+							}()
+
+							if cmd.String("db-host") == "embedded" {
+								dbErr := db.Rollback()
+								if dbErr != nil {
+									return dbErr
+								}
+							} else {
+								log.Info("🔍 Skipping database migration")
+							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "reset",
+						Usage: "Reset the database",
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							db, closeDb, err := StartDatabase(cmd)
+							if err != nil {
+								return fmt.Errorf("❌ Could not connect to database: %w", err)
+							}
+							defer func() {
+								if err := closeDb(); err != nil {
+									log.Errorf("❌ Could not close database: %v", err)
+								}
+							}()
+
+							if cmd.String("db-host") == "embedded" {
+								dbErr := db.Reset()
+								if dbErr != nil {
+									return dbErr
+								}
+							} else {
+								log.Info("🔍 Skipping database migration")
+							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "generate",
+						Usage: "Generate models for the database",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "path",
+								Usage: "Destination path for the generated files.",
+								Value: "./database",
+							},
+						},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							db, closeDb, err := StartDatabase(cmd)
+							if err != nil {
+								return fmt.Errorf("❌ Could not connect to database: %w", err)
+							}
+							defer func() {
+								if err := closeDb(); err != nil {
+									log.Errorf("❌ Could not close database: %v", err)
+								}
+							}()
+
+							if cmd.String("db-host") == "embedded" {
+								dbErr := db.Generate(cmd.String("path"))
+								if dbErr != nil {
+									return dbErr
+								}
+							} else {
+								log.Info("🔍 Skipping database migration")
+							}
 
 							return nil
 						},
@@ -192,4 +293,26 @@ var grpcPort = cli.IntFlag{
 	Name:  "grpc-port",
 	Usage: "Grpc port for client to daemon communication",
 	Value: 50051,
+}
+
+func StartDatabase(cmd *cli.Command) (*database.Database, func() error, error) {
+	port, err := validatePort(cmd.Int("db-port"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	db, closeDb, err := database.NewDatabase(
+		cmd.String("db-user"),
+		cmd.String("db-password"),
+		cmd.String("db-name"),
+		port,
+		cmd.String("db-data-path"),
+		cmd.String("db-host"),
+		cmd.Bool("db-keep-alive"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("❌ Could not connect to database: %w", err)
+	}
+
+	return db, closeDb, nil
 }
