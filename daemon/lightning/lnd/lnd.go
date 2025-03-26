@@ -87,9 +87,6 @@ var (
 
 var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive with LndEndpoint, MacaroonFilePath and TLSCertFilePath")
 
-// NewClient creates a lnd client from a daprlndconnectURI string.
-// This Client establishes a grpc connection with a lnd node using dapr.
-// It is using two stubs: router and ln.
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
 	options := Options{
