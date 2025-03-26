@@ -16,17 +16,17 @@ install-dependencies:
     npm install --workspaces
 
 # Start services with docker compose
-[working-directory: 'server-backend/dev']
+[working-directory: 'docker']
 docker-up $COMPOSE_PROFILES='mempool-btc,esplora-liquid':
     docker compose up -d
 
 # Stop and remove services with docker compose
-[working-directory: 'server-backend/dev']
+[working-directory: 'docker']
 docker-rm:
     docker compose --profile '*' down  -v
 
 # Initialize blockchain and lightning nodes
-[working-directory: 'server-backend/dev']
+[working-directory: 'docker']
 initialize-nodes: 
     ./lightning-setup.sh
 

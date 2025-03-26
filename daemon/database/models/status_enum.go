@@ -39,7 +39,7 @@ func (s SwapStatus) Value() (driver.Value, error) {
 	return string(s), nil
 }
 
-func SwapStatusEnumSQL() string {
+func CreateSwapStatusEnumSQL() string {
 	return `CREATE TYPE "public"."swap_status" AS ENUM (
 		'CREATED',
 		'INVOICE_PAYMENT_INTENT_RECEIVED',
@@ -52,4 +52,8 @@ func SwapStatusEnumSQL() string {
 		'CONTRACT_EXPIRED'
 	);
 	`
+}
+
+func DropSwapStatusEnumSQL() string {
+	return `DROP TYPE "public"."swap_status";`
 }

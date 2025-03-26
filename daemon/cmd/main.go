@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning/lnd"
@@ -16,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
-	_ "ariga.io/atlas-provider-gorm/gormschema"
 	_ "github.com/40acres/40swap/daemon/logging"
 	_ "github.com/lib/pq"
 )
@@ -56,17 +54,17 @@ func main() {
 			&cli.StringFlag{
 				Name:  "db-user",
 				Usage: "Database username",
-				Value: "myuser",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-password",
 				Usage: "Database password",
-				Value: "mypassword",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-name",
 				Usage: "Database name",
-				Value: "postgres",
+				Value: "40swap",
 			},
 			&cli.IntFlag{
 				Name:  "db-port",
@@ -96,17 +94,17 @@ func main() {
 				Name:  "start",
 				Usage: "Start the 40swapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
-					port, err := validatePort(c.Int("db-port"))
-					if err != nil {
-						return err
-					}
-
 					grpcPort, err := validatePort(c.Int("grpc-port"))
 					if err != nil {
 						return err
 					}
 
-					db, closeDb, err := database.NewDatabase(
+					port, err := validatePort(c.Int("db-port"))
+					if err != nil {
+						return err
+					}
+
+					db, closeDb, err := database.New(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
@@ -124,13 +122,9 @@ func main() {
 						}
 					}()
 
-					if c.String("db-host") == "embedded" {
-						dbErr := db.MigrateDatabase()
-						if dbErr != nil {
-							return dbErr
-						}
-					} else {
-						log.Info("🔍 Skipping database migration")
+					dbErr := db.MigrateDatabase()
+					if dbErr != nil {
+						log.Errorf("❌ Could not migrate database: %v", err)
 					}
 
 					// Get the network
@@ -246,7 +240,6 @@ func main() {
 						Usage: "Perform a swap out",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							// TODO
-							swapcli.SwapOut()
 
 							return nil
 						},
