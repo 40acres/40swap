@@ -118,7 +118,7 @@ func main() {
 
 					dbErr := db.MigrateDatabase()
 					if dbErr != nil {
-						return dbErr
+						log.Errorf("❌ Could not migrate database: %v", err)
 					}
 
 					// Get the network

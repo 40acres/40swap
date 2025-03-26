@@ -132,7 +132,13 @@ func (d *Database) ORM() *gorm.DB {
 }
 
 func (d *Database) MigrateDatabase() error {
-	return NewMigrator(d.orm).Migrate()
+	err := NewMigrator(d.orm).Migrate()
+	if err != nil {
+		return err
+	}
+	log.Info("✅ DB migrated")
+
+	return nil
 }
 
 func (d *Database) MigrateTo(to string) error {
