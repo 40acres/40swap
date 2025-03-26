@@ -13,6 +13,7 @@ import (
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type errorOnlyWriter struct {
@@ -107,12 +108,16 @@ func (d *Database) getHost() string {
 
 func (d *Database) GetConnectionURL() string {
 	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable&search_path=public",
 		d.username, d.password, d.getHost(), d.port, d.database)
 }
 
 func (d *Database) getGorm() (*gorm.DB, error) {
-	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{})
+	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			TablePrefix: "public.",
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect GORM: %w", err)
 	}

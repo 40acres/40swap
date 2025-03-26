@@ -17,7 +17,7 @@ import (
 
 // generate generates Gorm models out of a table schema.
 //
-//go:generate go run ../cmd/main.go database generate
+//go:generate go run ../database/cli/main.go generate
 func generate(db *gorm.DB, path string) (err error) {
 	// The following are helpers to tune the generation.
 	// createOnly sets the create only Gorm tag.
