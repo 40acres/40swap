@@ -39,7 +39,7 @@ type Option func(*Options)
 
 func WithLndEndpoint(endpoint string) Option {
 	return func(o *Options) {
-		o.LndEndpoint = endpoint
+		o.lndEndpoint = endpoint
 	}
 }
 
@@ -51,30 +51,30 @@ func WithLNDConnectURI(uri string) Option {
 
 func WithMacaroonFilePath(path string) Option {
 	return func(o *Options) {
-		o.MacaroonFilePath = path
+		o.macaroonFilePath = path
 	}
 }
 
 func WithTLSCertFilePath(path string) Option {
 	return func(o *Options) {
-		o.TLSCertFilePath = path
+		o.tlsCertFilePath = path
 	}
 }
 
 func WithNetwork(network Network) Option {
 	return func(o *Options) {
-		o.Network = network
+		o.network = network
 	}
 }
 
 type Options struct {
-	LndEndpoint      string
-	MacaroonFilePath string
-	TLSCertFilePath  string
-	Network          Network
+	lndEndpoint      string
+	macaroonFilePath string
+	tlsCertFilePath  string
+	network          Network
 	// Lndconnect is mutually exclusive with LndEndpoint, MacaroonFilePath and TLSCertFilePath
 	lndConnectUri string
-	FS            afero.Fs // Add afero file system for mocking
+	fs            afero.Fs // Add afero file system for mocking
 }
 
 type Network string
@@ -90,7 +90,7 @@ var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive w
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
 	options := Options{
-		FS: afero.NewOsFs(), // Default to OS file system
+		fs: afero.NewOsFs(), // Default to OS file system
 	}
 
 	// Apply options
@@ -99,7 +99,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	}
 
 	// It's mutually exclusive to use LNDConnect or the other options (LndEndpoint, MacaroonFilePath, TLSCertFilePath)
-	if options.lndConnectUri != "" && (options.LndEndpoint != "" || options.MacaroonFilePath != "" || options.TLSCertFilePath != "") {
+	if options.lndConnectUri != "" && (options.lndEndpoint != "" || options.macaroonFilePath != "" || options.tlsCertFilePath != "") {
 		return nil, ErrMutuallyExclusiveOptions
 	}
 
@@ -126,19 +126,19 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		}
 
 		// Endpoint (host:port)
-		options.LndEndpoint = lndConnectParams.Host + ":" + lndConnectParams.Port
+		options.lndEndpoint = lndConnectParams.Host + ":" + lndConnectParams.Port
 	} else {
-		options.MacaroonFilePath = strings.Replace(options.MacaroonFilePath, "{Network}", string(options.Network), -1)
+		options.macaroonFilePath = strings.Replace(options.macaroonFilePath, "{Network}", string(options.network), -1)
 
 		// Read macaroon file from path
 
-		macaroonFileBytes, err = afero.ReadFile(options.FS, options.MacaroonFilePath)
+		macaroonFileBytes, err = afero.ReadFile(options.fs, options.macaroonFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed reading macaroon file: %w", err)
 		}
 
 		// Read TLS cert file from path
-		certBytes, err := afero.ReadFile(options.FS, options.TLSCertFilePath)
+		certBytes, err := afero.ReadFile(options.fs, options.tlsCertFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed reading TLS cert file: %w", err)
 		}
@@ -159,7 +159,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		return nil, fmt.Errorf("failed creating macaroon credentials: %w", err)
 	}
 
-	conn, err := grpc.NewClient(options.LndEndpoint, grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(macCred))
+	conn, err := grpc.NewClient(options.lndEndpoint, grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(macCred))
 	if err != nil {
 		return nil, fmt.Errorf("failed connecting to LND node: %w", err)
 	}

@@ -50,7 +50,7 @@ func TestNewClient_WithFSMacaroonAndCert(t *testing.T) {
 		WithTLSCertFilePath(tlsCertPath),
 		WithMacaroonFilePath(macaroonPath),
 		WithNetwork(Mainnet),
-		func(o *Options) { o.FS = memFs },
+		func(o *Options) { o.fs = memFs },
 	)
 	defer client.CloseConnection()
 
