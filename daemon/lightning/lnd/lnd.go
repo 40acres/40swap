@@ -2,6 +2,8 @@ package lnd
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,12 +12,14 @@ import (
 	"time"
 
 	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/Elenpay/liquidator/lndconnect"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/invoicesrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -36,6 +40,12 @@ type Option func(*Options)
 func WithLndEndpoint(endpoint string) Option {
 	return func(o *Options) {
 		o.LndEndpoint = endpoint
+	}
+}
+
+func WithLNDConnectURI(uri string) Option {
+	return func(o *Options) {
+		o.lndConnectUri = uri
 	}
 }
 
@@ -62,6 +72,9 @@ type Options struct {
 	MacaroonFilePath string
 	TLSCertFilePath  string
 	Network          Network
+	// Lndconnect is mutually exclusive with LndEndpoint, MacaroonFilePath and TLSCertFilePath
+	lndConnectUri string
+	FS            afero.Fs // Add afero file system for mocking
 }
 
 type Network string
@@ -72,16 +85,15 @@ var (
 	Testnet Network = "testnet"
 )
 
+var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive with LndEndpoint, MacaroonFilePath and TLSCertFilePath")
+
 // NewClient creates a lnd client from a daprlndconnectURI string.
 // This Client establishes a grpc connection with a lnd node using dapr.
 // It is using two stubs: router and ln.
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
 	options := Options{
-		LndEndpoint:      "localhost:10009",
-		MacaroonFilePath: "/root/.lnd/data/chain/bitcoin/{Network}/admin.macaroon",
-		TLSCertFilePath:  "/root/.lnd/tls.cert",
-		Network:          "mainnet",
+		FS: afero.NewOsFs(), // Default to OS file system
 	}
 
 	// Apply options
@@ -89,17 +101,54 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		opt(&options)
 	}
 
-	options.MacaroonFilePath = strings.Replace(options.MacaroonFilePath, "{Network}", string(options.Network), -1)
-
-	// Get the connection parameters
-	macaroonFileBytes, err := os.ReadFile(options.MacaroonFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading macaroon file: %w", err)
+	// It's mutually exclusive to use LNDConnect or the other options (LndEndpoint, MacaroonFilePath, TLSCertFilePath)
+	if options.lndConnectUri != "" && (options.LndEndpoint != "" || options.MacaroonFilePath != "" || options.TLSCertFilePath != "") {
+		return nil, ErrMutuallyExclusiveOptions
 	}
 
-	creds, err := credentials.NewClientTLSFromFile(options.TLSCertFilePath, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed creating TLS credentials: %w", err)
+	var macaroonFileBytes []byte
+	var err error
+	var creds credentials.TransportCredentials
+
+	if options.lndConnectUri != "" {
+		lndConnectParams, err := lndconnect.Parse(options.lndConnectUri)
+		if err != nil {
+			return nil, err
+		}
+
+		// Macaroon
+		macaroonFileBytes, err = hex.DecodeString(lndConnectParams.Macaroon)
+		if err != nil {
+			return nil, fmt.Errorf("failed decoding macaroon: %w", err)
+		}
+
+		// TLS cert
+		creds, err = credentialsFromCertString(lndConnectParams.Cert)
+		if err != nil {
+			return nil, err
+		}
+
+		// Endpoint (host:port)
+		options.LndEndpoint = lndConnectParams.Host + ":" + lndConnectParams.Port
+	} else {
+		options.MacaroonFilePath = strings.Replace(options.MacaroonFilePath, "{Network}", string(options.Network), -1)
+
+		// Read macaroon file from path
+
+		macaroonFileBytes, err = afero.ReadFile(options.FS, options.MacaroonFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed reading macaroon file: %w", err)
+		}
+
+		// Read TLS cert file from path
+		certBytes, err := afero.ReadFile(options.FS, options.TLSCertFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed reading TLS cert file: %w", err)
+		}
+		creds = credentials.NewClientTLSFromCert(loadCertPool(certBytes), "")
+		if err != nil {
+			return nil, fmt.Errorf("failed creating TLS credentials: %w", err)
+		}
 	}
 
 	mac := &macaroon.Macaroon{}
@@ -134,6 +183,28 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	}
 
 	return client, nil
+}
+
+// credentialsFromCertString generates gRPC credentials from a base64 encoded DER certificate
+func credentialsFromCertString(certDer string) (credentials.TransportCredentials, error) {
+	base64decoded, err := base64.RawURLEncoding.DecodeString(certDer)
+	if err != nil {
+		log.Errorf("Failed to decode base64 string")
+
+		return nil, fmt.Errorf("failed to decode base64 string")
+	}
+	cp := x509.NewCertPool()
+	cert, err := x509.ParseCertificate(base64decoded)
+	if err != nil {
+		log.Errorf("Failed to parse certificate")
+
+		return nil, fmt.Errorf("failed to parse certificate")
+	}
+	cp.AddCert(cert)
+
+	creds := credentials.NewClientTLSFromCert(cp, "")
+
+	return creds, nil
 }
 
 // PayInvoice uses the lnd node to pay the invoice provided by the paymentRequest
@@ -291,4 +362,12 @@ func createInnerLNDClients(conn *grpc.ClientConn) (*routerrpc.RouterClient, *lnr
 	invoicesClient := invoicesrpc.NewInvoicesClient(conn)
 
 	return &routerClient, &lndClient, &stateClient, &invoicesClient
+}
+
+// Helper function to load a certificate pool from cert bytes
+func loadCertPool(certBytes []byte) *x509.CertPool {
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(certBytes)
+
+	return cp
 }
