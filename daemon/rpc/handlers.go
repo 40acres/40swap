@@ -8,11 +8,25 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
+
 	log "github.com/sirupsen/logrus"
 )
 
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
 	log.Info("Swapping out")
+
+	// Validate request
+	if req.AmountSats <= 0 {
+		return nil, fmt.Errorf("amount must be greater than 0")
+	}
+
+	_, err := btcutil.DecodeAddress(req.Address, ToChainCfgNetwork(server.network))
+	if err != nil {
+		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+
+	// Private key for the claim
 	claimKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		return nil, err
@@ -42,7 +56,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		Status:             swap.Status,
 		DestinationAddress: req.Address,
 		DestinationChain:   models.Bitcoin,
-		ClaimPubkey:        "", // TODO: Add claim pubkey to the model
+		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
 		PaymentRequest:     swap.Invoice,
 		AmountSATS:         uint64(amount),
 		ServiceFeeSATS:     uint64(serviceFee),
