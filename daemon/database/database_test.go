@@ -49,7 +49,7 @@ func TestDatabaseOperations(t *testing.T) {
 		os.RemoveAll(tempDir)
 	})
 
-	db, close, err := NewDatabase("testuser", "testpass", "testdb", 5434, tempDir, "embedded", false)
+	db, close, err := New("testuser", "testpass", "testdb", 5434, tempDir, "embedded", false)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, close())

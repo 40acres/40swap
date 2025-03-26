@@ -98,7 +98,7 @@ func main() {
 						return err
 					}
 
-					db, closeDb, err := database.NewDatabase(
+					db, closeDb, err := database.New(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),

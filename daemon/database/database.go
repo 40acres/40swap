@@ -39,7 +39,7 @@ type Database struct {
 	orm      *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
+func New(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
 	db := Database{
 		host:     host,
 		username: username,

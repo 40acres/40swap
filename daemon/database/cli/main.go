@@ -197,7 +197,7 @@ func StartDatabase(cmd *cli.Command) (*database.Database, func() error, error) {
 		return nil, nil, err
 	}
 
-	db, closeDb, err := database.NewDatabase(
+	db, closeDb, err := database.New(
 		cmd.String("db-user"),
 		cmd.String("db-password"),
 		cmd.String("db-name"),
