@@ -11,6 +11,7 @@ import (
 )
 
 type Repository interface {
+	database.SwapInRepository
 	// Add more repositories here
 	database.SwapOutRepository
 }

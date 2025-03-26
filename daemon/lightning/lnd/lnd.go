@@ -51,7 +51,7 @@ func WithTLSCertFilePath(path string) Option {
 	}
 }
 
-func WithNetwork(network Network) Option {
+func WithNetwork(network lightning.Network) Option {
 	return func(o *Options) {
 		o.Network = network
 	}
@@ -61,16 +61,8 @@ type Options struct {
 	LndEndpoint      string
 	MacaroonFilePath string
 	TLSCertFilePath  string
-	Network          Network
+	Network          lightning.Network
 }
-
-type Network string
-
-var (
-	Mainnet Network = "mainnet"
-	Regtest Network = "regtest"
-	Testnet Network = "testnet"
-)
 
 // NewClient creates a lnd client from a daprlndconnectURI string.
 // This Client establishes a grpc connection with a lnd node using dapr.
@@ -81,7 +73,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		LndEndpoint:      "localhost:10009",
 		MacaroonFilePath: "/root/.lnd/data/chain/bitcoin/{Network}/admin.macaroon",
 		TLSCertFilePath:  "/root/.lnd/tls.cert",
-		Network:          "mainnet",
+		Network:          lightning.Mainnet,
 	}
 
 	// Apply options

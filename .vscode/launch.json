@@ -1,28 +1,25 @@
 {
-   // Use IntelliSense to learn about possible attributes.
-   // Hover to view descriptions of existing attributes.
-   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-   "version": "0.2.0",
-   "configurations": [
-      {
-         "name": "Launch Package",
-         "type": "go",
-         "request": "launch",
-         "mode": "debug",
-         "program": "${workspaceFolder}/daemon/cmd/main.go",
-         "args": ["start"],
-         "env": {
-            "MACAROON_FILE_PATH": "../admin.macaroon",
-            "TLS_CERT_FILE_PATH": "../tls.cert",
-            "SWAP_SERVER_ENDPOINT": "http://localhost:7081",
-         }
-      },
-      {
-         "name": "Debug daemon",
-         "type": "go",
-         "request": "attach",
-         "mode": "local",
-         "processId": "cmd"
-      },
-   ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Package",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/daemon/cmd/main.go",
+      "cwd": "${workspaceFolder}/daemon",
+      "args": [
+        "start",
+        "-regtest",
+        "-db-keep-alive",
+        "-server-url=http://localhost:7081",
+        "-tls-cert=./tls.cert",
+        "-macaroon=./admin.macaroon",
+        "-lnd-host=localhost:10001"
+      ]
+    }
+  ]
 }
