@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateSwapOutTable() *gormigrate.Migration {
+func CreateSwapsTables() *gormigrate.Migration {
 	const ID = "1_create_swap_tables"
 
 	type swapOut struct {
@@ -97,7 +97,7 @@ func CreateSwapOutTable() *gormigrate.Migration {
 }
 
 var migrations = []*gormigrate.Migration{
-	CreateSwapOutTable(),
+	CreateSwapsTables(),
 }
 
 type Migrator struct {
