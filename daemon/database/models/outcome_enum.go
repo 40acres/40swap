@@ -8,6 +8,7 @@ import (
 type SwapOutcome string
 
 const (
+	OutcomeFailed   SwapOutcome = "FAILED"
 	OutcomeSuccess  SwapOutcome = "SUCCESS"
 	OutcomeRefunded SwapOutcome = "REFUNDED"
 	OutcomeExpired  SwapOutcome = "EXPIRED"
@@ -33,6 +34,7 @@ func (o SwapOutcome) Value() (driver.Value, error) {
 
 func CreateSwapOutcomeEnumSQL() string {
 	return `CREATE TYPE "public"."swap_outcome" AS ENUM (
+		'FAILED',
 		'SUCCESS',
 		'REFUNDED',
 		'EXPIRED'
