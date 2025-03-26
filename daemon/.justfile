@@ -26,7 +26,7 @@ run *cmd:
     go run ./cmd {{cmd}}
 
 run-daemon:
-    go tool air -- start -db-keep-alive
+    go tool air -- start -db-keep-alive -db-host localhost
 
 # Lint the project
 lint:

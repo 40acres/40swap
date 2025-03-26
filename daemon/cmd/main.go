@@ -116,13 +116,9 @@ func main() {
 						}
 					}()
 
-					if c.String("db-host") == "embedded" {
-						dbErr := db.MigrateDatabase()
-						if dbErr != nil {
-							return dbErr
-						}
-					} else {
-						log.Info("🔍 Skipping database migration")
+					dbErr := db.MigrateDatabase()
+					if dbErr != nil {
+						return dbErr
 					}
 
 					// Get the network

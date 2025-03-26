@@ -36,17 +36,17 @@ func main() {
 			&cli.StringFlag{
 				Name:  "db-user",
 				Usage: "Database username",
-				Value: "myuser",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-password",
 				Usage: "Database password",
-				Value: "mypassword",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-name",
 				Usage: "Database name",
-				Value: "postgres",
+				Value: "40swap",
 			},
 			&cli.IntFlag{
 				Name:  "db-port",
@@ -74,13 +74,9 @@ func main() {
 						}
 					}()
 
-					if cmd.String("db-host") == "embedded" {
-						dbErr := db.MigrateDatabase()
-						if dbErr != nil {
-							return dbErr
-						}
-					} else {
-						log.Info("🔍 Skipping database migration")
+					dbErr := db.MigrateDatabase()
+					if dbErr != nil {
+						return dbErr
 					}
 
 					return nil
@@ -100,13 +96,9 @@ func main() {
 						}
 					}()
 
-					if cmd.String("db-host") == "embedded" {
-						dbErr := db.Rollback()
-						if dbErr != nil {
-							return dbErr
-						}
-					} else {
-						log.Info("🔍 Skipping database migration")
+					dbErr := db.Rollback()
+					if dbErr != nil {
+						return dbErr
 					}
 
 					return nil
@@ -126,13 +118,9 @@ func main() {
 						}
 					}()
 
-					if cmd.String("db-host") == "embedded" {
-						dbErr := db.Reset()
-						if dbErr != nil {
-							return dbErr
-						}
-					} else {
-						log.Info("🔍 Skipping database migration")
+					dbErr := db.Reset()
+					if dbErr != nil {
+						return dbErr
 					}
 
 					return nil
@@ -159,14 +147,11 @@ func main() {
 						}
 					}()
 
-					if cmd.String("db-host") == "embedded" {
-						dbErr := db.Generate(cmd.String("path"))
-						if dbErr != nil {
-							return dbErr
-						}
-					} else {
-						log.Info("🔍 Skipping database migration")
+					dbErr := db.Generate(cmd.String("path"))
+					if dbErr != nil {
+						return dbErr
 					}
+					log.Info("🔍 Skipping database migration")
 
 					return nil
 				},
