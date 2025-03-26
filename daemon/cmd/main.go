@@ -191,7 +191,6 @@ func main() {
 							},
 							&grpcPort,
 							&bitcoin,
-							&liquid,
 						},
 						Action: func(ctx context.Context, c *cli.Command) error {
 							chain := rpc.Chain_BITCOIN
