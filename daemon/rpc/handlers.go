@@ -63,15 +63,15 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	err = server.Repository.SaveSwapIn(&models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
-		AmountSATS:         uint64(*invoice.MilliSat / 1000),
+		AmountSats:         int64(*invoice.MilliSat / 1000),
 		Status:             models.SwapStatus(swap.Status),
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
-		TimeoutBlockHeight: uint64(swap.TimeoutBlockHeight),
+		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
-		ServiceFeeSATS:     uint64(swap.InputAmount) - uint64(swap.OutputAmount),
+		ServiceFeeSats:     int64(swap.InputAmount) - int64(swap.OutputAmount),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
