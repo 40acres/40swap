@@ -16,12 +16,12 @@ func TestGetConnection(t *testing.T) {
 		{
 			name:     "Embedded database connection string",
 			host:     "embedded",
-			expected: "postgres://testuser:testpass@localhost:5433/testdb?sslmode=disable",
+			expected: "postgres://testuser:testpass@localhost:5433/testdb?sslmode=disable&search_path=public",
 		},
 		{
 			name:     "External database connection string",
 			host:     "test.host",
-			expected: "postgres://testuser:testpass@test.host:5433/testdb?sslmode=disable",
+			expected: "postgres://testuser:testpass@test.host:5433/testdb?sslmode=disable&search_path=public",
 		},
 	}
 
