@@ -13,6 +13,7 @@ import (
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type errorOnlyWriter struct {
@@ -38,7 +39,7 @@ type Database struct {
 	orm      *gorm.DB
 }
 
-func NewDatabase(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
+func New(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
 	db := Database{
 		host:     host,
 		username: username,
@@ -107,12 +108,16 @@ func (d *Database) getHost() string {
 
 func (d *Database) GetConnectionURL() string {
 	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable&search_path=public",
 		d.username, d.password, d.getHost(), d.port, d.database)
 }
 
 func (d *Database) getGorm() (*gorm.DB, error) {
-	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{})
+	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			TablePrefix: "public.",
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect GORM: %w", err)
 	}
@@ -127,25 +132,30 @@ func (d *Database) ORM() *gorm.DB {
 }
 
 func (d *Database) MigrateDatabase() error {
-	dbURL := d.GetConnectionURL()
-	statusCmd := exec.Command("cd", "..", "&&", "atlas", "migrate", "status", "--env", "gorm", "--url", dbURL)
-	statusOutput, err := statusCmd.CombinedOutput()
+	err := NewMigrator(d.orm).Migrate()
 	if err != nil {
-		return fmt.Errorf("error checking migration status: %w, output: %s", err, string(statusOutput))
+		return err
 	}
-
-	if !strings.Contains(string(statusOutput), "Already at latest version") {
-		applyCmd := exec.Command("cd", "..", "&&", "atlas", "migrate", "apply", "--env", "gorm", "--url", dbURL)
-		applyOutput, err := applyCmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("error applying migrations: %w, output: %s", err, string(applyOutput))
-		}
-		log.Info("✅ Migrations applied successfully")
-	} else {
-		log.Info("✅ Database is up to date with migrations")
-	}
+	log.Info("✅ DB migrated")
 
 	return nil
+}
+
+func (d *Database) MigrateTo(to string) error {
+	return NewMigrator(d.orm).MigrateTo(to)
+}
+
+func (d *Database) Rollback() error {
+	return NewMigrator(d.orm).Rollback()
+}
+
+// Reset will WIPE all tables on the database. Use it carefully.
+func (d *Database) Reset() error {
+	return NewMigrator(d.orm).Reset()
+}
+
+func (d *Database) Generate(path string) error {
+	return generate(d.orm, path)
 }
 
 func (d *Database) close() error {

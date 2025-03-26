@@ -34,6 +34,10 @@ func (c Chain) Value() (driver.Value, error) {
 	return string(c), nil
 }
 
-func ChainEnumSQL() string {
+func CreateChainEnumSQL() string {
 	return `CREATE TYPE chain_enum AS ENUM ('bitcoin', 'liquid');`
+}
+
+func DropChainEnumSQL() string {
+	return `DROP TYPE chain_enum;`
 }

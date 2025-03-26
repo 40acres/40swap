@@ -16,12 +16,12 @@ func TestGetConnection(t *testing.T) {
 		{
 			name:     "Embedded database connection string",
 			host:     "embedded",
-			expected: "postgres://testuser:testpass@localhost:5433/testdb?sslmode=disable",
+			expected: "postgres://testuser:testpass@localhost:5433/testdb?sslmode=disable&search_path=public",
 		},
 		{
 			name:     "External database connection string",
 			host:     "test.host",
-			expected: "postgres://testuser:testpass@test.host:5433/testdb?sslmode=disable",
+			expected: "postgres://testuser:testpass@test.host:5433/testdb?sslmode=disable&search_path=public",
 		},
 	}
 
@@ -49,7 +49,7 @@ func TestDatabaseOperations(t *testing.T) {
 		os.RemoveAll(tempDir)
 	})
 
-	db, close, err := NewDatabase("testuser", "testpass", "testdb", 5434, tempDir, "embedded", false)
+	db, close, err := New("testuser", "testpass", "testdb", 5434, tempDir, "embedded", false)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, close())
