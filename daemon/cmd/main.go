@@ -52,17 +52,17 @@ func main() {
 			&cli.StringFlag{
 				Name:  "db-user",
 				Usage: "Database username",
-				Value: "myuser",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-password",
 				Usage: "Database password",
-				Value: "mypassword",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-name",
 				Usage: "Database name",
-				Value: "postgres",
+				Value: "40swap",
 			},
 			&cli.IntFlag{
 				Name:  "db-port",
