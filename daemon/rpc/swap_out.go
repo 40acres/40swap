@@ -15,7 +15,6 @@ import (
 func (server *Server) CreateSwapOut(ctx context.Context, claimPubKey string, amountSats uint32) (*swaps.SwapOutResponse, error) {
 	log.Info("Creating swap")
 
-	// Create request swapOut(hash, amount, preimagehash)
 	preimage := make([]byte, 32)
 	_, _ = rand.Read(preimage)
 	hash := sha256.New()
