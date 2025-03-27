@@ -31,7 +31,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "db-host",
 				Usage: "Database host",
-				Value: "embedded",
+				Value: "localhost",
 			},
 			&cli.StringFlag{
 				Name:  "db-user",

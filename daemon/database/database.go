@@ -13,7 +13,6 @@ import (
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
 )
 
 type errorOnlyWriter struct {
@@ -83,6 +82,8 @@ func New(username, password, database string, port uint32, dataPath, host string
 		}
 	}
 
+	models.RegisterPreimageSerializer()
+
 	orm, err := db.getGorm()
 	if err != nil {
 		if closeErr := close(); closeErr != nil {
@@ -93,7 +94,13 @@ func New(username, password, database string, port uint32, dataPath, host string
 	}
 	db.orm = orm
 
-	models.RegisterPreimageSerializer()
+	stmt := &gorm.Statement{DB: orm}
+	err = stmt.Parse(&models.SwapIn{})
+	if err != nil {
+		log.Fatalf("GORM schema parsing error: %v", err)
+	}
+
+	log.Info(stmt.Schema.FieldsByDBName["pre_image"].Serializer)
 
 	return &db, close, nil
 }
@@ -114,11 +121,7 @@ func (d *Database) GetConnectionURL() string {
 }
 
 func (d *Database) getGorm() (*gorm.DB, error) {
-	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{
-		NamingStrategy: schema.NamingStrategy{
-			TablePrefix: "public.",
-		},
-	})
+	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect GORM: %w", err)
 	}
