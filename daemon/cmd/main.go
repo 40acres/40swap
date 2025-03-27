@@ -153,7 +153,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, network)
+					err = daemon.Start(ctx, server)
 					if err != nil {
 						return err
 					}
@@ -175,15 +175,11 @@ func main() {
 								Aliases: []string{"p"},
 							},
 							&cli.UintFlag{
-								Name:    "amt",
-								Usage:   "The amount in sats to swap in",
-								Aliases: []string{"a"},
-							},
-							&cli.UintFlag{
 								Name:    "expiry",
 								Usage:   "The expiry time in seconds",
 								Aliases: []string{"e"},
 							},
+							&amountSats,
 							&grpcPort,
 							&bitcoin,
 						},
@@ -238,8 +234,29 @@ func main() {
 					{
 						Name:  "out",
 						Usage: "Perform a swap out",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&amountSats,
+							&address,
+						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							// TODO
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							swapOutRequest := rpc.SwapOutRequest{
+								Chain:      rpc.Chain_BITCOIN,
+								AmountSats: cmd.Uint("amt"),
+								Address:    cmd.String("address"),
+							}
+
+							_, err = client.SwapOut(ctx, &swapOutRequest)
+							if err != nil {
+								return err
+							}
 
 							return nil
 						},
@@ -292,6 +309,18 @@ var grpcPort = cli.IntFlag{
 	Usage: "Grpc port for client to daemon communication",
 	Value: 50051,
 }
+var amountSats = cli.IntFlag{
+	Name:     "amt",
+	Usage:    "Amount in sats to swap",
+	Required: true,
+}
+
+var address = cli.StringFlag{
+	Name:     "address",
+	Usage:    "Address to swap to",
+	Required: true,
+}
+
 var serverUrl = cli.StringFlag{
 	Name:  "server-url",
 	Usage: "Server URL",

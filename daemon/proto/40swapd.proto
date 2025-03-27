@@ -36,7 +36,7 @@ message SwapInResponse {
 message SwapOutRequest {
   Chain chain = 1;
   // Amount in satoshis
-  uint32 amountSats = 2;
+  uint64 amountSats = 2;
   // Optional Destination address
   string address = 3;
 }

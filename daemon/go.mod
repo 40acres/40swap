@@ -7,9 +7,11 @@ replace github.com/lightningnetwork/lnd => github.com/lightningnetwork/lnd v0.18
 replace google.golang.org/protobuf => github.com/lightninglabs/protobuf-go-hex-display v1.30.0-hex-display
 
 require (
+	github.com/Elenpay/liquidator v0.0.0-20241015161912-779047cf224d
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3
 	github.com/btcsuite/btcd/btcutil v1.1.6
+	github.com/btcsuite/btcd/btcutil/psbt v1.1.9
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/go-gormigrate/gormigrate/v2 v2.1.3
@@ -31,11 +33,6 @@ require (
 )
 
 require (
-	github.com/Elenpay/liquidator v0.0.0-20241015161912-779047cf224d
-	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
-)
-
-require (
 	dario.cat/mergo v1.0.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
@@ -48,7 +45,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bep/godartsass/v2 v2.3.2 // indirect
 	github.com/bep/golibsass v1.2.0 // indirect
-	github.com/btcsuite/btcd/btcutil/psbt v1.1.9 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/btcsuite/btcwallet v0.16.10-0.20240809133323-7d3434c65ae2 // indirect
 	github.com/btcsuite/btcwallet/wallet/txauthor v1.3.5 // indirect
@@ -83,6 +79,7 @@ require (
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect

@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Start(ctx context.Context, server *rpc.Server, network rpc.Network) error {
+func Start(ctx context.Context, server *rpc.Server) error {
 	log.Info("Starting 40swapd")
 
 	go func() {

@@ -8,8 +8,10 @@ import (
 
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -31,7 +33,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 			expiry = time.Duration(*req.Expiry) * time.Second
 		}
 
-		invoice, _, err := server.lnClient.GenerateInvoice(ctx, amt, expiry, "")
+		invoice, _, err := server.lightningClient.GenerateInvoice(ctx, amt, expiry, "")
 		if err != nil {
 			return nil, fmt.Errorf("could not generate invoice: %w", err)
 		}
@@ -51,7 +53,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	chain := ToModelsChainType(req.Chain)
 
-	swap, err := server.swaps.CreateSwapIn(ctx, &swaps.CreateSwapInRequest{
+	swap, err := server.swapClient.CreateSwapIn(ctx, &swaps.CreateSwapInRequest{
 		Chain:           chain,
 		RefundPublicKey: hex.EncodeToString(refundPrivateKey.PubKey().SerializeCompressed()),
 		Invoice:         *req.Invoice,
@@ -86,8 +88,67 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 }
 
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
-	log.Info("HELLO WORLD")
-	log.Infof("Received SwapOut request: %v", req)
+	log.Info("Swapping out")
+
+	// Validate request
+	if req.AmountSats > 21_000_000*100_000_000 {
+		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
+	}
+
+	_, err := btcutil.DecodeAddress(req.Address, ToChainCfgNetwork(server.network))
+	if err != nil {
+		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+
+	// Private key for the claim
+	claimKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	pubkey := hex.EncodeToString(claimKey.PubKey().SerializeCompressed())
+
+	// Create swap out
+	swap, err := server.CreateSwapOut(ctx, pubkey, money.Money(req.AmountSats))
+	if err != nil {
+		log.Error("Error creating swap: ", err)
+
+		return nil, fmt.Errorf("error creating the swap: %w", err)
+	}
+
+	// Save swap to the database
+	amount, err := money.NewFromBtc(swap.InputAmount)
+	if err != nil {
+		return nil, err
+	}
+	serviceFee, err := money.NewFromBtc(swap.InputAmount.Add(swap.OutputAmount.Neg()))
+	if err != nil {
+		return nil, err
+	}
+
+	swapModel := models.SwapOut{
+		// SwapId:             swap.SwapId, // Wait we merge the models
+		Status:             swap.Status,
+		DestinationAddress: req.Address,
+		DestinationChain:   models.Bitcoin,
+		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
+		PaymentRequest:     swap.Invoice,
+		AmountSats:         int64(amount),     // nolint:gosec
+		ServiceFeeSats:     int64(serviceFee), // nolint:gosec
+		MaxRoutingFeeRatio: 0.005,             // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
+	}
+
+	err = server.Repository.SaveSwapOut(&swapModel)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send L2 payment
+	err = server.lightningClient.PayInvoice(ctx, swap.Invoice, swapModel.MaxRoutingFeeRatio)
+	if err != nil {
+		log.Error("Error paying the invoice: ", err)
+
+		return nil, fmt.Errorf("error paying the invoice: %w", err)
+	}
 
 	return &SwapOutResponse{}, nil
 }
