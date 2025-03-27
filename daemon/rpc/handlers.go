@@ -90,7 +90,11 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
 	log.Info("Swapping out")
 
-	// Validate address
+	// Validate request
+	if req.AmountSats > 21_000_000*100_000_000 {
+		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
+	}
+
 	_, err := btcutil.DecodeAddress(req.Address, ToChainCfgNetwork(server.network))
 	if err != nil {
 		return nil, fmt.Errorf("invalid address: %w", err)
@@ -128,8 +132,8 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		DestinationChain:   models.Bitcoin,
 		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
 		PaymentRequest:     swap.Invoice,
-		AmountSats:         uint64(amount),
-		ServiceFeeSats:     uint64(serviceFee),
+		AmountSats:         int64(amount),
+		ServiceFeeSats:     int64(serviceFee),
 		MaxRoutingFeeRatio: 0.005, // 0.5% is a good max value for Lightning Network
 	}
 
