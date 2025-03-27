@@ -93,11 +93,8 @@ var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive w
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
 	options := Options{
-		lndEndpoint:      "localhost:10009",
-		macaroonFilePath: "/root/.lnd/data/chain/bitcoin/{Network}/admin.macaroon",
-		tlsCertFilePath:  "/root/.lnd/tls.cert",
-		network:          lightning.Mainnet,
-		fs:               afero.NewOsFs(), // Default to OS file system
+		network: lightning.Mainnet,
+		fs:      afero.NewOsFs(), // Default to OS file system
 	}
 
 	// Apply options
@@ -108,6 +105,18 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// It's mutually exclusive to use LNDConnect or the other options (LndEndpoint, MacaroonFilePath, TLSCertFilePath)
 	if options.lndConnectUri != "" && (options.lndEndpoint != "" || options.macaroonFilePath != "" || options.tlsCertFilePath != "") {
 		return nil, ErrMutuallyExclusiveOptions
+	}
+
+	if options.lndConnectUri == "" {
+		if options.lndEndpoint == "" {
+			options.lndEndpoint = "localhost:10009"
+		}
+		if options.macaroonFilePath == "" {
+			options.macaroonFilePath = "/root/.lnd/data/chain/bitcoin/{Network}/admin.macaroon"
+		}
+		if options.tlsCertFilePath == "" {
+			options.tlsCertFilePath = "/root/.lnd/tls.cert"
+		}
 	}
 
 	var macaroonFileBytes []byte
