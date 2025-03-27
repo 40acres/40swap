@@ -184,6 +184,13 @@ func main() {
 								Usage:   "The expiry time in seconds",
 								Aliases: []string{"e"},
 							},
+							&cli.StringFlag{
+								Name: "refund-to",
+								// TODO descriptor and xpub
+								Usage:    "The address where the swap will be refunded to",
+								Aliases:  []string{"r"},
+								Required: true,
+							},
 							&grpcPort,
 							&bitcoin,
 						},
@@ -204,7 +211,8 @@ func main() {
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
 							swapInRequest := rpc.SwapInRequest{
-								Chain: chain,
+								Chain:    chain,
+								RefundTo: c.String("refund-to"),
 							}
 							payreq := c.String("payreq")
 							if payreq == "" && c.Uint("amt") == 0 {

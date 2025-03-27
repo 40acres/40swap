@@ -79,7 +79,6 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case errors.Is(err, swaps.ErrSwapNotFound):
 		logger.Warn("swap not found")
 
-		// TODO: create field OUTCOME
 		currentSwap.Status = models.StatusDone
 
 		err := m.repository.SaveSwapIn(&currentSwap)
@@ -105,12 +104,13 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case models.StatusContractClaimedUnconfirmed:
 		logger.Debug("40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation")
 	case models.StatusDone:
-		// TODO: save outcome
-		if newSwap.Outcome == "REFUNDED" {
+		switch models.SwapOutcome(newSwap.Outcome) {
+		case models.OutcomeRefunded:
 			logger.Debug("Failed. The funds have been refunded")
-		} else if newSwap.Outcome == "EXPIRED" {
+		case models.OutcomeExpired:
 			logger.Debug("Failed. The contract has expired, waiting to be refunded")
-		} else {
+		default:
+			// FAILED doesn't exist in the 40swap backend so we don't need to check it
 			logger.Debug("Success. The funds have been claimed")
 		}
 	case models.StatusContractRefundedUnconfirmed:
