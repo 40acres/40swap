@@ -61,7 +61,7 @@ func WithTLSCertFilePath(path string) Option {
 	}
 }
 
-func WithNetwork(network Network) Option {
+func WithNetwork(network lightning.Network) Option {
 	return func(o *Options) {
 		o.network = network
 	}
@@ -71,7 +71,7 @@ type Options struct {
 	lndEndpoint      string
 	macaroonFilePath string
 	tlsCertFilePath  string
-	network          Network
+	network          lightning.Network
 	// Lndconnect is mutually exclusive with LndEndpoint, MacaroonFilePath and TLSCertFilePath
 	lndConnectUri string
 	fs            afero.Fs // Add afero file system for mocking
@@ -87,10 +87,17 @@ var (
 
 var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive with filesystem-level credentials")
 
+// NewClient creates a lnd client from a daprlndconnectURI string.
+// This Client establishes a grpc connection with a lnd node using dapr.
+// It is using two stubs: router and ln.
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
 	options := Options{
-		fs: afero.NewOsFs(), // Default to OS file system
+		lndEndpoint:      "localhost:10009",
+		macaroonFilePath: "/root/.lnd/data/chain/bitcoin/{Network}/admin.macaroon",
+		tlsCertFilePath:  "/root/.lnd/tls.cert",
+		network:          lightning.Mainnet,
+		fs:               afero.NewOsFs(), // Default to OS file system
 	}
 
 	// Apply options
@@ -143,9 +150,6 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 			return nil, fmt.Errorf("failed reading TLS cert file: %w", err)
 		}
 		creds = credentials.NewClientTLSFromCert(loadCertPool(certBytes), "")
-		if err != nil {
-			return nil, fmt.Errorf("failed creating TLS credentials: %w", err)
-		}
 	}
 
 	mac := &macaroon.Macaroon{}

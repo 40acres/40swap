@@ -76,6 +76,7 @@ func New(username, password, database string, port uint32, dataPath, host string
 
 					return fmt.Errorf("Could not stop embedded database: %w", err)
 				}
+				log.Info("✅ DB stopped")
 			}
 
 			return nil

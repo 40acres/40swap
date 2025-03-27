@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"testing"
 
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/macaroon.v2"
@@ -49,7 +50,7 @@ func TestNewClient_WithFSMacaroonAndCert(t *testing.T) {
 		WithLndEndpoint("localhost:10009"),
 		WithTLSCertFilePath(tlsCertPath),
 		WithMacaroonFilePath(macaroonPath),
-		WithNetwork(Mainnet),
+		WithNetwork(lightning.Mainnet),
 		func(o *Options) { o.fs = memFs },
 	)
 	defer client.CloseConnection()
