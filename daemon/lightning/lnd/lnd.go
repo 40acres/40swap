@@ -85,7 +85,7 @@ var (
 	Testnet Network = "testnet"
 )
 
-var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive with LndEndpoint, MacaroonFilePath and TLSCertFilePath")
+var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive with filesystem-level credentials")
 
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
