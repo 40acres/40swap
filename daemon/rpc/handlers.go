@@ -132,9 +132,9 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		DestinationChain:   models.Bitcoin,
 		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
 		PaymentRequest:     swap.Invoice,
-		AmountSats:         int64(amount),
-		ServiceFeeSats:     int64(serviceFee),
-		MaxRoutingFeeRatio: 0.005, // 0.5% is a good max value for Lightning Network
+		AmountSats:         int64(amount),     // nolint:gosec
+		ServiceFeeSats:     int64(serviceFee), // nolint:gosec
+		MaxRoutingFeeRatio: 0.005,             // 0.5% is a good max value for Lightning Network
 	}
 
 	err = server.Repository.SaveSwapOut(&swapModel)
