@@ -86,8 +86,8 @@ func main() {
 			&tlsCert,
 			&macaroon,
 			&lndHost,
-			&regtest,
 			&testnet,
+			&regtest,
 		},
 		Commands: []*cli.Command{
 			{
@@ -174,12 +174,12 @@ func main() {
 								Usage:   "The Lightning invoice where the swap will be paid to",
 								Aliases: []string{"p"},
 							},
-							&amountSats,
 							&cli.UintFlag{
 								Name:    "expiry",
 								Usage:   "The expiry time in seconds",
 								Aliases: []string{"e"},
 							},
+							&amountSats,
 							&grpcPort,
 							&bitcoin,
 						},
@@ -309,7 +309,6 @@ var grpcPort = cli.IntFlag{
 	Usage: "Grpc port for client to daemon communication",
 	Value: 50051,
 }
-
 var amountSats = cli.IntFlag{
 	Name:     "amt",
 	Usage:    "Amount in sats to swap",

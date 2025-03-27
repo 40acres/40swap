@@ -3,7 +3,6 @@ package rpc
 import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
-
 	"github.com/btcsuite/btcd/chaincfg"
 )
 
