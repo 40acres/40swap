@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (server *Server) CreateSwapOut(ctx context.Context, claimPubKey string, amountSats uint32) (*swaps.SwapOutResponse, error) {
+func (server *Server) CreateSwapOut(ctx context.Context, claimPubKey string, amountSats money.Money) (*swaps.SwapOutResponse, error) {
 	log.Info("Creating swap")
 
 	preimage := make([]byte, 32)
@@ -25,7 +25,7 @@ func (server *Server) CreateSwapOut(ctx context.Context, claimPubKey string, amo
 		Chain:        models.Bitcoin,
 		PreImageHash: hex.EncodeToString(preimageHash),
 		ClaimPubKey:  claimPubKey,
-		Amount:       money.Money(amountSats),
+		Amount:       amountSats,
 	}
 
 	swap, err := server.swapClient.CreateSwapOut(ctx, swapRequest)

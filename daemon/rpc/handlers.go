@@ -108,7 +108,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	pubkey := hex.EncodeToString(claimKey.PubKey().SerializeCompressed())
 
 	// Create swap out
-	swap, err := server.CreateSwapOut(ctx, pubkey, req.AmountSats)
+	swap, err := server.CreateSwapOut(ctx, pubkey, money.Money(req.AmountSats))
 	if err != nil {
 		log.Error("Error creating swap: ", err)
 
