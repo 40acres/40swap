@@ -134,7 +134,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		PaymentRequest:     swap.Invoice,
 		AmountSats:         int64(amount),     // nolint:gosec
 		ServiceFeeSats:     int64(serviceFee), // nolint:gosec
-		MaxRoutingFeeRatio: 0.005,             // 0.5% is a good max value for Lightning Network
+		MaxRoutingFeeRatio: 0.005,             // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
 	}
 
 	err = server.Repository.SaveSwapOut(&swapModel)
