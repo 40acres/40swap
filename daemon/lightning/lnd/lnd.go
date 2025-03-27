@@ -150,9 +150,6 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 			return nil, fmt.Errorf("failed reading TLS cert file: %w", err)
 		}
 		creds = credentials.NewClientTLSFromCert(loadCertPool(certBytes), "")
-		if err != nil {
-			return nil, fmt.Errorf("failed creating TLS credentials: %w", err)
-		}
 	}
 
 	mac := &macaroon.Macaroon{}
