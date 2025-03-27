@@ -61,7 +61,6 @@ export const configSchema = z.object({
     elements: z.object({
         network: z.enum(['bitcoin', 'regtest', 'testnet']),
         xpub: z.string(),
-        xpriv: z.string(),
         rpcUrl: z.string().url(),
         rpcUsername: z.string(),
         rpcPassword: z.string(),
@@ -77,14 +76,21 @@ export default (): FourtySwapConfiguration => {
     assert(filePath, 'config file not found');
     const config = yaml.load(fs.readFileSync(filePath).toString()) as object;
 
-    const devFilePath = 'dev/40swap.lightning.yml';
-    let devConfig: object|undefined;
-    if (fs.existsSync(devFilePath)) {
-        const devFileContent = fs.readFileSync(devFilePath).toString();
-        devConfig = yaml.load(devFileContent) as object;
+    const lightningDevFilePath = 'dev/40swap.lightning.yml';
+    let lightningDevConfig: object|undefined;
+    if (fs.existsSync(lightningDevFilePath)) {
+        const lightningDevFileContent = fs.readFileSync(lightningDevFilePath).toString();
+        lightningDevConfig = yaml.load(lightningDevFileContent) as object;
+    }
+    const elementsDevFilePath = 'dev/40swap.elements.yml';
+    let elementsDevConfig: object|undefined;
+    if (fs.existsSync(elementsDevFilePath)) {
+        const elementsDevFileContent = fs.readFileSync(elementsDevFilePath).toString();
+        elementsDevConfig = yaml.load(elementsDevFileContent) as object;
     }
     return configSchema.parse({
         ...config,
-        ...devConfig,
+        ...lightningDevConfig,
+        ...elementsDevConfig,
     });
 };
