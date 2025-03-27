@@ -31,8 +31,8 @@ message SwapInRequest {
 
 message SwapInResponse {
   string swapId = 1;
-  uint32 amountSats = 3;
-  string claim_address = 2;
+  uint32 amountSats = 2;
+  string claim_address = 3;
 }
 
 message SwapOutRequest {

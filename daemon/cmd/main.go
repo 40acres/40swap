@@ -184,6 +184,76 @@ func main() {
 								Usage:   "The expiry time in seconds",
 								Aliases: []string{"e"},
 							},
+							&grpcPort,
+							&bitcoin,
+						},
+						Action: func(ctx context.Context, c *cli.Command) error {
+							chain := rpc.Chain_BITCOIN
+							switch {
+							case c.Bool("bitcoin"):
+								chain = rpc.Chain_BITCOIN
+							case c.Bool("liquid"):
+								chain = rpc.Chain_LIQUID
+							}
+
+							grpcPort, err := validatePort(c.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							swapInRequest := rpc.SwapInRequest{
+								Chain: chain,
+							}
+							payreq := c.String("payreq")
+							if payreq == "" && c.Uint("amt") == 0 {
+								return fmt.Errorf("either payreq or amt must be provided")
+							}
+
+							if payreq != "" {
+								swapInRequest.Invoice = &payreq
+							}
+
+							if c.Uint("amt") != 0 {
+								amt := uint32(c.Uint("amt")) // nolint:gosec
+								swapInRequest.AmountSats = &amt
+							}
+
+							if c.Uint("expiry") != 0 {
+								expiry := uint32(c.Uint("expiry")) // nolint:gosec
+								swapInRequest.Expiry = &expiry
+							}
+
+							res, err := client.SwapIn(ctx, &swapInRequest)
+							if err != nil {
+								return err
+							}
+
+							log.Infof("Swap in created: %s", res)
+
+							return nil
+						},
+					},
+					{
+						Name:  "in",
+						Usage: "Perform a swap in",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "payreq",
+								Usage:   "The Lightning invoice where the swap will be paid to",
+								Aliases: []string{"p"},
+							},
+							&cli.UintFlag{
+								Name:    "amt",
+								Usage:   "The amount in sats to swap in",
+								Aliases: []string{"a"},
+							},
+							&cli.UintFlag{
+								Name:    "expiry",
+								Usage:   "The expiry time in seconds",
+								Aliases: []string{"e"},
+							},
 							&cli.StringFlag{
 								Name: "refund-to",
 								// TODO descriptor and xpub
