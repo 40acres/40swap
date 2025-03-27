@@ -14,6 +14,25 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  postgres-daemon:
+    image: "postgres:16.4"
+    container_name: 40swap_postgres_daemon
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: "40swap"
+      POSTGRES_PASSWORD: "40swap"
+      POSTGRES_DB: "40swap"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U 40swap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    volumes:
+      - postgres-daemon-data:/var/lib/postgresql/data
   cloudbeaver:
     profiles: ["cloudbeaver"]
     image: dbeaver/cloudbeaver:22.2.5
@@ -363,3 +382,5 @@ volumes:
   mempool-backend-btc-data:
   mempool-db-btc-data:
   electrumx-data:
+  postgres-data:
+  postgres-daemon-data:
