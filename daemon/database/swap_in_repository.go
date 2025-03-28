@@ -14,6 +14,6 @@ func (d *Database) SaveSwapIn(swapIn *models.SwapIn) error {
 func (d *Database) GetSwapIn(id string) (*models.SwapIn, error) {
 	var swapIn models.SwapIn
 	err := d.orm.First(&swapIn, "id = ?", id).Error
-	
+
 	return &swapIn, err
 }
