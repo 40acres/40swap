@@ -42,6 +42,15 @@ func TestStatus_SwapIn(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, "swap-in-id", res.Id)
+	require.Equal(t, Status_CREATED, res.Status)
+	require.Equal(t, "dummy-contract-address", res.ContractAddress)
+	require.NotZero(t, res.CreatedAt)
+	require.Equal(t, 100.0, res.InputAmount)
+	require.NotNil(t, res.LockTx)
+	require.Equal(t, "dummy-outcome", *res.Outcome)
+	require.Equal(t, 90.0, res.OutputAmount)
+	require.Equal(t, "dummy-redeem-script", res.RedeemScript)
+	require.Equal(t, uint32(12345), res.TimeoutBlockHeight)
 }
 
 func TestStatus_SwapOut(t *testing.T) {
@@ -72,6 +81,12 @@ func TestStatus_SwapOut(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, "swap-out-id", res.Id)
+	require.Equal(t, Status_CREATED, res.Status)
+	require.Equal(t, uint32(12345), res.TimeoutBlockHeight)
+	require.Equal(t, "dummy-invoice", res.Invoice)
+	require.Equal(t, 1000.0, res.InputAmount)
+	require.Equal(t, 900.0, res.OutputAmount)
+	require.NotZero(t, res.CreatedAt)
 }
 
 func TestConvertStatus(t *testing.T) {
