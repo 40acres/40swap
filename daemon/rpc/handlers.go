@@ -15,6 +15,7 @@ import (
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInResponse, error) {
@@ -73,7 +74,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
-		ServiceFeeSats:     int64(swap.InputAmount) - int64(swap.OutputAmount),
+		// TODO FIX
+		//ServiceFeeSats:     swap.InputAmount.Sub(swap.OutputAmount),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
@@ -151,4 +153,91 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	}
 
 	return &SwapOutResponse{}, nil
+}
+
+// mapStatus maps the swap status from the database to the RPC status
+func mapStatus(status models.SwapStatus) (Status, error) {
+	switch status {
+	case models.StatusCreated:
+		return Status_CREATED, nil
+	case models.StatusInvoicePaymentIntentReceived:
+		return Status_INVOICE_PAYMENT_INTENT_RECEIVED, nil
+	case models.StatusFundedUnconfirmed:
+		return Status_CONTRACT_FUNDED_UNCONFIRMED, nil
+	case models.StatusFunded:
+		return Status_CONTRACT_FUNDED, nil
+	case models.StatusInvoicePaid:
+		return Status_INVOICE_PAID, nil
+	case models.StatusContractClaimedUnconfirmed:
+		return Status_CONTRACT_CLAIMED_UNCONFIRMED, nil
+	case models.StatusDone:
+		return Status_DONE, nil
+	case models.StatusContractRefundedUnconfirmed:
+		return Status_CONTRACT_REFUNDED_UNCONFIRMED, nil
+	case models.StatusContractExpired:
+		return Status_CONTRACT_EXPIRED, nil
+	default:
+		return 0, fmt.Errorf("invalid swap status")
+	}
+}
+
+func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwapInResponse, error) {
+	if req.Id == "" {
+		return nil, fmt.Errorf("swap id is required")
+	}
+
+	// Call API
+	swap, err := s.swapClient.GetSwapIn(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("could not get swap in: %w", err)
+	}
+
+	rpcStatus, err := mapStatus(swap.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &GetSwapInResponse{
+		Id:                 swap.SwapId,
+		Status:             rpcStatus,
+		ContractAddress:    swap.ContractAddress,
+		CreatedAt:          timestamppb.New(swap.CreatedAt),
+		InputAmount:        swap.InputAmount.InexactFloat64(),
+		LockTx:             swap.LockTx,
+		Outcome:            &swap.Outcome,
+		OutputAmount:       swap.OutputAmount.InexactFloat64(),
+		RedeemScript:       swap.RedeemScript,
+		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+	}
+
+	return res, nil
+}
+
+func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSwapOutResponse, error) {
+	if req.Id == "" {
+		return nil, fmt.Errorf("swap id is required")
+	}
+
+	// Call API
+	swap, err := s.swapClient.GetSwapOut(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("could not get swap out: %w", err)
+	}
+
+	rpcStatus, err := mapStatus(swap.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &GetSwapOutResponse{
+		Id:                 swap.SwapId,
+		Status:             rpcStatus,
+		CreatedAt:          timestamppb.New(swap.CreatedAt),
+		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+		Invoice:            swap.Invoice,
+		InputAmount:        swap.InputAmount.InexactFloat64(),
+		OutputAmount:       swap.OutputAmount.InexactFloat64(),
+	}
+
+	return res, nil
 }
