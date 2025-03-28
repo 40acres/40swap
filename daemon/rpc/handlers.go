@@ -96,7 +96,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	return &SwapInResponse{
 		SwapId:       swap.SwapId,
-		AmountSats:   uint32(inputAmountBtc.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
+		AmountSats:   uint64(inputAmountBtc.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
 		ClaimAddress: swap.ContractAddress,
 	}, nil
 }

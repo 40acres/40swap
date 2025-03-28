@@ -24,14 +24,14 @@ enum Network {
 message SwapInRequest {
   Chain chain = 1;
   optional string invoice = 2;
-  optional uint32 amountSats = 3;
+  optional uint64 amountSats = 3;
   optional uint32 expiry = 4;
   string refund_to = 5;
 }
 
 message SwapInResponse {
   string swapId = 1;
-  uint32 amountSats = 2;
+  uint64 amountSats = 2;
   string claim_address = 3;
 }
 

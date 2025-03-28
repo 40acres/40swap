@@ -220,7 +220,7 @@ func main() {
 							}
 
 							if c.Uint("amt") != 0 {
-								amt := uint32(c.Uint("amt")) // nolint:gosec
+								amt := c.Uint("amt")
 								swapInRequest.AmountSats = &amt
 							}
 
