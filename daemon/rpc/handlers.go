@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,12 +44,23 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	invoice, err := zpay32.Decode(*req.Invoice, lightning.ToChainCfgNetwork(network))
 	if err != nil {
+		// Bug in zpay32 when using regtest invoice with mainnet network
+		if err.Error() == "strconv.ParseUint: parsing \"rt2\": invalid syntax" {
+			return nil, fmt.Errorf("invalid invoice: %w", errors.New("invoice not for current active network 'mainnet'"))
+		}
+
 		return nil, fmt.Errorf("invalid invoice: %w", err)
 	}
 
-	_, err = btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
+	if req.RefundTo == "" {
+		return nil, fmt.Errorf("refund address is required")
+	}
+	address, err := btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("invalid refund address: %w", err)
+	}
+	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
+		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
 	}
 
 	refundPrivateKey, err := btcec.NewPrivateKey()

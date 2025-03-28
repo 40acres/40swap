@@ -2,14 +2,14 @@ module github.com/40acres/40swap/daemon
 
 go 1.24.1
 
-replace github.com/lightningnetwork/lnd => github.com/lightningnetwork/lnd v0.18.2-beta
+replace github.com/lightningnetwork/lnd => github.com/lightningnetwork/lnd v0.18.5-beta
 
 replace google.golang.org/protobuf => github.com/lightninglabs/protobuf-go-hex-display v1.30.0-hex-display
 
 require (
 	github.com/Elenpay/liquidator v0.0.0-20241015161912-779047cf224d
-	github.com/btcsuite/btcd v0.24.2
-	github.com/btcsuite/btcd/btcec/v2 v2.3.3
+	github.com/btcsuite/btcd v0.24.3-0.20240921052913-67b8efd3ba53
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcd/btcutil v1.1.6
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/fergusstrange/embedded-postgres v1.30.0
@@ -46,7 +46,7 @@ require (
 	github.com/bep/golibsass v1.2.0 // indirect
 	github.com/btcsuite/btcd/btcutil/psbt v1.1.9 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
-	github.com/btcsuite/btcwallet v0.16.10-0.20240809133323-7d3434c65ae2 // indirect
+	github.com/btcsuite/btcwallet v0.16.10-0.20241127094224-93c858b2ad63 // indirect
 	github.com/btcsuite/btcwallet/wallet/txauthor v1.3.5 // indirect
 	github.com/btcsuite/btcwallet/wallet/txrules v1.2.2 // indirect
 	github.com/btcsuite/btcwallet/wallet/txsizes v1.2.5 // indirect
@@ -119,7 +119,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/jrick/logrotate v1.0.0 // indirect
+	github.com/jrick/logrotate v1.1.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kkdai/bstream v1.0.0 // indirect
 	github.com/lightninglabs/gozmq v0.0.0-20191113021534-d20a764486bf // indirect
@@ -127,13 +127,13 @@ require (
 	github.com/lightninglabs/neutrino/cache v1.1.2 // indirect
 	github.com/lightningnetwork/lightning-onion v1.2.1-0.20240712235311-98bd56499dfb // indirect
 	github.com/lightningnetwork/lnd/clock v1.1.1 // indirect
-	github.com/lightningnetwork/lnd/fn v1.2.1 // indirect
-	github.com/lightningnetwork/lnd/healthcheck v1.2.4 // indirect
-	github.com/lightningnetwork/lnd/kvdb v1.4.8 // indirect
+	github.com/lightningnetwork/lnd/fn v1.2.3 // indirect
+	github.com/lightningnetwork/lnd/healthcheck v1.2.5 // indirect
+	github.com/lightningnetwork/lnd/kvdb v1.4.10 // indirect
 	github.com/lightningnetwork/lnd/queue v1.1.1 // indirect
-	github.com/lightningnetwork/lnd/sqldb v1.0.2 // indirect
+	github.com/lightningnetwork/lnd/sqldb v1.0.4 // indirect
 	github.com/lightningnetwork/lnd/ticker v1.1.1 // indirect
-	github.com/lightningnetwork/lnd/tlv v1.2.3 // indirect
+	github.com/lightningnetwork/lnd/tlv v1.2.6 // indirect
 	github.com/lightningnetwork/lnd/tor v1.1.3 // indirect
 	github.com/ltcsuite/ltcd v0.22.1-beta // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

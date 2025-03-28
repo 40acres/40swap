@@ -12,6 +12,7 @@ import (
 
 var ErrSwapNotFound = fmt.Errorf("swap not found")
 
+//go:generate mockgen -destination=mock.go -package=swaps . ClientInterface
 type ClientInterface interface {
 	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
 	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
