@@ -2,6 +2,7 @@ package swaps
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
@@ -9,10 +10,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+var ErrSwapNotFound = fmt.Errorf("swap not found")
+
+//go:generate mockgen -destination=mock.go -package=swaps . ClientInterface
 type ClientInterface interface {
 	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
 	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
+	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
 }
 
 type CreateSwapOutRequest struct {

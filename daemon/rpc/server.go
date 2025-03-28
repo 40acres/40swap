@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+//go:generate mockgen -destination=mock_repository.go -package=rpc . Repository
 type Repository interface {
 	database.SwapInRepository
 	// Add more repositories here

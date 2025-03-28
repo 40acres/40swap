@@ -11,8 +11,8 @@ const (
 	// happy path
 	StatusCreated                      SwapStatus = "CREATED"
 	StatusInvoicePaymentIntentReceived SwapStatus = "INVOICE_PAYMENT_INTENT_RECEIVED"
-	StatusFundedUnconfirmed            SwapStatus = "CONTRACT_FUNDED_UNCONFIRMED"
-	StatusFunded                       SwapStatus = "CONTRACT_FUNDED"
+	StatusContractFundedUnconfirmed    SwapStatus = "CONTRACT_FUNDED_UNCONFIRMED"
+	StatusContractFunded               SwapStatus = "CONTRACT_FUNDED"
 	StatusInvoicePaid                  SwapStatus = "INVOICE_PAID"
 	StatusContractClaimedUnconfirmed   SwapStatus = "CONTRACT_CLAIMED_UNCONFIRMED"
 	StatusDone                         SwapStatus = "DONE"
