@@ -45,12 +45,12 @@ func CreateSwapsTables() *gormigrate.Migration {
 		RefundTxId         string
 		RefundPrivatekey   string `gorm:"not null"`
 		RedeemScript       string
-		PaymentRequest     string           `gorm:"not null"`
-		PreImage           lntypes.Preimage `gorm:"serializer:preimage"`
-		OnChainFeeSATS     uint64           `gorm:"not null"`
-		ServiceFeeSATS     uint64           `gorm:"not null"`
-		CreatedAt          time.Time        `gorm:"autoCreateTime"`
-		UpdatedAt          time.Time        `gorm:"autoUpdateTime"`
+		PaymentRequest     string            `gorm:"not null"`
+		PreImage           *lntypes.Preimage `gorm:"serializer:preimage"`
+		OnChainFeeSATS     uint64            `gorm:"not null"`
+		ServiceFeeSATS     uint64            `gorm:"not null"`
+		CreatedAt          time.Time         `gorm:"autoCreateTime"`
+		UpdatedAt          time.Time         `gorm:"autoUpdateTime"`
 	}
 
 	return &gormigrate.Migration{
