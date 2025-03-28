@@ -14,12 +14,12 @@ type SwapOut struct {
 	AmountSats         int64        `gorm:"column:amount_sats;type:bigint;not null" json:"amount_sats"`
 	DestinationAddress string       `gorm:"column:destination_address;type:text;not null" json:"destination_address"`
 	ServiceFeeSats     int64        `gorm:"column:service_fee_sats;type:bigint;not null" json:"service_fee_sats"`
-	OnchainFeeSats     int64        `gorm:"column:onchain_fee_sats;type:bigint;not null" json:"onchain_fee_sats"`
-	OffchainFeeSats    int64        `gorm:"column:offchain_fee_sats;type:bigint;not null" json:"offchain_fee_sats"`
+	OnchainFeeSats     int64        `gorm:"column:onchain_fee_sats;type:bigint" json:"onchain_fee_sats"`
+	OffchainFeeSats    int64        `gorm:"column:offchain_fee_sats;type:bigint" json:"offchain_fee_sats"`
 	DestinationChain   Chain        `gorm:"column:destination_chain;type:chain_enum;not null" json:"destination_chain"`
 	ClaimPubkey        string       `gorm:"column:claim_pubkey;type:text;not null" json:"claim_pubkey"`
 	PaymentRequest     string       `gorm:"column:payment_request;type:text;not null" json:"payment_request"`
-	Description        string       `gorm:"column:description;type:text;not null" json:"description"`
+	Description        string       `gorm:"column:description;type:text" json:"description"`
 	MaxRoutingFeeRatio float64      `gorm:"column:max_routing_fee_ratio;type:numeric;not null" json:"max_routing_fee_ratio"`
 	Outcome            *SwapOutcome `gorm:"column:outcome;type:swap_outcome" json:"outcome"`
 }

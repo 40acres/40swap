@@ -152,10 +152,55 @@ func AddColumnRefundRequested() *gormigrate.Migration {
 	}
 }
 
+func RemoveNotNullSwapOut() *gormigrate.Migration {
+	const ID = "4_remove_not_null_constraints_swap_out"
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			type swapOut struct {
+				Description     *string
+				OnchainFeeSATS  uint64
+				OffchainFeeSATS uint64
+			}
+
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "Description"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OnchainFeeSATS"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OffchainFeeSATS"); err != nil {
+				return err
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			type swapOut struct {
+				Description     *string `gorm:"not null"`
+				OnchainFeeSATS  uint64  `gorm:"not null"`
+				OffchainFeeSATS uint64  `gorm:"not null"`
+			}
+
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "Description"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OnchainFeeSATS"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OffchainFeeSATS"); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
 	AddColumnRefundRequested(),
+	RemoveNotNullSwapOut(),
 }
 
 type Migrator struct {
