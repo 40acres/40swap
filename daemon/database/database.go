@@ -94,14 +94,6 @@ func New(username, password, database string, port uint32, dataPath, host string
 	}
 	db.orm = orm
 
-	stmt := &gorm.Statement{DB: orm}
-	err = stmt.Parse(&models.SwapIn{})
-	if err != nil {
-		log.Fatalf("GORM schema parsing error: %v", err)
-	}
-
-	log.Info(stmt.Schema.FieldsByDBName["pre_image"].Serializer)
-
 	return &db, close, nil
 }
 
