@@ -309,7 +309,7 @@ var grpcPort = cli.IntFlag{
 	Usage: "Grpc port for client to daemon communication",
 	Value: 50051,
 }
-var amountSats = cli.IntFlag{
+var amountSats = cli.UintFlag{
 	Name:     "amt",
 	Usage:    "Amount in sats to swap",
 	Required: true,
