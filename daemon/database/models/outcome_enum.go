@@ -19,6 +19,11 @@ func (o SwapOutcome) String() string {
 }
 
 func (o *SwapOutcome) Scan(value interface{}) error {
+	if value == nil {
+		*o = ""
+		return nil
+	}
+
 	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("failed to scan SwapOutcome: expected string, got %T", value)
@@ -29,6 +34,10 @@ func (o *SwapOutcome) Scan(value interface{}) error {
 }
 
 func (o SwapOutcome) Value() (driver.Value, error) {
+	if o == "" {
+		return nil, nil
+	}
+
 	return string(o), nil
 }
 
