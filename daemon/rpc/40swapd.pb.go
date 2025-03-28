@@ -258,7 +258,7 @@ type SwapOutRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Chain Chain                  `protobuf:"varint,1,opt,name=chain,proto3,enum=Chain" json:"chain,omitempty"`
 	// Amount in satoshis
-	AmountSats uint32 `protobuf:"varint,2,opt,name=amountSats,proto3" json:"amountSats,omitempty"`
+	AmountSats uint64 `protobuf:"varint,2,opt,name=amountSats,proto3" json:"amountSats,omitempty"`
 	// Optional Destination address
 	Address       string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -302,7 +302,7 @@ func (x *SwapOutRequest) GetChain() Chain {
 	return Chain_BITCOIN
 }
 
-func (x *SwapOutRequest) GetAmountSats() uint32 {
+func (x *SwapOutRequest) GetAmountSats() uint64 {
 	if x != nil {
 		return x.AmountSats
 	}

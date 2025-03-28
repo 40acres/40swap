@@ -218,7 +218,7 @@ func credentialsFromCertString(certDer string) (credentials.TransportCredentials
 }
 
 // PayInvoice uses the lnd node to pay the invoice provided by the paymentRequest
-func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string) error {
+func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error {
 	// Decode payment request
 	payReq, err := dc.lndClient.DecodePayReq(ctx, &lnrpc.PayReqString{PayReq: paymentRequest})
 	if err != nil {
@@ -226,8 +226,9 @@ func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string) error {
 
 		return err
 	}
+
 	// 0.5% is a good max value for Lightning Network
-	feeLimitSat := int64(float64(payReq.NumSatoshis) * 0.005)
+	feeLimitSat := int64(float64(payReq.NumSatoshis) * feeLimitRatio)
 
 	sendRequest := &routerrpc.SendPaymentRequest{
 		PaymentRequest: paymentRequest,

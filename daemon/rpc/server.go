@@ -13,26 +13,27 @@ import (
 type Repository interface {
 	database.SwapInRepository
 	// Add more repositories here
+	database.SwapOutRepository
 }
 
 type Server struct {
 	UnimplementedSwapServiceServer
-	Port       uint32
-	Repository Repository
-	grpcServer *grpc.Server
-	swaps      swaps.ClientInterface
-	lnClient   lightning.Client
-	network    Network
+	Port            uint32
+	Repository      Repository
+	grpcServer      *grpc.Server
+	lightningClient lightning.Client
+	swapClient      swaps.ClientInterface
+	network         Network
 }
 
-func NewRPCServer(port uint32, repository Repository, swaps *swaps.Client, lnClient lightning.Client, network Network) *Server {
+func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, network Network) *Server {
 	svr := &Server{
-		Port:       port,
-		Repository: repository,
-		grpcServer: grpc.NewServer(),
-		swaps:      swaps,
-		lnClient:   lnClient,
-		network:    network,
+		Port:            port,
+		Repository:      repository,
+		grpcServer:      grpc.NewServer(),
+		swapClient:      swapClient,
+		lightningClient: lightningClient,
+		network:         network,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)
