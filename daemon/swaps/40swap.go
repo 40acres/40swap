@@ -64,8 +64,9 @@ func (f *Client) GetConfiguration(ctx context.Context) (*ConfigurationResponse, 
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("failed to get configuration: %d - %s", response.StatusCode, response.Status)
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
 	}
 
 	// Marshal response into a struct
