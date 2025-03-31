@@ -107,4 +107,4 @@ elements:
   xpub: $xpub
 EOM
 
-echo "$xpub_config" > 40swap.elements.yml
+echo "$xpub_config" > ../server-backend/dev/40swap.elements.yml
