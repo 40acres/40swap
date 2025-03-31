@@ -37,17 +37,17 @@ func chainToDtoChain(chain models.Chain) (api.ChainDtoChain, error) {
 }
 
 func parseErr(response *http.Response) error {
-	if response.StatusCode >= 400 {
+	if response.StatusCode >= http.StatusBadRequest {
 		body := map[string]any{}
 		err := json.NewDecoder(response.Body).Decode(&body)
 		if err != nil {
 			return err
 		}
 
-		if response.StatusCode == 404 {
+		if response.StatusCode == http.StatusNotFound {
 			return ErrSwapNotFound
 		}
-		if response.StatusCode >= 500 {
+		if response.StatusCode >= http.StatusInternalServerError {
 			return fmt.Errorf("failed to get swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
 		}
 

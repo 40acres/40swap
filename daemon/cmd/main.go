@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -265,6 +266,68 @@ func main() {
 							if err != nil {
 								return err
 							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "status",
+						Usage: "Check the status of a swap",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&cli.StringFlag{
+								Name:     "id",
+								Usage:    "The ID of the swap to check",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "type",
+								Usage:    "The type of swap (IN or OUT)",
+								Required: true,
+							},
+						},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							var resp []byte
+							swapType := cmd.String("type")
+							swapId := cmd.String("id")
+
+							const indent = "  "
+							switch swapType {
+							case "IN":
+								status, err := client.GetSwapIn(ctx, &rpc.GetSwapInRequest{
+									Id: swapId,
+								})
+								if err != nil {
+									return err
+								}
+								// Marshal response into json
+								resp, err = json.MarshalIndent(status, "", indent)
+								if err != nil {
+									return err
+								}
+							case "OUT":
+								status, err := client.GetSwapOut(ctx, &rpc.GetSwapOutRequest{
+									Id: swapId,
+								})
+								if err != nil {
+									return err
+								}
+								// Marshal response into json
+								resp, err = json.MarshalIndent(status, "", indent)
+								if err != nil {
+									return err
+								}
+							default:
+								return fmt.Errorf("invalid swap type: %s", swapType)
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
