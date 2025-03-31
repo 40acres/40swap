@@ -123,7 +123,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 }
 
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
-	log.Info("Swapping out")
+	log.Infof("Received SwapOut request: %v", req)
+	network := ToLightningNetworkType(server.network)
 
 	// Validate request
 	if req.AmountSats > 21_000_000*100_000_000 {
@@ -142,9 +143,12 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	feeRate := config.FeePercentage.Div(decimal.NewFromInt(100))
 	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRate)
 
-	_, err = btcutil.DecodeAddress(req.Address, ToChainCfgNetwork(server.network))
+	address, err := btcutil.DecodeAddress(req.Address, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
+		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
 	}
 
 	// Private key for the claim
@@ -192,6 +196,8 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 
 		return nil, fmt.Errorf("error paying the invoice: %w", err)
 	}
+
+	log.Info("Swap created: ", swap.SwapId)
 
 	return &SwapOutResponse{}, nil
 }
