@@ -154,7 +154,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server)
+					err = daemon.Start(ctx, server, swapClient, rpc.ToLightningNetworkType(network))
 					if err != nil {
 						return err
 					}
