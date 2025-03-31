@@ -89,10 +89,8 @@ export class SwapOutRunner {
         if (status === 'CREATED') {
             this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
-            swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;
-            this.logger.debug(`Using timeoutBlockHeight=${swap.timeoutBlockHeight} (id=${swap.id})`);
-
             if (swap.chain === 'LIQUID') {
+                swap.timeoutBlockHeight = await this.getLiquidHeight();
                 swap.lockScript = liquidReverseSwapScript(
                     swap.preImageHash, 
                     swap.counterpartyPubKey, 
@@ -115,6 +113,7 @@ export class SwapOutRunner {
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else {
+                swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,
                     swap.counterpartyPubKey,
@@ -129,6 +128,7 @@ export class SwapOutRunner {
                 this.swap = await this.repository.save(swap);
                 await this.lnd.sendCoinsOnChain(contractAddress, swap.outputAmount.mul(1e8).toNumber());
             }
+            this.logger.debug(`Using timeoutBlockHeight=${swap.timeoutBlockHeight} (id=${swap.id})`);
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
             if (swap.chain === 'LIQUID') {
@@ -150,6 +150,18 @@ export class SwapOutRunner {
         assert(invoice.state === 'ACCEPTED');
         assert(invoice.htlcs.length === 1);
         return invoice.htlcs[0].expiryHeight;
+    }
+
+    private async getLiquidHeight(): Promise<number> {
+        const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
+        const currentLiquidHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight;
+        console.log(`currentLiquidHeight=${currentLiquidHeight}`);
+        const currentBitcoinHeight = (await this.nbxplorer.getNetworkStatus()).chainHeight;
+        console.log(`currentBitcoinHeight=${currentBitcoinHeight}`);
+        const invoiceExpiry = await this.getCltvExpiry();
+        console.log(`invoiceExpiry=${invoiceExpiry}`);
+        assert(invoiceExpiry > currentBitcoinHeight);
+        return currentLiquidHeight + ((invoiceExpiry-currentBitcoinHeight)*ratio);
     }
 
     private async waitForLightningPaymentIntent(): Promise<void> {
