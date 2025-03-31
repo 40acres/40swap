@@ -20,6 +20,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const indent = "  "
+
 func validatePort(port int64) (uint32, error) {
 	if port < 0 || port > 65535 {
 		return 0, fmt.Errorf("port number %d is invalid: must be between 0 and 65535", port)
@@ -222,12 +224,18 @@ func main() {
 								swapInRequest.Expiry = &expiry
 							}
 
-							res, err := client.SwapIn(ctx, &swapInRequest)
+							swap, err := client.SwapIn(ctx, &swapInRequest)
 							if err != nil {
 								return err
 							}
 
-							log.Infof("Swap in created: %s", res)
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
@@ -254,10 +262,17 @@ func main() {
 								Address:    cmd.String("address"),
 							}
 
-							_, err = client.SwapOut(ctx, &swapOutRequest)
+							swap, err := client.SwapOut(ctx, &swapOutRequest)
 							if err != nil {
 								return err
 							}
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
@@ -289,7 +304,6 @@ func main() {
 							swapType := cmd.String("type")
 							swapId := cmd.String("id")
 
-							const indent = "  "
 							switch swapType {
 							case "IN":
 								status, err := client.GetSwapIn(ctx, &rpc.GetSwapInRequest{
