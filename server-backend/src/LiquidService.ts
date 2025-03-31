@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NbxplorerService, NBXplorerUtxo, NBXplorerUtxosResponse } from './NbxplorerService.js';
 import { FourtySwapConfiguration } from './configuration.js';
+import { NbxplorerService, NBXplorerUtxo, NBXplorerUtxosResponse } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import axios from 'axios';
 
@@ -13,10 +13,9 @@ export class LiquidConfigurationDetails {
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
-    // Static property to ensure it's shared across all instances
-    private static _xpub: string = '';
-    
+
     configurationDetails: LiquidConfigurationDetails;
+    public readonly xpub: string;
     private readonly logger = new Logger(LiquidService.name);
     private readonly rpcUrl: string;
     private readonly rpcAuth: {username: string, password: string};
@@ -25,6 +24,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         private nbxplorer: NbxplorerService,
         @Inject('ELEMENTS_CONFIG') private elementsConfig: FourtySwapConfiguration['elements'],
     ) {
+        this.xpub = this.elementsConfig.xpub;
         this.rpcUrl = this.elementsConfig.rpcUrl;
         this.rpcAuth = {
             username: this.elementsConfig.rpcUsername,
@@ -33,77 +33,20 @@ export class LiquidService implements OnApplicationBootstrap  {
         this.configurationDetails = {
             rpcUrl: this.rpcUrl,
             rpcAuth: this.rpcAuth,
-            xpub: LiquidService._xpub,
+            xpub: this.xpub,
         };
-    }
-    
-    // Getter for xpub that always returns the static value
-    get xpub(): string {
-        return LiquidService._xpub;
     }
     
     async onApplicationBootstrap(): Promise<void> {
         this.logger.debug('Starting to initialize LiquidService xpub');
         try {
-            // Only initialize if not already initialized
-            if (!LiquidService._xpub) {
-                await this.initializeXpub();
-            }
+            await this.nbxplorer.track(this.xpub, 'lbtc');
             this.logger.debug(`After initialization, xpub value is: ${this.xpub}`);
+            this.logger.log('LiquidService xpub initialized successfully');
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.error(`Failed to initialize Liquid xpub: ${errorMessage}`);
         }
-    }
-
-    private async initializeXpub(): Promise<void> {
-        // const newAddress = await this.getNewAddress();
-        // const privKey = await this.getPrivKey(newAddress);
-        
-        // TODO: Implement another way to get the xpub
-        // const network = this.elementsConfig.network === 'bitcoin' ? liquidNetwork : liquidRegtest;
-        // const keyPair = ECPair.fromWIF(privKey, network);
-        // const node = bip32.BIP32Factory(ecc).fromPrivateKey(keyPair.privateKey!, Buffer.alloc(32), network);
-        // const xpub = node.neutered().toBase58();
-        // await this.nbxplorer.track(xpub, 'lbtc');
-        // this.setXpub(xpub);
-        // this.logger.log('Liquid xpub initialized successfully');
-
-        // TODO: Implement another way to get the xpub using rpc
-        // const newAddress = await this.getNewAddress();
-        // const privKey = await this.getPrivKey(newAddress);
-        // const network = this.elementsConfig.network === 'bitcoin' ? liquidNetwork : liquidRegtest;
-        // const keyPair = ECPair.fromWIF(privKey, network);
-        // const node = bip32.BIP32Factory(ecc).fromPrivateKey(keyPair.privateKey!, Buffer.alloc(32), network);
-        // const xpub = node.neutered().toBase58();
-        await this.nbxplorer.track(this.elementsConfig.xpub, 'lbtc');
-        // this.setXpub(xpub);
-        // this.logger.log('Liquid xpub initialized successfully');
-        // const walletName = 'mywatchonlywallet';
-        // await this.callRPC('createwallet', [walletName, true, false, '', false, true]);
-        // const descriptorBase = `wpkh(${xpub}/0/*)`;
-        // const descInfo = await this.callRPC('getdescriptorinfo', [descriptorBase]);
-        // const checksum = descInfo.checksum;
-        // const descriptorFinal = `${descriptorBase}#${checksum}`;
-        // await this.callRPC(
-        //     'importdescriptors',
-        //     [[{
-        //         desc: descriptorFinal,
-        //         timestamp: 'now',
-        //         range: [0, 1000],
-        //         internal: false,
-        //     }]],
-        //     walletName
-        // );
-
-        this.setXpub(this.elementsConfig.xpub);
-        this.logger.log('Descriptor imported successfully in wallet');
-    }
-
-    setXpub(xpub: string): void {
-        LiquidService._xpub = xpub;
-        this.configurationDetails.xpub = xpub;
-        this.logger.log(`Xpub set to: ${xpub}`);
     }
 
     async callRPC(method: string, params: any[] = [], walletName: string = ''): Promise<any> {
@@ -129,7 +72,6 @@ export class LiquidService implements OnApplicationBootstrap  {
             this.logger.error('Attempting to get UTXOs with empty xpub');
             throw new Error('Xpub is not initialized');
         }
-        
         const utxoResponse = await this.nbxplorer.getUTXOs(this.xpub, 'lbtc');
         if (!utxoResponse) {
             throw new Error('No UTXOs returned from NBXplorer');
@@ -197,4 +139,3 @@ export class LiquidService implements OnApplicationBootstrap  {
         return this.callRPC('dumpprivkey', [address]);
     }
 }
-
