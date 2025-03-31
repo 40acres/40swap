@@ -304,22 +304,27 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.config = config.getOrThrow('nbxplorer', { infer: true });
     }
 
-    async getBalance(xpub: string): Promise<NBXplorerBalance> {
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/balance`)).json();
+    getUrl(cryptoCode: string = 'btc'): string {
+        if (cryptoCode === 'btc') {
+            return this.config.baseUrl;
+        }
+        return this.config.baseUrl.replace('btc', cryptoCode);
+    }
+
+    async getBalance(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerBalance> {
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/balance`)).json();
         return nbxplorerBalanceSchema.parse(response);
     }
 
     async track(xpub: string, cryptoCode: string = 'btc'): Promise<void> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await fetch(`${url}/derivations/${xpub}`, { method: 'POST' });
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}`, { method: 'POST' });
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an error when tracking xpub');
         }
     }
 
     async trackAddress(address: string, cryptoCode: string = 'btc'): Promise<void> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await fetch(`${url}/addresses/${address}`, { method: 'POST' });
+        const response = await fetch(`${this.getUrl(cryptoCode)}/addresses/${address}`, { method: 'POST' });
         if (response.status >= 300) {
             throw new Error(`nbxplorer threw an error when tracking address: ${address}`);
         }
@@ -329,34 +334,30 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         change?: boolean,
         reserve?: boolean,
     }): Promise<NBXplorerAddress> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
         const change = opts?.change ?? false;
         const reserve = opts?.reserve ?? false;
         const params = new URLSearchParams({
             feature: change ? 'Change' : 'Deposit',
             reserve: reserve.toString(),
         });
-        const response = await (await fetch(`${url}/derivations/${xpub}/addresses/unused?${params}`)).json();
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/addresses/unused?${params}`)).json();
         return nbxplorerAddressSchema.parse(response);
     }
 
     async generateHotWallet(cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await (await fetch(`${url}/derivations`, {
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations`, {
             method: 'POST',
         })).json();
         return nbxplorerHotWalletSchema.parse(response);
     }
 
     async getUTXOs(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerUtxosResponse | void> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await (await fetch(`${url}/derivations/${xpub}/utxos`)).json();
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/utxos`)).json();
         return nbxplorerUtxosResponseSchema.parse(response);
     }
 
     async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await fetch(`${url}/transactions`, {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/transactions`, {
             method: 'POST',
             body: tx.toBuffer(),
         });
@@ -374,8 +375,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async getTx(id: string, cryptoCode: string = 'btc'): Promise<NBXplorerTransaction|null> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await fetch(`${url}/transactions/${id}`, {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/transactions/${id}`, {
             method: 'GET',
         });
         if (response.status === 404) {
@@ -387,8 +387,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerTransactionSchema.parse(await response.json());
     }
 
-    async getFeeRate(blockCount: number): Promise<number> {
-        const response = await fetch(`${this.config.baseUrl}/fees/${blockCount}`, {
+    async getFeeRate(blockCount: number, cryptoCode: string = 'btc'): Promise<number> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/fees/${blockCount}`, {
             method: 'GET',
         });
         if (response.status === 400) {
@@ -401,8 +401,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerFeeRateResponseSchema.parse(await response.json()).feeRate;
     }
 
-    async getWalletTransactions(xpub: string): Promise<NBXplorerWalletTransactions> {
-        const response = await fetch(`${this.config.baseUrl}/derivations/${xpub}/transactions`, {
+    async getWalletTransactions(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerWalletTransactions> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/transactions`, {
             method: 'GET',
         });
         if (response.status >= 300) {
@@ -412,8 +412,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async getWalletTransaction(xpub: string, txId: string, cryptoCode: string = 'lbtc'): Promise<NBXplorerLiquidWalletTransaction> {
-        const url = this.config.baseUrl.replace('btc', cryptoCode);
-        const response = await fetch(`${url}/derivations/${xpub}/transactions/${txId}`, {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/transactions/${txId}`, {
             method: 'GET',
         });
         if (response.status >= 300) {
@@ -498,7 +497,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
             const response = await fetch(
-                `${this.config.baseUrl}/events?` + new URLSearchParams({
+                `${this.getUrl()}/events?` + new URLSearchParams({
                     lastEventId: params.lastEventId.toFixed(0),
                     limit: '200',
                     longPolling: 'true',
@@ -524,9 +523,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.abortController = new AbortController();
         const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
-            const url = this.config.baseUrl.replace('btc', 'lbtc');
             const response = await fetch(
-                `${url}/events?` + new URLSearchParams({
+                `${this.getUrl('lbtc')}/events?` + new URLSearchParams({
                     lastEventId: params.lastEventId.toFixed(0),
                     limit: '200',
                     longPolling: 'true',
@@ -590,8 +588,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerCreatePsbtResponseSchema.parse(await response.json());
     }
 
-    async getNetworkStatus(): Promise<NBXplorerNetworkStatus> {
-        const response = await fetch(`${this.config.baseUrl}/status`);
+    async getNetworkStatus(cryptoCode: string = 'btc'): Promise<NBXplorerNetworkStatus> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/status`);
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when fetching the network status');
         }
