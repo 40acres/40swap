@@ -91,7 +91,6 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		AmountSats: int64(*invoice.MilliSat / 1000),
 		Status:     models.SwapStatus(swap.Status),
 		// All outcomes are failed by default until the swap is completed or refunded
-		Outcome:            models.OutcomeFailed,
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),

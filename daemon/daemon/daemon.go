@@ -79,7 +79,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case errors.Is(err, swaps.ErrSwapNotFound):
 		logger.Warn("swap not found")
 
-		currentSwap.Status = models.StatusDone
+		currentSwap.Outcome = models.OutcomeFailed
 
 		err := m.repository.SaveSwapIn(&currentSwap)
 		if err != nil {
@@ -106,10 +106,13 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case models.StatusDone:
 		switch models.SwapOutcome(newSwap.Outcome) {
 		case models.OutcomeRefunded:
+			currentSwap.Outcome = models.OutcomeRefunded
 			logger.Debug("failed. The funds have been refunded")
 		case models.OutcomeExpired:
+			currentSwap.Outcome = models.OutcomeExpired
 			logger.Debug("failed. The contract has expired, waiting to be refunded")
 		default:
+			currentSwap.Outcome = models.OutcomeSuccess
 			// FAILED doesn't exist in the 40swap backend so we don't need to check it
 			logger.Debug("success. The funds have been claimed")
 		}
