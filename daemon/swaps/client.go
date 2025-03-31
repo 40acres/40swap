@@ -5,16 +5,25 @@ import (
 	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/shopspring/decimal"
 )
 
-//go:generate mockgen -destination=mock.go -package=swaps . ClientInterface
+//go:generate go tool mockgen -destination=mock.go -package=swaps . ClientInterface
 type ClientInterface interface {
+	GetConfiguration(ctx context.Context) (*ConfigurationResponse, error)
 	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
 	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
 	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
+}
+
+type ConfigurationResponse struct {
+	BitcoinNetwork lightning.Network `json:"bitcoinNetwork"`
+	FeePercentage  decimal.Decimal   `json:"feePercentage"`
+	MinimumAmount  decimal.Decimal   `json:"minimumAmount"`
+	MaximumAmount  decimal.Decimal   `json:"maximumAmount"`
 }
 
 type CreateSwapOutRequest struct {
