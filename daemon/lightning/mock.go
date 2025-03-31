@@ -59,10 +59,10 @@ func (mr *MockClientMockRecorder) GenerateInvoice(ctx, amountSats, expiry, memo 
 }
 
 // MonitorPaymentReception mocks base method.
-func (m *MockClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (string, error) {
+func (m *MockClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MonitorPaymentReception", ctx, rhash)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(Preimage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -74,11 +74,11 @@ func (mr *MockClientMockRecorder) MonitorPaymentReception(ctx, rhash any) *gomoc
 }
 
 // MonitorPaymentRequest mocks base method.
-func (m *MockClient) MonitorPaymentRequest(ctx context.Context, paymentHash string) (string, int64, error) {
+func (m *MockClient) MonitorPaymentRequest(ctx context.Context, paymentHash string) (Preimage, NetworkFeeSats, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MonitorPaymentRequest", ctx, paymentHash)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(int64)
+	ret0, _ := ret[0].(Preimage)
+	ret1, _ := ret[1].(NetworkFeeSats)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

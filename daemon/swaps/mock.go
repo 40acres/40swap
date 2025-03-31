@@ -70,6 +70,21 @@ func (mr *MockClientInterfaceMockRecorder) CreateSwapOut(ctx, swapReq any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapOut", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapOut), ctx, swapReq)
 }
 
+// GetConfiguration mocks base method.
+func (m *MockClientInterface) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConfiguration", ctx)
+	ret0, _ := ret[0].(*ConfigurationResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConfiguration indicates an expected call of GetConfiguration.
+func (mr *MockClientInterfaceMockRecorder) GetConfiguration(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfiguration", reflect.TypeOf((*MockClientInterface)(nil).GetConfiguration), ctx)
+}
+
 // GetSwapIn mocks base method.
 func (m *MockClientInterface) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error) {
 	m.ctrl.T.Helper()
