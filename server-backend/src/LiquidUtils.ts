@@ -204,7 +204,7 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         this.liquidService = new LiquidService(nbxplorer, elementsConfig);
     }
 
-    abstract getPset(...args: unknown[]): Promise<liquid.Pset | string>;
+    abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
     // TODO: get dynamic commision
     getCommissionAmount(): number {
@@ -296,11 +296,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     async signPset(pset: liquid.Pset): Promise<liquid.Pset> {
         const psetBase64 = pset.toBase64();
         try {
-            const result = await this.liquidService.callRPC('walletprocesspsbt', [
-                psetBase64,
-                true,  // "sign" parameter
-                'ALL',  // sighash type - ensure it matches what's in the PSBT
-            ]);
+            const result = await this.liquidService.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL']);
             if (!result.complete) {
                 throw new Error('PSET is not complete');
             }
@@ -320,7 +316,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         contractAddress: string, 
         blindingKey: Buffer, 
         timeoutBlockHeight?: number
-    ): Promise<string> {
+    ): Promise<liquid.Pset> {
         const commision = this.getCommissionAmount();
         const totalAmount = amount + commision;
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
@@ -329,25 +325,16 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight ?? 0});
         const updater = new liquid.Updater(pset);
 
-        // Add inputs to pset and sign them
+        // Add inputs to pset
         await Promise.all(utxos.map(async (utxo, i) => {
             const liquidTx = await this.getUtxoTx(utxo, this.liquidService.xpub);
             const sequence = 0xffffffff;
-            
-            // Add input with correct vout
             this.addInput(pset, liquidTx.getId(), utxo.index, sequence);
-            
-            // Add sighash type
             updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
-            
-            // For native segwit inputs, we only need the witness UTXO
             const witnessUtxo = liquidTx.outs[utxo.index];
             updater.addInWitnessUtxo(i, witnessUtxo);
-            
-            // Hardcode the correct derivation path
             const node = bip32.fromBase58(this.liquidService.xpub, this.network);
             try {
-                // Hardcode the correct path that matches your wallet
                 const childNode = node.derivePath(utxo.keyPath);
                 updater.addInBIP32Derivation(i, {
                     masterFingerprint: Buffer.from(node.fingerprint),
@@ -355,8 +342,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
                     path: utxo.keyPath,
                 });
             } catch (error) {
-                console.error(`Failed to derive path ${utxo.keyPath}:`, error);
-                // Continue even if derivation fails
+                throw new Error(`Failed to derive path ${utxo.keyPath}: ${error}`);
             }
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
@@ -368,13 +354,14 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // Blind pset
         // await this.blindPset(utxos, pset, blindingKey);
 
-        // Sign pset inputs
+        return pset;
+    }
+
+    async getTx(pset: liquid.Pset): Promise<liquid.Transaction> {
         const signedPset = await this.signPset(pset);
-
-        // // Finalize pset
         const finalizedPset = await this.finalizePset(signedPset);
-
-        return finalizedPset;
+        const transaction = liquid.Transaction.fromHex(finalizedPset);
+        return transaction;
     }
 }
 
