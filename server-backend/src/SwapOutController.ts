@@ -1,7 +1,7 @@
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -66,7 +66,10 @@ export class SwapOutController {
     @Get('/:id')
     @ApiOkResponse({description: 'Get a swap out', type: GetSwapOutResponseDto})
     async getSwap(@Param('id') id: string): Promise<GetSwapOutResponse> {
-        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
+        if (swap === null) {
+            throw new NotFoundException('swap not found');
+        }
         return this.mapToResponse(swap);
     }
 
@@ -149,7 +152,10 @@ export class SwapOutController {
     @Post('/:id/claim')
     @ApiCreatedResponse({description: 'Claim a swap out'})
     async claimSwap(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
-        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
+        if (swap === null) {
+            throw new NotFoundException('swap not found');
+        }
         assert(swap.lockTx != null);
         try {
             const lockTx = Transaction.fromBuffer(swap.lockTx);
@@ -174,7 +180,10 @@ export class SwapOutController {
         } catch (e) {
             throw new BadRequestException(`invalid address ${outputAddress}`);
         }
-        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
+        const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
+        if (swap === null) {
+            throw new NotFoundException('swap not found');
+        }
         assert(swap.lockTx != null);
         const lockTx = Transaction.fromBuffer(swap.lockTx);
         const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));

@@ -2,20 +2,25 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	swapcli "github.com/40acres/40swap/daemon/cli"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/lightning/lnd"
 	"github.com/40acres/40swap/daemon/rpc"
+	"github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
+	_ "github.com/40acres/40swap/daemon/logging"
 	_ "github.com/lib/pq"
 )
+
+const indent = "  "
 
 func validatePort(port int64) (uint32, error) {
 	if port < 0 || port > 65535 {
@@ -28,16 +33,6 @@ func validatePort(port int64) (uint32, error) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// gRPC server
-	port := 50051
-	server := rpc.NewRPCServer(port)
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatalf("couldn't start server: %v", err)
-		}
-	}()
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -62,17 +57,17 @@ func main() {
 			&cli.StringFlag{
 				Name:  "db-user",
 				Usage: "Database username",
-				Value: "myuser",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-password",
 				Usage: "Database password",
-				Value: "mypassword",
+				Value: "40swap",
 			},
 			&cli.StringFlag{
 				Name:  "db-name",
 				Usage: "Database name",
-				Value: "postgres",
+				Value: "40swap",
 			},
 			&cli.IntFlag{
 				Name:  "db-port",
@@ -84,34 +79,84 @@ func main() {
 				Usage: "Database path",
 				Value: "./.data",
 			},
+			&cli.BoolFlag{
+				Name:  "db-keep-alive",
+				Usage: "Keep the database running after the daemon stops for embedded databases",
+				Value: false,
+			},
+			&grpcPort,
+			&serverUrl,
+			&tlsCert,
+			&macaroon,
+			&lndHost,
+			&testnet,
+			&regtest,
 		},
 		Commands: []*cli.Command{
 			{
 				Name:  "start",
-				Usage: "Start the 40wapd daemon",
+				Usage: "Start the 40swapd daemon",
 				Action: func(ctx context.Context, c *cli.Command) error {
+					grpcPort, err := validatePort(c.Int("grpc-port"))
+					if err != nil {
+						return err
+					}
+
 					port, err := validatePort(c.Int("db-port"))
 					if err != nil {
 						return err
 					}
-					db := database.NewDatabase(
+
+					db, closeDb, err := database.New(
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
 						port,
 						c.String("db-data-path"),
 						c.String("db-host"),
+						c.Bool("db-keep-alive"),
 					)
-					defer db.Stop()
-
-					if c.String("db-data-path") == "" && c.String("db-host") == "embedded" {
-						dbErr := db.MigrateDatabase()
-						if dbErr != nil {
-							return dbErr
+					if err != nil {
+						return fmt.Errorf("❌ Could not connect to database: %w", err)
+					}
+					defer func() {
+						if err := closeDb(); err != nil {
+							log.Errorf("❌ Could not close database: %v", err)
 						}
+					}()
+
+					dbErr := db.MigrateDatabase()
+					if dbErr != nil {
+						log.Errorf("❌ Could not migrate database: %v", err)
 					}
 
-					err = daemon.Start(ctx, db)
+					// Get the network
+					network := rpc.Network_MAINNET
+					if c.Bool("regtest") {
+						network = rpc.Network_REGTEST
+					} else if c.Bool("testnet") {
+						network = rpc.Network_TESTNET
+					}
+
+					swapClient, err := swaps.NewClient(c.String("server-url"))
+					if err != nil {
+						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
+					}
+
+					lnClient, err := lnd.NewClient(ctx,
+						lnd.WithLndEndpoint(c.String("lnd-host")),
+						lnd.WithMacaroonFilePath(c.String("macaroon")),
+						lnd.WithTLSCertFilePath(c.String("tls-cert")),
+						lnd.WithNetwork(rpc.ToLightningNetworkType(network)),
+					)
+					if err != nil {
+						return fmt.Errorf("❌ Could not connect to LND: %w", err)
+					}
+
+					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
+					defer server.Stop()
+
+					err = daemon.Start(ctx, server, db, swapClient, network)
 					if err != nil {
 						return err
 					}
@@ -124,11 +169,179 @@ func main() {
 				Usage: "Swap operations",
 				Commands: []*cli.Command{
 					{
+						Name:  "in",
+						Usage: "Perform a swap in",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "payreq",
+								Usage:   "The Lightning invoice where the swap will be paid to",
+								Aliases: []string{"p"},
+							},
+							&cli.UintFlag{
+								Name:    "expiry",
+								Usage:   "The expiry time in seconds",
+								Aliases: []string{"e"},
+							},
+							&cli.StringFlag{
+								Name: "refund-to",
+								// TODO descriptor and xpub
+								Usage:    "The address where the swap will be refunded to",
+								Aliases:  []string{"r"},
+								Required: true,
+							},
+							&amountSats,
+							&grpcPort,
+							&bitcoin,
+						},
+						Action: func(ctx context.Context, c *cli.Command) error {
+							chain := rpc.Chain_BITCOIN
+							switch {
+							case c.Bool("bitcoin"):
+								chain = rpc.Chain_BITCOIN
+							case c.Bool("liquid"):
+								chain = rpc.Chain_LIQUID
+							}
+
+							grpcPort, err := validatePort(c.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							swapInRequest := rpc.SwapInRequest{
+								Chain:    chain,
+								RefundTo: c.String("refund-to"),
+							}
+							payreq := c.String("payreq")
+							if payreq == "" && c.Uint("amt") == 0 {
+								return fmt.Errorf("either payreq or amt must be provided")
+							}
+
+							if payreq != "" {
+								swapInRequest.Invoice = &payreq
+							}
+
+							if c.Uint("amt") != 0 {
+								amt := c.Uint("amt")
+								swapInRequest.AmountSats = &amt
+							}
+
+							if c.Uint("expiry") != 0 {
+								expiry := uint32(c.Uint("expiry")) // nolint:gosec
+								swapInRequest.Expiry = &expiry
+							}
+
+							swap, err := client.SwapIn(ctx, &swapInRequest)
+							if err != nil {
+								return err
+							}
+
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
+
+							return nil
+						},
+					},
+					{
 						Name:  "out",
-						Usage: "Perform an  swap out",
+						Usage: "Perform a swap out",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&amountSats,
+							&address,
+						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							// TODO
-							swapcli.SwapOut()
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							swapOutRequest := rpc.SwapOutRequest{
+								Chain:      rpc.Chain_BITCOIN,
+								AmountSats: cmd.Uint("amt"),
+								Address:    cmd.String("address"),
+							}
+
+							swap, err := client.SwapOut(ctx, &swapOutRequest)
+							if err != nil {
+								return err
+							}
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
+
+							return nil
+						},
+					},
+					{
+						Name:  "status",
+						Usage: "Check the status of a swap",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&cli.StringFlag{
+								Name:     "id",
+								Usage:    "The ID of the swap to check",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "type",
+								Usage:    "The type of swap (IN or OUT)",
+								Required: true,
+							},
+						},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							var resp []byte
+							swapType := cmd.String("type")
+							swapId := cmd.String("id")
+
+							switch swapType {
+							case "IN":
+								status, err := client.GetSwapIn(ctx, &rpc.GetSwapInRequest{
+									Id: swapId,
+								})
+								if err != nil {
+									return err
+								}
+								// Marshal response into json
+								resp, err = json.MarshalIndent(status, "", indent)
+								if err != nil {
+									return err
+								}
+							case "OUT":
+								status, err := client.GetSwapOut(ctx, &rpc.GetSwapOutRequest{
+									Id: swapId,
+								})
+								if err != nil {
+									return err
+								}
+								// Marshal response into json
+								resp, err = json.MarshalIndent(status, "", indent)
+								if err != nil {
+									return err
+								}
+							default:
+								return fmt.Errorf("invalid swap type: %s", swapType)
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
@@ -153,4 +366,65 @@ func main() {
 	if app_err != nil {
 		log.Fatal(app_err)
 	}
+}
+
+// Lightnig networks
+var regtest = cli.BoolFlag{
+	Name:  "regtest",
+	Usage: "Use regtest network",
+}
+var testnet = cli.BoolFlag{
+	Name:  "testnet",
+	Usage: "Use testnet network",
+}
+
+// Chains
+var bitcoin = cli.BoolFlag{
+	Name:  "bitcoin",
+	Usage: "Use Bitcoin chain",
+}
+var liquid = cli.BoolFlag{
+	Name:  "liquid",
+	Usage: "Use Liquid chain",
+}
+
+// Ports and hosts
+var grpcPort = cli.IntFlag{
+	Name:  "grpc-port",
+	Usage: "Grpc port for client to daemon communication",
+	Value: 50051,
+}
+var amountSats = cli.UintFlag{
+	Name:     "amt",
+	Usage:    "Amount in sats to swap",
+	Required: true,
+}
+
+var address = cli.StringFlag{
+	Name:     "address",
+	Usage:    "Address to swap to",
+	Required: true,
+}
+
+var serverUrl = cli.StringFlag{
+	Name:  "server-url",
+	Usage: "Server URL",
+	Value: "https://app.40swap.com",
+}
+
+// config files
+var tlsCert = cli.StringFlag{
+	Name:  "tls-cert",
+	Usage: "TLS certificate file",
+	Value: "/root/.lnd/tls.cert",
+}
+var macaroon = cli.StringFlag{
+	Name:  "macaroon",
+	Usage: "Macaroon file",
+	Value: "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+}
+var lndHost = cli.StringFlag{
+	Name:  "lnd-host",
+	Usage: "LND host",
+	Value: "localhost:10009",
 }

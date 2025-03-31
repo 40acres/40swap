@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query, UsePipes } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, UsePipes } from '@nestjs/common';
 import { createZodDto, ZodValidationPipe } from '@anatine/zod-nestjs';
 import assert from 'node:assert';
 import { ECPairFactory } from 'ecpair';
@@ -59,7 +59,10 @@ export class SwapInController {
         } catch (e) {
             throw new BadRequestException(`invalid address ${outputAddress}`);
         }
-        const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
+        const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
+        if (swap === null) {
+            throw new NotFoundException('swap not found');
+        }
         assert(swap.lockTx != null);
         const lockTx = Transaction.fromBuffer(swap.lockTx);
         const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
@@ -69,7 +72,10 @@ export class SwapInController {
     @Post('/:id/refund-tx')
     @ApiCreatedResponse({description: 'Send a refund tx', type: undefined})
     async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto): Promise<void> {
-        const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
+        const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
+        if (swap === null) {
+            throw new NotFoundException('swap not found');
+        }
         assert(swap.lockTx != null);
         try {
             const lockTx = Transaction.fromBuffer(swap.lockTx);
@@ -86,7 +92,10 @@ export class SwapInController {
     @Get('/:id')
     @ApiOkResponse({description: 'Get a swap', type: GetSwapInResponseDto})
     async getSwap(@Param('id') id: string): Promise<GetSwapInResponse> {
-        const swap = await this.dataSource.getRepository(SwapIn).findOneByOrFail({ id });
+        const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
+        if (swap === null) {
+            throw new NotFoundException('swap not found');
+        }
         return this.mapToResponse(swap);
     }
 

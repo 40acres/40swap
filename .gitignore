@@ -20,5 +20,13 @@ server-backend/dev/40swap.lightning.yml
 
 daemon/cmd/cmd
 40swap.lightning.yml
+<<<<<<< HEAD
 40swap.elements.yml
 .data/
+=======
+.data/
+daemon/tmp
+build-errors.log
+daemon/tls.cert
+daemon/admin.macaroon
+>>>>>>> master

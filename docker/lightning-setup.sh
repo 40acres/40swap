@@ -86,7 +86,7 @@ lnd:
   macaroon: $lnd_macaroon
 EOM
 
-echo "$dev_config" > 40swap.lightning.yml
+echo "$dev_config" > ../server-backend/dev/40swap.lightning.yml
 
 # Liquid setup:
 docker exec -it 40swap_elements elements-cli -chain=liquidregtest unloadwallet ""
