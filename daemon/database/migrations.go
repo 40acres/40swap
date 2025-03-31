@@ -96,8 +96,46 @@ func CreateSwapsTables() *gormigrate.Migration {
 	}
 }
 
+// This migration removes the `not null` from the `Outcome` field
+func RemoveNotNullInOutcome() *gormigrate.Migration {
+	const ID = "2_remove_not_null_in_outcome"
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			type swapIn struct {
+				Outcome *int `gorm:"type:swap_outcome"`
+			}
+			type swapOut struct {
+				Outcome *int `gorm:"type:swap_outcome"`
+			}
+
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "outcome"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().AlterColumn(&swapIn{}, "outcome")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			type swapIn struct {
+				Outcome int `gorm:"type:swap_outcome;not null"`
+			}
+			type swapOut struct {
+				Outcome int `gorm:"type:swap_outcome;not null"`
+			}
+
+			if err := tx.Migrator().AlterColumn(&swapIn{}, "outcome"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().AlterColumn(&swapOut{}, "outcome")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
+	RemoveNotNullInOutcome(),
 }
 
 type Migrator struct {

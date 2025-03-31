@@ -20,6 +20,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const indent = "  "
+
 func validatePort(port int64) (uint32, error) {
 	if port < 0 || port > 65535 {
 		return 0, fmt.Errorf("port number %d is invalid: must be between 0 and 65535", port)
@@ -154,7 +156,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, swapClient, rpc.ToLightningNetworkType(network))
+					err = daemon.Start(ctx, server, db, swapClient, rpc.ToLightningNetworkType(network))
 					if err != nil {
 						return err
 					}
@@ -180,6 +182,13 @@ func main() {
 								Usage:   "The expiry time in seconds",
 								Aliases: []string{"e"},
 							},
+							&cli.StringFlag{
+								Name: "refund-to",
+								// TODO descriptor and xpub
+								Usage:    "The address where the swap will be refunded to",
+								Aliases:  []string{"r"},
+								Required: true,
+							},
 							&amountSats,
 							&grpcPort,
 							&bitcoin,
@@ -201,7 +210,8 @@ func main() {
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
 							swapInRequest := rpc.SwapInRequest{
-								Chain: chain,
+								Chain:    chain,
+								RefundTo: c.String("refund-to"),
 							}
 							payreq := c.String("payreq")
 							if payreq == "" && c.Uint("amt") == 0 {
@@ -213,7 +223,7 @@ func main() {
 							}
 
 							if c.Uint("amt") != 0 {
-								amt := uint32(c.Uint("amt")) // nolint:gosec
+								amt := c.Uint("amt")
 								swapInRequest.AmountSats = &amt
 							}
 
@@ -222,12 +232,18 @@ func main() {
 								swapInRequest.Expiry = &expiry
 							}
 
-							res, err := client.SwapIn(ctx, &swapInRequest)
+							swap, err := client.SwapIn(ctx, &swapInRequest)
 							if err != nil {
 								return err
 							}
 
-							log.Infof("Swap in created: %s", res)
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
@@ -254,10 +270,17 @@ func main() {
 								Address:    cmd.String("address"),
 							}
 
-							_, err = client.SwapOut(ctx, &swapOutRequest)
+							swap, err := client.SwapOut(ctx, &swapOutRequest)
 							if err != nil {
 								return err
 							}
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
@@ -289,7 +312,6 @@ func main() {
 							swapType := cmd.String("type")
 							swapId := cmd.String("id")
 
-							const indent = "  "
 							switch swapType {
 							case "IN":
 								status, err := client.GetSwapIn(ctx, &rpc.GetSwapInRequest{

@@ -5,7 +5,23 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug daemon",
+      "name": "Launch swap in",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/daemon/cmd/main.go",
+      "cwd": "${workspaceFolder}/daemon",
+      "args": [
+        "swap",
+        "in",
+        "-amt",
+        "200000",
+        "-refund-to",
+        "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx"
+      ]
+    },
+    {
+      "name": "Launch daemon",
       "type": "go",
       "request": "launch",
       "mode": "debug",
@@ -21,6 +37,13 @@
         "-macaroon=./admin.macaroon",
         "-lnd-host=localhost:10001"
       ]
+    },
+    {
+      "name": "Debug daemon",
+      "type": "go",
+      "request": "attach",
+      "mode": "local",
+      "processId": "cmd"
     }
   ]
 }

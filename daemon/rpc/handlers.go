@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,7 +45,23 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	invoice, err := zpay32.Decode(*req.Invoice, lightning.ToChainCfgNetwork(network))
 	if err != nil {
-		return nil, fmt.Errorf("could not decode invoice: %w", err)
+		// Bug in zpay32 when using regtest invoice with mainnet network
+		if err.Error() == "strconv.ParseUint: parsing \"rt2\": invalid syntax" {
+			return nil, fmt.Errorf("invalid invoice: %w", errors.New("invoice not for current active network 'mainnet'"))
+		}
+
+		return nil, fmt.Errorf("invalid invoice: %w", err)
+	}
+
+	if req.RefundTo == "" {
+		return nil, fmt.Errorf("refund address is required")
+	}
+	address, err := btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
+	if err != nil {
+		return nil, fmt.Errorf("invalid refund address: %w", err)
+	}
+	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
+		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
 	}
 
 	config, err := server.swapClient.GetConfiguration(ctx)
@@ -56,7 +73,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("amount %s is not in the range [%s, %s]", invoiceAmount, config.MinimumAmount, config.MaximumAmount)
 	}
 
-	serviceFee := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(config.FeePercentage)
+	feeRate := config.FeePercentage.Div(decimal.NewFromInt(100))
+	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRate)
 
 	refundPrivateKey, err := btcec.NewPrivateKey()
 	if err != nil {
@@ -73,19 +91,23 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	if err != nil {
 		return nil, fmt.Errorf("could not create swap: %w", err)
 	}
+	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
+	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
 	err = server.Repository.SaveSwapIn(&models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
-		AmountSats:         int64(*invoice.MilliSat / 1000),
-		Status:             models.SwapStatus(swap.Status),
+		AmountSats: int64(*invoice.MilliSat / 1000),
+		Status:     models.SwapStatus(swap.Status),
+		// All outcomes are failed by default until the swap is completed or refunded
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
-		ServiceFeeSats:     serviceFee.IntPart(),
+		ServiceFeeSats:     serviceFeeSats.IntPart(),
+		OnChainFeeSats:     inputAmountSats.Sub(outputAmountSats).Sub(serviceFeeSats).IntPart(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
@@ -95,6 +117,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	return &SwapInResponse{
 		SwapId:       swap.SwapId,
+		AmountSats:   uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
 		ClaimAddress: swap.ContractAddress,
 	}, nil
 }
@@ -116,7 +139,8 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("amount %s is not in the range [%s, %s]", invoiceAmount, config.MinimumAmount, config.MaximumAmount)
 	}
 
-	serviceFee := decimal.NewFromUint64(req.AmountSats).Mul(config.FeePercentage)
+	feeRate := config.FeePercentage.Div(decimal.NewFromInt(100))
+	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRate)
 
 	_, err = btcutil.DecodeAddress(req.Address, ToChainCfgNetwork(server.network))
 	if err != nil {
@@ -152,7 +176,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
 		PaymentRequest:     swap.Invoice,
 		AmountSats:         int64(amount), // nolint:gosec
-		ServiceFeeSats:     serviceFee.IntPart(),
+		ServiceFeeSats:     serviceFeeSats.IntPart(),
 		MaxRoutingFeeRatio: 0.005, // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
 	}
 
@@ -179,9 +203,9 @@ func mapStatus(status models.SwapStatus) (Status, error) {
 		return Status_CREATED, nil
 	case models.StatusInvoicePaymentIntentReceived:
 		return Status_INVOICE_PAYMENT_INTENT_RECEIVED, nil
-	case models.StatusFundedUnconfirmed:
+	case models.StatusContractFundedUnconfirmed:
 		return Status_CONTRACT_FUNDED_UNCONFIRMED, nil
-	case models.StatusFunded:
+	case models.StatusContractFunded:
 		return Status_CONTRACT_FUNDED, nil
 	case models.StatusInvoicePaid:
 		return Status_INVOICE_PAID, nil

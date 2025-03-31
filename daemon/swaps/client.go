@@ -2,6 +2,7 @@ package swaps
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
@@ -9,6 +10,8 @@ import (
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/shopspring/decimal"
 )
+
+var ErrSwapNotFound = fmt.Errorf("swap not found")
 
 //go:generate go tool mockgen -destination=mock.go -package=swaps . ClientInterface
 type ClientInterface interface {
