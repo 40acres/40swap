@@ -103,16 +103,16 @@ export class SwapOutRunner {
                 const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
                 assert(p2wsh.address != null);
                 swap.contractAddress = p2wsh.address;
+                this.swap = await this.repository.save(swap);
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
-                const pset = await psetBuilder.getPset(
+                const psetHexTx = await psetBuilder.getPset(
                     swap.outputAmount.mul(1e8).toNumber(), 
                     p2wsh.address, 
                     Buffer.alloc(0), // TODO: add a proper blinding key
                     swap.timeoutBlockHeight
                 );
-                const psetTx = liquid.Extractor.extract(pset);
-                this.swap = await this.repository.save(swap);
+                const psetTx = liquid.Transaction.fromHex(psetHexTx);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else {
                 swap.lockScript = reverseSwapScript(
@@ -273,8 +273,6 @@ export class SwapOutRunner {
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         const { swap } = this;
         if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
-            console.log('Timeout Block Height:', swap.timeoutBlockHeight);
-            console.log('Current Block Height:', event.data.height);
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
             await this.onStatusChange('CONTRACT_EXPIRED');

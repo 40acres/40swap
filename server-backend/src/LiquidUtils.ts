@@ -204,7 +204,7 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         this.liquidService = new LiquidService(nbxplorer, elementsConfig);
     }
 
-    abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
+    abstract getPset(...args: unknown[]): Promise<liquid.Pset | string>;
 
     // TODO: get dynamic commision
     getCommissionAmount(): number {
@@ -258,6 +258,17 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         updater.addInWitnessUtxo(psetInputIndex, witnessUtxo);
         updater.addInWitnessScript(psetInputIndex, lockScript);
     }
+}
+
+export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
+
+    async finalizePset(pset: liquid.Pset): Promise<string> {
+        const result = await this.liquidService.callRPC('finalizepsbt', [pset.toBase64()]);
+        if (!result.complete) {
+            throw new Error('PSET is not complete');
+        }
+        return result.hex;
+    }
     
     async addRequiredOutputs(
         amount: number,
@@ -272,8 +283,8 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         this.addOutput(updater, getLiquidNumber(amount), claimOutputScript, blindingKey);
 
         // Add change output to pset
-        const changeAddress = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { change: true });
-        const changeOutputScript = liquid.address.toOutputScript(changeAddress.address, this.network);
+        const changeAddress = await this.liquidService.callRPC('getnewaddress');
+        const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
         this.addOutput(updater, changeAmount, changeOutputScript, blindingKey);
 
@@ -282,59 +293,21 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         this.addOutput(updater, feeAmount);
     }
 
-    /**
-     * Signs inputs using a remote wallet via RPC
-     * @param utxos The UTXOs to sign
-     * @param pset The PSET to sign
-     * @param signer The signer instance
-     */
-    async signInputs(utxos: NBXplorerUtxo[], pset: liquid.Pset, signer: liquid.Signer): Promise<liquid.Pset> {
-        if (utxos.length === 0) return pset;
-        
-        // Convert PSET to base64 for RPC
+    async signPset(pset: liquid.Pset): Promise<liquid.Pset> {
         const psetBase64 = pset.toBase64();
-        
         try {
-            // Call the wallet's RPC to process the PSET
-            // You'll need to implement this RPC client method
             const result = await this.liquidService.callRPC('walletprocesspsbt', [
                 psetBase64,
                 true,  // "sign" parameter
                 'ALL',  // sighash type - ensure it matches what's in the PSBT
             ]);
-            
-            // Parse the processed PSET from the RPC response
-            const processedPset = liquid.Pset.fromBase64(result.psbt);
-            
-            // Extract signatures from processed PSET and apply them to our working PSET
-            for (let i = 0; i < utxos.length; i++) {
-                // Get the processed input at index i
-                const processedInput = processedPset.inputs[i];
-                
-                // If there's a partial signature, add it to our working PSET
-                if (processedInput.partialSigs && processedInput.partialSigs.length > 0) {
-                    for (const partialSig of processedInput.partialSigs) {
-                        signer.addSignature(
-                            i,
-                            {
-                                partialSig: {
-                                    pubkey: partialSig.pubkey,
-                                    signature: partialSig.signature,
-                                },
-                            },
-                            liquid.Pset.ECDSASigValidator(ecc)
-                        );
-                        
-                        // Store signature for later use in finalizing
-                        this.signatures.push(partialSig.signature);
-                        
-                        // Since we don't have the actual key pairs, we can create a 
-                        // placeholder ECPair with just the public key for finalizing
-                        this.signingKeys.push(ECPair.fromPublicKey(partialSig.pubkey));
-                    }
-                }
+            if (!result.complete) {
+                throw new Error('PSET is not complete');
             }
-
+            const processedPset = liquid.Pset.fromBase64(result.psbt);
+            if (!processedPset.isComplete()) {
+                throw new Error('PSET is not complete');
+            }
             return processedPset;
         } catch (error) {
             console.error('Error signing PSET via RPC:', error);
@@ -342,51 +315,12 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         }
     }
 
-    async signInputsWithXPriv(xpriv: string, utxos: NBXplorerUtxo[], pset: liquid.Pset, signer: liquid.Signer): Promise<liquid.Pset> {
-        for (let i = 0; i < utxos.length; i++) {
-            const utxo = utxos[i];
-            const node = bip32.fromBase58(xpriv, this.network);
-            const child = node.derivePath(utxo.keyPath);
-            const signingKeyPair = ECPair.fromPrivateKey(Buffer.from(child.privateKey!));
-            this.signInputIndex(pset, signer, signingKeyPair, i);
-        }
-        return pset;
-    }
-
-    signInputIndex(
-        pset: liquid.Pset, 
-        signer: liquid.Signer, 
-        signingKeyPair: ECPairInterface, 
-        index: number, 
-        sigHashType: number = liquid.Transaction.SIGHASH_ALL
-    ): void {
-        const signature = this.signIndex(pset, signer, signingKeyPair, index, sigHashType);
-        this.signatures.push(signature);
-        this.signingKeys.push(signingKeyPair);
-    }
-
-    async finalizePset(pset: liquid.Pset): Promise<liquid.Pset> {
-        const result = await this.liquidService.callRPC('finalizepsbt', [pset.toBase64()]);
-        return liquid.Pset.fromBase64(result.psbt);
-    }
-
-    finalizePsetWithUtxos(utxos: NBXplorerUtxo[], finalizer: liquid.Finalizer): void {
-        for (let i = 0; i < utxos.length; i++) {
-            this.finalizeIndexWithStack(finalizer, i, [
-                this.signatures[i],
-                this.signingKeys[i].publicKey,
-            ]);
-        }
-    }
-}
-
-export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     async getPset(
         amount: number, 
         contractAddress: string, 
         blindingKey: Buffer, 
         timeoutBlockHeight?: number
-    ): Promise<liquid.Pset> {
+    ): Promise<string> {
         const commision = this.getCommissionAmount();
         const totalAmount = amount + commision;
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
@@ -396,7 +330,37 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const updater = new liquid.Updater(pset);
 
         // Add inputs to pset and sign them
-        await this.addUtxosInputs(utxos, pset, updater, timeoutBlockHeight);
+        await Promise.all(utxos.map(async (utxo, i) => {
+            const liquidTx = await this.getUtxoTx(utxo, this.liquidService.xpub);
+            const sequence = 0xffffffff;
+            
+            // Add input with correct vout
+            this.addInput(pset, liquidTx.getId(), utxo.index, sequence);
+            
+            // Add sighash type
+            updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
+            
+            // For native segwit inputs, we only need the witness UTXO
+            const witnessUtxo = liquidTx.outs[utxo.index];
+            updater.addInWitnessUtxo(i, witnessUtxo);
+            
+            // Hardcode the correct derivation path
+            const node = bip32.fromBase58(this.liquidService.xpub, this.network);
+            try {
+                // Hardcode the correct path that matches your wallet
+                const childNode = node.derivePath(utxo.keyPath);
+                updater.addInBIP32Derivation(i, {
+                    masterFingerprint: Buffer.from(node.fingerprint),
+                    pubkey: Buffer.from(childNode.publicKey),
+                    path: utxo.keyPath,
+                });
+            } catch (error) {
+                console.error(`Failed to derive path ${utxo.keyPath}:`, error);
+                // Continue even if derivation fails
+            }
+        })).catch((error) => {
+            throw new Error(`Error adding inputs: ${error}`);
+        });
 
         // Add required outputs (claim, change, fee) to pset
         await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, blindingKey);
@@ -405,13 +369,12 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // await this.blindPset(utxos, pset, blindingKey);
 
         // Sign pset inputs
-        const signer = new liquid.Signer(pset);
-        const signedPset = await this.signInputsWithXPriv(this.elementsConfig.xpriv, utxos, pset, signer);
+        const signedPset = await this.signPset(pset);
 
-        // Finalize pset
-        const finalizer = new liquid.Finalizer(signedPset);
-        this.finalizePsetWithUtxos(utxos, finalizer);
-        return signedPset;
+        // // Finalize pset
+        const finalizedPset = await this.finalizePset(signedPset);
+
+        return finalizedPset;
     }
 }
 

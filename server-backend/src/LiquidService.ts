@@ -41,7 +41,6 @@ export class LiquidService implements OnApplicationBootstrap  {
         this.logger.debug('Starting to initialize LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
-            this.logger.debug(`After initialization, xpub value is: ${this.xpub}`);
             this.logger.log('LiquidService xpub initialized successfully');
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
