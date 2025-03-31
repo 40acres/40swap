@@ -22,7 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
-import { getKeysFromHotWallet, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
 import * as liquid from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 
@@ -186,14 +186,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     async createSwapOutLightningToLiquidSwap(request: SwapChainRequest): Promise<SwapOut> {
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
-        const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-        const refundHotWallet = await this.nbxplorer.generateHotWallet('lbtc');
-        const refundKeys = getKeysFromHotWallet(refundHotWallet, network);
+        const refundKeys = ECPair.makeRandom();
         const refundAddress = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true });
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
@@ -208,7 +206,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             invoice,
             timeoutBlockHeight: 0,
             sweepAddress: refundAddress.address,
-            unlockPrivKey: Buffer.from(refundKeys.privKey),
+            unlockPrivKey: refundKeys.privateKey!,
             counterpartyPubKey: Buffer.from(request.claimPubKey, 'hex'),
             unlockTx: null,
             preImage: null,
