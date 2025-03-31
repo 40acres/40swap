@@ -45,13 +45,15 @@ enum Status {
 message SwapInRequest {
   Chain chain = 1; // Blockchain chain for the swap.
   optional string invoice = 2; // Invoice to be paid.
-  optional uint32 amount_sats = 3; // Amount in satoshis.
+  optional uint64 amount_sats = 3; // Amount in satoshis.
   optional uint32 expiry = 4; // Expiry time for the swap.
+  string refund_to = 5; // Address to refund in case of failure.
 }
 
 message SwapInResponse {
   string swap_id = 1; // Unique identifier for the swap.
-  string claim_address = 2; // Address to claim the funds.
+  uint64 amount_sats = 2; // Amount in satoshis.
+  string claim_address = 3; // Address to claim the funds.
 }
 
 // Message definitions for SwapOut operation.

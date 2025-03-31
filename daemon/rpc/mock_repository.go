@@ -20,7 +20,6 @@ import (
 type MockRepository struct {
 	ctrl     *gomock.Controller
 	recorder *MockRepositoryMockRecorder
-	isgomock struct{}
 }
 
 // MockRepositoryMockRecorder is the mock recorder for MockRepository.
@@ -40,60 +39,45 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 	return m.recorder
 }
 
-// GetSwapIn mocks base method.
-func (m *MockRepository) GetSwapIn(id string) (*models.SwapIn, error) {
+// GetPendingSwapIns mocks base method.
+func (m *MockRepository) GetPendingSwapIns() ([]models.SwapIn, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSwapIn", id)
-	ret0, _ := ret[0].(*models.SwapIn)
+	ret := m.ctrl.Call(m, "GetPendingSwapIns")
+	ret0, _ := ret[0].([]models.SwapIn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSwapIn indicates an expected call of GetSwapIn.
-func (mr *MockRepositoryMockRecorder) GetSwapIn(id any) *gomock.Call {
+// GetPendingSwapIns indicates an expected call of GetPendingSwapIns.
+func (mr *MockRepositoryMockRecorder) GetPendingSwapIns() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapIn", reflect.TypeOf((*MockRepository)(nil).GetSwapIn), id)
-}
-
-// GetSwapOut mocks base method.
-func (m *MockRepository) GetSwapOut(id string) (*models.SwapOut, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSwapOut", id)
-	ret0, _ := ret[0].(*models.SwapOut)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSwapOut indicates an expected call of GetSwapOut.
-func (mr *MockRepositoryMockRecorder) GetSwapOut(id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapOut", reflect.TypeOf((*MockRepository)(nil).GetSwapOut), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingSwapIns", reflect.TypeOf((*MockRepository)(nil).GetPendingSwapIns))
 }
 
 // SaveSwapIn mocks base method.
-func (m *MockRepository) SaveSwapIn(swapIn *models.SwapIn) error {
+func (m *MockRepository) SaveSwapIn(arg0 *models.SwapIn) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSwapIn", swapIn)
+	ret := m.ctrl.Call(m, "SaveSwapIn", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveSwapIn indicates an expected call of SaveSwapIn.
-func (mr *MockRepositoryMockRecorder) SaveSwapIn(swapIn any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) SaveSwapIn(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSwapIn", reflect.TypeOf((*MockRepository)(nil).SaveSwapIn), swapIn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSwapIn", reflect.TypeOf((*MockRepository)(nil).SaveSwapIn), arg0)
 }
 
 // SaveSwapOut mocks base method.
-func (m *MockRepository) SaveSwapOut(swapOut *models.SwapOut) error {
+func (m *MockRepository) SaveSwapOut(arg0 *models.SwapOut) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSwapOut", swapOut)
+	ret := m.ctrl.Call(m, "SaveSwapOut", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveSwapOut indicates an expected call of SaveSwapOut.
-func (mr *MockRepositoryMockRecorder) SaveSwapOut(swapOut any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) SaveSwapOut(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSwapOut", reflect.TypeOf((*MockRepository)(nil).SaveSwapOut), swapOut)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSwapOut", reflect.TypeOf((*MockRepository)(nil).SaveSwapOut), arg0)
 }

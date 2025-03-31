@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,7 +45,23 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	invoice, err := zpay32.Decode(*req.Invoice, lightning.ToChainCfgNetwork(network))
 	if err != nil {
-		return nil, fmt.Errorf("could not decode invoice: %w", err)
+		// Bug in zpay32 when using regtest invoice with mainnet network
+		if err.Error() == "strconv.ParseUint: parsing \"rt2\": invalid syntax" {
+			return nil, fmt.Errorf("invalid invoice: %w", errors.New("invoice not for current active network 'mainnet'"))
+		}
+
+		return nil, fmt.Errorf("invalid invoice: %w", err)
+	}
+
+	if req.RefundTo == "" {
+		return nil, fmt.Errorf("refund address is required")
+	}
+	address, err := btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
+	if err != nil {
+		return nil, fmt.Errorf("invalid refund address: %w", err)
+	}
+	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
+		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
 	}
 
 	refundPrivateKey, err := btcec.NewPrivateKey()
@@ -63,19 +80,24 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("could not create swap: %w", err)
 	}
 
+	invoiceAmountSats := decimal.NewFromInt(int64(invoice.MilliSat.ToSatoshis()))
+	// TODO: fetch from config controller
+	serviceFee := decimal.NewFromFloat(0.5)
+	serviceFeeSats := invoiceAmountSats.Mul(serviceFee).IntPart()
+
 	err = server.Repository.SaveSwapIn(&models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
-		AmountSats:         int64(*invoice.MilliSat / 1000),
-		Status:             models.SwapStatus(swap.Status),
+		AmountSats: int64(*invoice.MilliSat / 1000),
+		Status:     models.SwapStatus(swap.Status),
+		// All outcomes are failed by default until the swap is completed or refunded
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
-		// TODO FIX
-		//ServiceFeeSats:     swap.InputAmount.Sub(swap.OutputAmount),
+		ServiceFeeSats:     int64(serviceFeeSats),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
@@ -85,6 +107,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 
 	return &SwapInResponse{
 		SwapId:       swap.SwapId,
+		AmountSats:   uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
 		ClaimAddress: swap.ContractAddress,
 	}, nil
 }
@@ -162,9 +185,9 @@ func mapStatus(status models.SwapStatus) (Status, error) {
 		return Status_CREATED, nil
 	case models.StatusInvoicePaymentIntentReceived:
 		return Status_INVOICE_PAYMENT_INTENT_RECEIVED, nil
-	case models.StatusFundedUnconfirmed:
+	case models.StatusContractFundedUnconfirmed:
 		return Status_CONTRACT_FUNDED_UNCONFIRMED, nil
-	case models.StatusFunded:
+	case models.StatusContractFunded:
 		return Status_CONTRACT_FUNDED, nil
 	case models.StatusInvoicePaid:
 		return Status_INVOICE_PAID, nil

@@ -2,7 +2,6 @@ package lightning
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 	"time"
 
@@ -37,11 +36,7 @@ var (
 	TestMessageSigner = zpay32.MessageSigner{
 		SignCompact: func(msg []byte) ([]byte, error) {
 			hash := chainhash.HashB(msg)
-			sig, err := ecdsa.SignCompact(TestPrivKey, hash, true)
-			if err != nil {
-				return nil, fmt.Errorf("can't sign the "+
-					"message: %v", err)
-			}
+			sig := ecdsa.SignCompact(TestPrivKey, hash, true)
 
 			return sig, nil
 		},
