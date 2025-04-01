@@ -305,10 +305,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     getUrl(cryptoCode: string = 'btc'): string {
-        if (cryptoCode === 'btc') {
-            return this.config.baseUrl;
-        }
-        return this.config.baseUrl.replace('btc', cryptoCode);
+        return `${this.config.baseUrl}/${cryptoCode}`;
     }
 
     async getBalance(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerBalance> {
