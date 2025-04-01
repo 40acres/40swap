@@ -73,8 +73,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("amount %s is not in the range [%s, %s]", invoiceAmount, config.MinimumAmount, config.MaximumAmount)
 	}
 
-	feeRate := config.FeePercentage.Div(decimal.NewFromInt(100))
-	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRate)
+	feeRatio := config.FeePercentage.Div(decimal.NewFromInt(100))
+	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRatio)
 
 	refundPrivateKey, err := btcec.NewPrivateKey()
 	if err != nil {
