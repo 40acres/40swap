@@ -18,17 +18,15 @@ import (
 const MONITORING_INTERVAL_SECONDS = 10
 
 func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network lightning.Network) error {
-	log.Info("Starting 40swapd")
+	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
 	if err != nil {
 		return err
 	}
 	if config.BitcoinNetwork != network {
-		return fmt.Errorf("network mismatch: expected %s, got %s", network, config.BitcoinNetwork)
+		return fmt.Errorf("network mismatch: daemon expected %s, server's got %s", network, config.BitcoinNetwork)
 	}
-
-	log.Infof("Network is %s", network)
 
 	go func() {
 		err := server.ListenAndServe()
