@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, EntityManager } from 'typeorm';
 import { FourtySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 const nbxplorerBalanceSchema = z.object({
     unconfirmed: z.number(),
@@ -29,21 +30,39 @@ const nbxplorerAddressSchema = z.object({
 });
 export type NBXplorerAddress = z.infer<typeof nbxplorerAddressSchema>;
 
+const nbxplorerHotWalletSchema = z.object({
+    mnemonic: z.string(),
+    passphrase: z.string(),
+    wordList: z.string(),
+    wordCount: z.number().int(),
+    masterHDKey: z.string(),
+    accountHDKey: z.string(),
+    accountKeyPath: z.string(),
+    accountDescriptor: z.string(),
+    derivationScheme: z.string(),
+});
+export type nbxplorerHotWallet = z.infer<typeof nbxplorerHotWalletSchema>;
+
+const nbxplorerUtxoSchema = z.object({
+    feature: z.string(),
+    outpoint: z.string(),
+    index: z.number(),
+    transactionHash: z.string(),
+    scriptPubKey: z.string(),
+    address: z.string().nullish(),
+    value: z.number().positive(),
+    keyPath: z.string(),
+    timestamp: z.number().positive(),
+    confirmations: z.number().gte(0),
+});
+export type NBXplorerUtxo = z.infer<typeof nbxplorerUtxoSchema>;
+
 const nbxplorerUtxoListSchema = z.object({
     spentOutpoints: z.string().array(),
-    utxOs: z.array(z.object({
-        feature: z.string(),
-        outpoint: z.string(),
-        index: z.number(),
-        transactionHash: z.string(),
-        scriptPubKey: z.string(),
-        address: z.string().nullish(),
-        value: z.number().positive(),
-        keyPath: z.string(),
-        timestamp: z.number().positive(),
-        confirmations: z.number().gte(0),
-    })),
+    utxOs: nbxplorerUtxoSchema.array(),
 });
+export type NBXplorerUtxoList = z.infer<typeof nbxplorerUtxoListSchema>;
+
 const nbxplorerUtxosResponseSchema = z.object({
     trackedSource: z.string(),
     derivationStrategy: z.string(),
@@ -97,6 +116,43 @@ const nbxplorerWalletTransactionsResponseSchema = z.object({
 });
 export type NBXplorerWalletTransactions = z.infer<typeof nbxplorerWalletTransactionsResponseSchema>;
 
+interface NBXplorerLiquidAssetValue {
+    assetId: string;
+    value: number;
+}
+
+interface NBXplorerLiquidTransactionOutput {
+    keyPath: string;
+    scriptPubKey: string;
+    index: number;
+    feature: string | null;
+    value: NBXplorerLiquidAssetValue;
+    address: string;
+}
+
+interface NBXplorerLiquidTransactionInput {
+    prevout: string;
+    scriptSig: string;
+    witness: string[];
+    sequence: number;
+}
+
+export interface NBXplorerLiquidWalletTransaction {
+    blockHash: string;
+    confirmations: number;
+    height: number;
+    isMature: boolean;
+    transactionId: string;
+    transaction: string;
+    outputs: NBXplorerLiquidTransactionOutput[];
+    inputs: NBXplorerLiquidTransactionInput[]; 
+    timestamp: number;
+    balanceChange: NBXplorerLiquidAssetValue[];
+    replacedBy: string | null;
+    replacing: string | null;
+    replaceable: boolean;
+}
+
 const nbxplorerFeeRateResponseSchema = z.object({
     feeRate: z.number().positive(),
     blockCount: z.number().int().positive(),
@@ -129,7 +185,62 @@ const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
         hash: z.string().min(1),
     }),
 });
-const nbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, nbxplorerTransactionEvent]);
+const liquidAssetValueSchema = z.object({
+    assetId: z.string(),
+    value: z.number(),
+});
+
+const liquidTransactionOutputSchema = z.object({
+    keyPath: z.string().optional(),
+    scriptPubKey: z.string(),
+    index: z.number().int(),
+    feature: z.string().nullish(),
+    value: liquidAssetValueSchema,
+    address: z.string(),
+});
+
+const liquidBlockEventSchema = nbxplorerBaseEvent.extend({
+    type: z.literal('newblock'),
+    data: z.object({
+        height: z.number().int().positive(),
+        hash: z.string().min(1),
+        previousBlockHash: z.string().min(1),
+        confirmations: z.number().int().positive(),
+        cryptoCode: z.string(),
+    }),
+});
+
+const liquidTransactionInputSchema = z.object({
+    inputIndex: z.number(),
+    transactionId: z.string(),
+    keyPath: z.string().optional(),
+    scriptPubKey: z.string(),
+    index: z.number(),
+    feature: z.string().nullish(),
+    value: z.number(),
+    address: z.string(),
+});
+
+const liquidTransactionEventSchema = nbxplorerBaseEvent.extend({
+    type: z.literal('newtransaction'),
+    data: z.object({
+        blockId: z.string().nullish(),
+        trackedSource: z.string(),
+        derivationStrategy: z.string().optional(),
+        transactionData: nbxplorerTransactionSchema,
+        outputs: liquidTransactionOutputSchema.array(),
+        inputs: liquidTransactionInputSchema.array(),
+        replacing: z.array(z.any()).default([]),
+        cryptoCode: z.string(),
+    }),
+});
+
+// Export types
+export type LiquidAssetValue = z.infer<typeof liquidAssetValueSchema>;
+export type LiquidTransactionOutput = z.infer<typeof liquidTransactionOutputSchema>;
+const nbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
+export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
+export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
 export type NBXplorerBlockEvent = z.infer<typeof nbxplorerBlockEvent>;
 export type NBXplorerNewTransactionEvent = z.infer<typeof nbxplorerTransactionEvent>;
 export type NBXplorerEvent = z.infer<typeof nbxplorerEvent>;
@@ -174,6 +285,8 @@ const nbxplorerNetworkStatus = z.object({
 export type NBXplorerNetworkStatus = z.infer<typeof nbxplorerNetworkStatus>;
 
 const STATE_KEY = 'NBXplorer.lastEventId';
+const LIQUID_STATE_KEY = 'NBXplorer.lastLiquidEventId';
+
 
 @Injectable()
 export class NbxplorerService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -191,28 +304,35 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.config = config.getOrThrow('nbxplorer', { infer: true });
     }
 
-    async getBalance(xpub: string): Promise<NBXplorerBalance> {
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/balance`)).json();
+    getUrl(cryptoCode: string = 'btc'): string {
+        if (cryptoCode === 'btc') {
+            return this.config.baseUrl;
+        }
+        return this.config.baseUrl.replace('btc', cryptoCode);
+    }
+
+    async getBalance(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerBalance> {
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/balance`)).json();
         return nbxplorerBalanceSchema.parse(response);
     }
 
-    async track(xpub: string): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/derivations/${xpub}`, { method: 'POST' });
+    async track(xpub: string, cryptoCode: string = 'btc'): Promise<void> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}`, { method: 'POST' });
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an error when tracking xpub');
         }
     }
 
-    async trackAddress(address: string): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/addresses/${address}`, { method: 'POST' });
+    async trackAddress(address: string, cryptoCode: string = 'btc'): Promise<void> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/addresses/${address}`, { method: 'POST' });
         if (response.status >= 300) {
-            throw new Error('nbxplorer threw an error when tracking xpub');
+            throw new Error(`nbxplorer threw an error when tracking address: ${address}`);
         }
     }
 
-    async getUnusedAddress(xpub: string, opts?: {
+    async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
         change?: boolean,
-        reserve?: boolean
+        reserve?: boolean,
     }): Promise<NBXplorerAddress> {
         const change = opts?.change ?? false;
         const reserve = opts?.reserve ?? false;
@@ -220,28 +340,42 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
             feature: change ? 'Change' : 'Deposit',
             reserve: reserve.toString(),
         });
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/addresses/unused?${params}`)).json();
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/addresses/unused?${params}`)).json();
         return nbxplorerAddressSchema.parse(response);
     }
-    async getUTXOs(xpub: string): Promise<NBXplorerUtxosResponse> {
-        const response = await (await fetch(`${this.config.baseUrl}/derivations/${xpub}/utxos`)).json();
+
+    async generateHotWallet(cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations`, {
+            method: 'POST',
+        })).json();
+        return nbxplorerHotWalletSchema.parse(response);
+    }
+
+    async getUTXOs(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerUtxosResponse | void> {
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/utxos`)).json();
         return nbxplorerUtxosResponseSchema.parse(response);
     }
 
-    async broadcastTx(tx: Transaction): Promise<void> {
-        const response = await fetch(`${this.config.baseUrl}/transactions`, {
+    async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/transactions`, {
             method: 'POST',
             body: tx.toBuffer(),
         });
         // TODO apparently nbxplorer does not fail if the tx is invalid, it just logs an error
         // we should probably fix it in nbxplorer itself
+
+        // TODO: remove this once we have a better way to check the tx broadcasted result. PS: tested only with liquid.
+        const body = await response.json() as { success?: boolean };
+        if (!body.success) {
+            this.logger.debug('tx broadcast result: ', body);
+        }
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when broadcasting a transaction');
         }
     }
 
-    async getTx(id: string): Promise<NBXplorerTransaction|null> {
-        const response = await fetch(`${this.config.baseUrl}/transactions/${id}`, {
+    async getTx(id: string, cryptoCode: string = 'btc'): Promise<NBXplorerTransaction|null> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/transactions/${id}`, {
             method: 'GET',
         });
         if (response.status === 404) {
@@ -253,8 +387,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerTransactionSchema.parse(await response.json());
     }
 
-    async getFeeRate(blockCount: number): Promise<number> {
-        const response = await fetch(`${this.config.baseUrl}/fees/${blockCount}`, {
+    async getFeeRate(blockCount: number, cryptoCode: string = 'btc'): Promise<number> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/fees/${blockCount}`, {
             method: 'GET',
         });
         if (response.status === 400) {
@@ -267,8 +401,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerFeeRateResponseSchema.parse(await response.json()).feeRate;
     }
 
-    async getWalletTransactions(xpub: string): Promise<NBXplorerWalletTransactions> {
-        const response = await fetch(`${this.config.baseUrl}/derivations/${xpub}/transactions`, {
+    async getWalletTransactions(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerWalletTransactions> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/transactions`, {
             method: 'GET',
         });
         if (response.status >= 300) {
@@ -277,6 +411,15 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerWalletTransactionsResponseSchema.parse(await response.json());
     }
 
+    async getWalletTransaction(xpub: string, txId: string, cryptoCode: string = 'lbtc'): Promise<NBXplorerLiquidWalletTransaction> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/transactions/${txId}`, {
+            method: 'GET',
+        });
+        if (response.status >= 300) {
+            throw new Error(`nbxplorer threw an error when fetching a transaction: ${txId}`);
+        }
+        return response.json() as Promise<NBXplorerLiquidWalletTransaction>;
+    }
 
     private abortController?: AbortController;
 
@@ -300,6 +443,26 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.logger.log('Bitcoin event listener stopped');
     }
 
+
+    async processLiquidEvents(): Promise<void> {
+        while (!this.shutdownRequested) {
+            const lastEventId = await this.getLastLiquidEventId();
+            const events = await this.getLiquidEvents({ lastEventId });
+            for (const event of events) {
+                if (this.shutdownRequested) {
+                    break;
+                }
+                await this.dataSource.transaction(async dbTx => {
+                    await this.saveLastLiquidEventId(event.eventId, dbTx);
+                    if (event.type === 'newblock' || event.type === 'newtransaction') {
+                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                    }
+                });
+            }
+        }
+        this.logger.log('Liquid event listener stopped');
+    }
+
     private lastEventId = 0;
 
     private async getLastEventId(): Promise<number> {
@@ -315,13 +478,53 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         await dbTx.getRepository(ApplicationState).update({ key: STATE_KEY }, { value: eventId });
     }
 
+    private async getLastLiquidEventId(): Promise<number> {
+        const applicationStateRepo = this.dataSource.getRepository(ApplicationState);
+        const lastEventId = (await applicationStateRepo.findOne({ where: { key: LIQUID_STATE_KEY } }))?.value as number ?? 0;
+        if (lastEventId === 0) {
+            await applicationStateRepo.save({ key: LIQUID_STATE_KEY, value: 0 });
+        }
+        return lastEventId;
+    }
+
+    private async saveLastLiquidEventId(eventId: number, dbTx: EntityManager): Promise<void> {
+        await dbTx.getRepository(ApplicationState).update({ key: LIQUID_STATE_KEY }, { value: eventId });
+    }
+
     private async getEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
         this.logger.debug(`Fetching blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
         this.abortController = new AbortController();
         const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
             const response = await fetch(
-                `${this.config.baseUrl}/events?` + new URLSearchParams({
+                `${this.getUrl()}/events?` + new URLSearchParams({
+                    lastEventId: params.lastEventId.toFixed(0),
+                    limit: '200',
+                    longPolling: 'true',
+                }),
+                {
+                    // @ts-ignore
+                    signal: this.abortController.signal,
+                });
+            this.abortController = undefined;
+            clearTimeout(timeout);
+            return nbxplorerEvent.array().parse(await response.json());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+            if (e.type === 'aborted') {
+                return [];
+            }
+            throw e;
+        }
+    }
+
+    private async getLiquidEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
+        this.logger.debug(`Fetching liquid blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
+        this.abortController = new AbortController();
+        const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
+        try {
+            const response = await fetch(
+                `${this.getUrl('lbtc')}/events?` + new URLSearchParams({
                     lastEventId: params.lastEventId.toFixed(0),
                     limit: '200',
                     longPolling: 'true',
@@ -385,8 +588,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerCreatePsbtResponseSchema.parse(await response.json());
     }
 
-    async getNetworkStatus(): Promise<NBXplorerNetworkStatus> {
-        const response = await fetch(`${this.config.baseUrl}/status`);
+    async getNetworkStatus(cryptoCode: string = 'btc'): Promise<NBXplorerNetworkStatus> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/status`);
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when fetching the network status');
         }
@@ -394,7 +597,10 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     onApplicationBootstrap(): void {
-        this.eventProcessingPromise = this.processBitcoinEvents();
+        this.eventProcessingPromise = Promise.all([
+            this.processBitcoinEvents(),
+            this.processLiquidEvents(),
+        ]);
     }
 
     onApplicationShutdown(): Promise<unknown> {
