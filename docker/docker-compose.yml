@@ -193,6 +193,8 @@ services:
     container_name: 40swap_elements
     image: ghcr.io/vulpemventures/elements:23.2.4
     restart: always
+    ports:
+      - 18884:18884
     depends_on:
       - bitcoind
     volumes:
