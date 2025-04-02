@@ -1,12 +1,12 @@
 import BIP32Factory from 'bip32';
 import * as liquid from 'liquidjs-lib';
-import { nbxplorerHotWallet, NbxplorerService, NBXplorerUtxo } from './NbxplorerService';
+import { nbxplorerHotWallet, NbxplorerService } from './NbxplorerService';
 import * as ecc from 'tiny-secp256k1';
 import { Network } from 'bitcoinjs-lib';
 import { varuint } from 'liquidjs-lib/src/bufferutils.js';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { FourtySwapConfiguration } from './configuration';
-import { LiquidService } from './LiquidService.js';
+import { LiquidService, RPCUtxo } from './LiquidService.js';
 import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut';
 
@@ -133,6 +133,17 @@ export function getContractVoutInfo(
 }
 
 
+export function getRelativePathFromDescriptor(descriptor: string): string {
+    // eg input: wpkh([53b1e541/84'/1'/0'/0/12]02620eb1f212038380c0b169401d2b1ba6b440ca34b006758b921727d26fb3085c)#xac9tzr5
+    // eg output: 0/12
+    const match = descriptor.match(/\/\d+'\/\d+'\/\d'\/(\d+\/\d+)\]/);
+    if (!match) {
+        throw new Error('Invalid descriptor format');
+    }
+    return match[1];
+}
+
+
 export class PSETUtils {
     constructor(
         protected network: liquid.networks.Network,
@@ -211,18 +222,20 @@ export abstract class LiquidPSETBuilder extends PSETUtils {
         return 1000;
     }
 
-    async getUtxoTx(utxo: NBXplorerUtxo, xpub: string): Promise<liquid.Transaction> {
-        const walletTx = await this.nbxplorer.getWalletTransaction(xpub, utxo.transactionHash, 'lbtc');
-        return liquid.Transaction.fromBuffer(Buffer.from(walletTx.transaction, 'hex'));
+    async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
+        // Not working on transactions from utxos not scanned by nbxplorer
+        // const walletTx = await this.nbxplorer.getWalletTransaction(xpub, utxo.txid, 'lbtc'); 
+        const hexTx = await this.liquidService.callRPC('getrawtransaction', [utxo.txid]);
+        return liquid.Transaction.fromBuffer(Buffer.from(hexTx, 'hex'));
     }
 
     async addUtxosInputs(
-        utxos: NBXplorerUtxo[], pset: liquid.Pset, updater: liquid.Updater, timeoutBlockHeight?: number
+        utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater, timeoutBlockHeight?: number
     ): Promise<void> {
         await Promise.all(utxos.map(async (utxo, i) => {
             const liquidTx = await this.getUtxoTx(utxo, this.liquidService.xpub);
             const sequence = timeoutBlockHeight ? 0xffffffff : 0x00000000;
-            this.addNonWitnessUtxoInput(updater, pset, liquidTx, i, utxo.index, sequence);
+            this.addNonWitnessUtxoInput(updater, pset, liquidTx, i, utxo.vout, sequence);
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
         });
@@ -329,20 +342,21 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         await Promise.all(utxos.map(async (utxo, i) => {
             const liquidTx = await this.getUtxoTx(utxo, this.liquidService.xpub);
             const sequence = 0xffffffff;
-            this.addInput(pset, liquidTx.getId(), utxo.index, sequence);
+            this.addInput(pset, liquidTx.getId(), utxo.vout, sequence);
             updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
-            const witnessUtxo = liquidTx.outs[utxo.index];
+            const witnessUtxo = liquidTx.outs[utxo.vout];
             updater.addInWitnessUtxo(i, witnessUtxo);
             const node = bip32.fromBase58(this.liquidService.xpub, this.network);
+            const relativePath = getRelativePathFromDescriptor(utxo.desc);
             try {
-                const childNode = node.derivePath(utxo.keyPath);
+                const childNode = node.derivePath(relativePath);
                 updater.addInBIP32Derivation(i, {
                     masterFingerprint: Buffer.from(node.fingerprint),
                     pubkey: Buffer.from(childNode.publicKey),
-                    path: utxo.keyPath,
+                    path: relativePath,
                 });
             } catch (error) {
-                throw new Error(`Failed to derive path ${utxo.keyPath}: ${error}`);
+                throw new Error(`Failed to derive path ${relativePath}: ${error}`);
             }
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);

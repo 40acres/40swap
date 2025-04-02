@@ -155,12 +155,9 @@ export class SwapOutRunner {
     private async getLiquidHeight(): Promise<number> {
         const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
         const currentLiquidHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-        console.log(`currentLiquidHeight=${currentLiquidHeight}`);
         const currentBitcoinHeight = (await this.nbxplorer.getNetworkStatus()).chainHeight;
-        console.log(`currentBitcoinHeight=${currentBitcoinHeight}`);
         const invoiceExpiry = await this.getCltvExpiry();
-        console.log(`invoiceExpiry=${invoiceExpiry}`);
-        assert(invoiceExpiry > currentBitcoinHeight);
+        assert(invoiceExpiry > currentBitcoinHeight, `invoiceExpiry=${invoiceExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
         return currentLiquidHeight + ((invoiceExpiry-currentBitcoinHeight)*ratio);
     }
 

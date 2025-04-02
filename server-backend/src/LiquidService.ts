@@ -11,6 +11,23 @@ export class LiquidConfigurationDetails {
     public xpub!: string;
 }
 
+export interface RPCUtxo {
+    txid: string;
+    vout: number;
+    address: string;
+    label: string;
+    scriptPubKey: string;
+    amount: number;
+    asset: string;
+    amountblinder: string;
+    assetblinder: string;
+    confirmations: number;
+    spendable: boolean;
+    solvable: boolean;
+    desc: string;
+    safe: boolean;
+}
+
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
 
@@ -48,12 +65,11 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async callRPC(method: string, params: any[] = [], walletName: string = ''): Promise<any> {
-        const url = walletName ? `${this.rpcUrl}/wallet/${walletName}` : this.rpcUrl;
+    async callRPC(method: string, params: any[] = []): Promise<any> {
         try {
-            const response = await axios.post(url, {
+            const response = await axios.post(this.rpcUrl, {
                 jsonrpc: '1.0',
-                id: 'curltest',
+                id: '40swap',
                 method,
                 params,
             }, {
@@ -83,19 +99,24 @@ export class LiquidService implements OnApplicationBootstrap  {
         return utxoResponse?.confirmed.utxOs ?? [];
     }
 
+    async getUnspentUtxos(): Promise<RPCUtxo[]> {
+        const utxoResponse = await this.callRPC('listunspent');
+        return utxoResponse;
+    }
+
     async getConfirmedUtxosAndInputValueForAmount(amount: number): Promise<{ 
-        utxos: NBXplorerUtxo[], 
+        utxos: RPCUtxo[], 
         totalInputValue: number,
     }> {
         let totalInputValue = 0;
-        const confirmedUtxos = await this.getConfirmedUtxos();
+        const confirmedUtxos = await this.getUnspentUtxos();
         if (confirmedUtxos.length === 0) {
             throw new Error('No confirmed UTXOs found');
         }
         const selectedUtxos = [];
         for (const utxo of confirmedUtxos) {
             selectedUtxos.push(utxo);
-            totalInputValue += Number(utxo.value);
+            totalInputValue += Number(utxo.amount) * 1e8;
             if (totalInputValue >= amount) {
                 break;
             }
@@ -116,25 +137,5 @@ export class LiquidService implements OnApplicationBootstrap  {
   
     async getWalletInfo(): Promise<any> {
         return this.callRPC('getwalletinfo');
-    }
-    
-    async getAddressInfo(address: string): Promise<any> {
-        return this.callRPC('getaddressinfo', [address]);
-    }
-    
-    async getDescriptorInfo(descriptor: string): Promise<any> {
-        return this.callRPC('getdescriptorinfo', [descriptor]);
-    }
-    
-    async deriveAddresses(descriptor: string, range?: [number, number]): Promise<string[]> {
-        return this.callRPC('deriveaddresses', [descriptor, range]);
-    }
-    
-    async signRawTransactionWithWallet(txHex: string): Promise<{hex: string, complete: boolean}> {
-        return this.callRPC('signrawtransactionwithwallet', [txHex]);
-    }
-
-    async getPrivKey(address: string): Promise<string> {
-        return this.callRPC('dumpprivkey', [address]);
     }
 }
