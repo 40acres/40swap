@@ -116,43 +116,6 @@ const nbxplorerWalletTransactionsResponseSchema = z.object({
 });
 export type NBXplorerWalletTransactions = z.infer<typeof nbxplorerWalletTransactionsResponseSchema>;
 
-interface NBXplorerLiquidAssetValue {
-    assetId: string;
-    value: number;
-}
-
-interface NBXplorerLiquidTransactionOutput {
-    keyPath: string;
-    scriptPubKey: string;
-    index: number;
-    feature: string | null;
-    value: NBXplorerLiquidAssetValue;
-    address: string;
-}
-
-interface NBXplorerLiquidTransactionInput {
-    prevout: string;
-    scriptSig: string;
-    witness: string[];
-    sequence: number;
-}
-
-export interface NBXplorerLiquidWalletTransaction {
-    blockHash: string;
-    confirmations: number;
-    height: number;
-    isMature: boolean;
-    transactionId: string;
-    transaction: string;
-    outputs: NBXplorerLiquidTransactionOutput[];
-    inputs: NBXplorerLiquidTransactionInput[]; 
-    timestamp: number;
-    balanceChange: NBXplorerLiquidAssetValue[];
-    replacedBy: string | null;
-    replacing: string | null;
-    replaceable: boolean;
-}
-
 const nbxplorerFeeRateResponseSchema = z.object({
     feeRate: z.number().positive(),
     blockCount: z.number().int().positive(),
@@ -163,6 +126,7 @@ const nbxplorerBaseEvent = z.object({
     type: z.string(),
     data: z.object({}),
 });
+
 const nbxplorerTransactionEvent = nbxplorerBaseEvent.extend({
     type: z.literal('newtransaction'),
     data: z.object({
@@ -178,6 +142,7 @@ const nbxplorerTransactionEvent = nbxplorerBaseEvent.extend({
         }).array(),
     }),
 });
+
 const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
     type: z.literal('newblock'),
     data: z.object({
@@ -185,6 +150,7 @@ const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
         hash: z.string().min(1),
     }),
 });
+
 const liquidAssetValueSchema = z.object({
     assetId: z.string(),
     value: z.number(),
@@ -199,17 +165,6 @@ const liquidTransactionOutputSchema = z.object({
     address: z.string(),
 });
 
-const liquidBlockEventSchema = nbxplorerBaseEvent.extend({
-    type: z.literal('newblock'),
-    data: z.object({
-        height: z.number().int().positive(),
-        hash: z.string().min(1),
-        previousBlockHash: z.string().min(1),
-        confirmations: z.number().int().positive(),
-        cryptoCode: z.string(),
-    }),
-});
-
 const liquidTransactionInputSchema = z.object({
     inputIndex: z.number(),
     transactionId: z.string(),
@@ -219,6 +174,17 @@ const liquidTransactionInputSchema = z.object({
     feature: z.string().nullish(),
     value: z.number(),
     address: z.string(),
+});
+
+const liquidBlockEventSchema = nbxplorerBaseEvent.extend({
+    type: z.literal('newblock'),
+    data: z.object({
+        height: z.number().int().positive(),
+        hash: z.string().min(1),
+        previousBlockHash: z.string().min(1),
+        confirmations: z.number().int().positive(),
+        cryptoCode: z.string(),
+    }),
 });
 
 const liquidTransactionEventSchema = nbxplorerBaseEvent.extend({
@@ -236,8 +202,11 @@ const liquidTransactionEventSchema = nbxplorerBaseEvent.extend({
 });
 
 // Export types
-export type LiquidAssetValue = z.infer<typeof liquidAssetValueSchema>;
-export type LiquidTransactionOutput = z.infer<typeof liquidTransactionOutputSchema>;
+export type NBXplorerLiquidAssetValue = z.infer<typeof liquidAssetValueSchema>;
+export type NBXplorerLiquidTransactionOutput = z.infer<typeof liquidTransactionOutputSchema>;
+export type NBXplorerLiquidTransactionInput = z.infer<typeof liquidTransactionInputSchema>;
+export type NBXplorerLiquidWalletTransaction = z.infer<typeof liquidTransactionEventSchema>['data'];
+
 const nbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
 export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
 export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
