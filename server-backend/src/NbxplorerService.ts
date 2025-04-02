@@ -419,6 +419,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     private abortController?: AbortController;
+    private liquidAbortController?: AbortController;    
 
 
     async processBitcoinEvents(): Promise<void> {
@@ -517,8 +518,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
     private async getLiquidEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
         this.logger.debug(`Fetching liquid blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
-        this.abortController = new AbortController();
-        const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
+        this.liquidAbortController = new AbortController();
+        const timeout = setTimeout(() => this.liquidAbortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
             const response = await fetch(
                 `${this.getUrl('lbtc')}/events?` + new URLSearchParams({
@@ -528,9 +529,9 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 }),
                 {
                     // @ts-ignore
-                    signal: this.abortController.signal,
+                    signal: this.liquidAbortController.signal,
                 });
-            this.abortController = undefined;
+            this.liquidAbortController = undefined;
             clearTimeout(timeout);
             return nbxplorerEvent.array().parse(await response.json());
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -605,6 +606,10 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         if (this.abortController != null) {
             this.logger.log('Interrupting events long poller');
             this.abortController.abort();
+        }
+        if (this.liquidAbortController != null) {
+            this.logger.log('Interrupting liquid events long poller');
+            this.liquidAbortController.abort();
         }
         return this.eventProcessingPromise ?? Promise.resolve();
     }
