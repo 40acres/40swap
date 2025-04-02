@@ -116,7 +116,7 @@ jobs:
       - name: Build and push the Docker image
         uses: docker/build-push-action@v5
         with:
-          context: daemon/docker
+          context: daemon
           file: daemon/docker/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
