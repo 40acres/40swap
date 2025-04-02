@@ -341,18 +341,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerAddressSchema.parse(response);
     }
 
-    async generateHotWallet(cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
-        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations`, {
-            method: 'POST',
-        })).json();
-        return nbxplorerHotWalletSchema.parse(response);
-    }
-
-    async getUTXOs(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerUtxosResponse | void> {
-        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/utxos`)).json();
-        return nbxplorerUtxosResponseSchema.parse(response);
-    }
-
     async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
         const response = await fetch(`${this.getUrl(cryptoCode)}/transactions`, {
             method: 'POST',
