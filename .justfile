@@ -28,7 +28,7 @@ docker-rm:
 # Initialize blockchain and lightning nodes
 [working-directory: 'docker']
 initialize-nodes: 
-    ./lightning-setup.sh
+    ./nodes-setup.sh
 
 # Build shared module
 [working-directory: 'shared']
