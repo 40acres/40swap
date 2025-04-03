@@ -8,7 +8,7 @@ db:
   database: '40swap'
 bitcoin:
   network: regtest
-  requiredConfirmations: 5
+  requiredConfirmations: 3
 nbxplorer:
   baseUrl: http://localhost:32838/v1/cryptos/btc
   fallbackFeeRate: 10
