@@ -172,9 +172,9 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, err
 	}
 
-	maxRoutingFee := 0.005 // 0.5% is a good max value for Lightning Network
-	if req.MaxRoutingFee != nil {
-		maxRoutingFee = decimal.NewFromFloat32(*req.MaxRoutingFee).
+	maxRoutingFeeRatio := 0.005 // 0.5% is a good max value for Lightning Network
+	if req.MaxRoutingFeePercent != nil {
+		maxRoutingFeeRatio = decimal.NewFromFloat32(*req.MaxRoutingFeePercent).
 			Div(decimal.NewFromInt(100)).
 			InexactFloat64()
 	}
@@ -188,7 +188,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		PaymentRequest:     swap.Invoice,
 		AmountSats:         int64(amount), // nolint:gosec
 		ServiceFeeSats:     serviceFeeSats.IntPart(),
-		MaxRoutingFeeRatio: maxRoutingFee, // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
+		MaxRoutingFeeRatio: maxRoutingFeeRatio,
 	}
 
 	err = server.Repository.SaveSwapOut(&swapModel)

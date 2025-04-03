@@ -61,7 +61,7 @@ message SwapOutRequest {
   Chain chain = 1; // Blockchain chain for the swap.
   uint64 amount_sats = 2; // Amount in satoshis.
   string address = 3; // Optional destination address.
-  optional float max_routing_fee = 4; // Maximum routing fee in percentage.
+  optional float max_routing_fee_percent = 4; // Maximum routing fee in percentage for the lightning network.
 }
 
 message SwapOutResponse {

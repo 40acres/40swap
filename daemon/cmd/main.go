@@ -293,8 +293,8 @@ func main() {
 							&amountSats,
 							&address,
 							&cli.FloatFlag{
-								Name:  "max-routing-fee",
-								Usage: "The maximum routing fee in percentage",
+								Name:  "max-routing-fee-percent",
+								Usage: "The maximum routing fee in percentage for the lightning networ",
 								Value: 0.5,
 							},
 						},
@@ -306,17 +306,17 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
-							maxRoutingFee := cmd.Float("max-routing-fee")
-							if maxRoutingFee < 0 || maxRoutingFee > 100 {
-								return fmt.Errorf("max-routing-fee must be between 0 and 100")
+							maxRoutingFeePercent := cmd.Float("max-routing-fee-percent")
+							if maxRoutingFeePercent < 0 || maxRoutingFeePercent > 100 {
+								return fmt.Errorf("max-routing-fee-percent must be between 0 and 100")
 							}
-							mrf := float32(maxRoutingFee)
+							mrfp := float32(maxRoutingFeePercent)
 
 							swapOutRequest := rpc.SwapOutRequest{
-								Chain:         rpc.Chain_BITCOIN,
-								AmountSats:    cmd.Uint("amt"),
-								Address:       cmd.String("address"),
-								MaxRoutingFee: &mrf,
+								Chain:                rpc.Chain_BITCOIN,
+								AmountSats:           cmd.Uint("amt"),
+								Address:              cmd.String("address"),
+								MaxRoutingFeePercent: &mrfp,
 							}
 
 							swap, err := client.SwapOut(ctx, &swapOutRequest)
