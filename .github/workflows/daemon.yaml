@@ -61,9 +61,9 @@ jobs:
 
   build-docker:
     # Run this only when we are merging to :master or a new tag is created.
-    # if: |
-    #   github.ref == 'refs/heads/master' ||
-    #   startsWith(github.ref, 'refs/tags/')
+    if: |
+      github.ref == 'refs/heads/master' ||
+      startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
