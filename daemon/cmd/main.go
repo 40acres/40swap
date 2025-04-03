@@ -104,39 +104,13 @@ func main() {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("40SWAPD_LNDCONNECT")),
 			},
-			&cli.StringFlag{
-				Name:  "tls-cert",
-				Usage: "TLS certificate file",
-				Value: "/root/.lnd/tls.cert",
-				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("40SWAPD_TLS_CERT")),
-			},
-			&cli.StringFlag{
-				Name:  "macaroon",
-				Usage: "Macaroon file",
-				Value: "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("40SWAPD_MACAROON")),
-			},
-			&cli.StringFlag{
-				Name:  "lnd-host",
-				Usage: "LND host",
-				Value: "localhost:10009",
-				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("40SWAPD_LND_HOST")),
-			},
-			&cli.BoolFlag{
-				Name:  "testnet",
-				Usage: "Use testnet network",
-				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("40SWAPD_TESTNET")),
-			},
-			&cli.BoolFlag{
-				Name:  "regtest",
-				Usage: "Use regtest network",
-				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("40SWAPD_REGTEST")),
-			},
+			&grpcPort,
+			&serverUrl,
+			&tlsCert,
+			&macaroon,
+			&lndHost,
+			&testnet,
+			&regtest,
 		},
 		Commands: []*cli.Command{
 			{
