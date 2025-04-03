@@ -31,11 +31,13 @@
         "start",
         "-regtest",
         "-db-keep-alive",
+        "-db-host=localhost",
         "-server-url=http://localhost:7081",
         "-tls-cert=./tls.cert",
         "-macaroon=./admin.macaroon",
         "-lnd-host=localhost:10001"
-      ]
+      ],
+      "preLaunchTask": "copy-lnd-data"
     },
     {
       "name": "Debug daemon",
@@ -43,6 +45,12 @@
       "request": "attach",
       "mode": "local",
       "processId": "cmd"
-    }
+    },
+    {
+      "name": "Backend",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "cd server-backend && npm run start:dev"
+  }
   ]
 }

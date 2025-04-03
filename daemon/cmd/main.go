@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -18,6 +19,8 @@ import (
 	_ "github.com/40acres/40swap/daemon/logging"
 	_ "github.com/lib/pq"
 )
+
+const indent = "  "
 
 func validatePort(port int64) (uint32, error) {
 	if port < 0 || port > 65535 {
@@ -81,6 +84,10 @@ func main() {
 				Usage: "Keep the database running after the daemon stops for embedded databases",
 				Value: false,
 			},
+			&cli.StringFlag{
+				Name:  "lndconnect",
+				Usage: "LND connect URI",
+			},
 			&grpcPort,
 			&serverUrl,
 			&tlsCert,
@@ -140,12 +147,20 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
 					}
 
-					lnClient, err := lnd.NewClient(ctx,
-						lnd.WithLndEndpoint(c.String("lnd-host")),
-						lnd.WithMacaroonFilePath(c.String("macaroon")),
-						lnd.WithTLSCertFilePath(c.String("tls-cert")),
+					options := []lnd.Option{
 						lnd.WithNetwork(rpc.ToLightningNetworkType(network)),
-					)
+					}
+					lndConnect := c.String("lndconnect")
+					if lndConnect != "" {
+						options = append(options, lnd.WithLNDConnectURI(lndConnect))
+					} else {
+						options = append(options,
+							lnd.WithLndEndpoint(c.String("lnd-host")),
+							lnd.WithMacaroonFilePath(c.String("macaroon")),
+							lnd.WithTLSCertFilePath(c.String("tls-cert")))
+					}
+
+					lnClient, err := lnd.NewClient(ctx, options...)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to LND: %w", err)
 					}
@@ -153,7 +168,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, network)
+					err = daemon.Start(ctx, server, db, swapClient, rpc.ToLightningNetworkType(network))
 					if err != nil {
 						return err
 					}
@@ -220,7 +235,7 @@ func main() {
 							}
 
 							if c.Uint("amt") != 0 {
-								amt := uint32(c.Uint("amt")) // nolint:gosec
+								amt := c.Uint("amt")
 								swapInRequest.AmountSats = &amt
 							}
 
@@ -229,12 +244,18 @@ func main() {
 								swapInRequest.Expiry = &expiry
 							}
 
-							res, err := client.SwapIn(ctx, &swapInRequest)
+							swap, err := client.SwapIn(ctx, &swapInRequest)
 							if err != nil {
 								return err
 							}
 
-							log.Infof("Swap in created: %s", res)
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},
@@ -261,10 +282,78 @@ func main() {
 								Address:    cmd.String("address"),
 							}
 
-							_, err = client.SwapOut(ctx, &swapOutRequest)
+							swap, err := client.SwapOut(ctx, &swapOutRequest)
 							if err != nil {
 								return err
 							}
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
+							}
+
+							fmt.Printf("%s\n", resp)
+
+							return nil
+						},
+					},
+					{
+						Name:  "status",
+						Usage: "Check the status of a swap",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&cli.StringFlag{
+								Name:     "id",
+								Usage:    "The ID of the swap to check",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "type",
+								Usage:    "The type of swap (IN or OUT)",
+								Required: true,
+							},
+						},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							var resp []byte
+							swapType := cmd.String("type")
+							swapId := cmd.String("id")
+
+							switch swapType {
+							case "IN":
+								status, err := client.GetSwapIn(ctx, &rpc.GetSwapInRequest{
+									Id: swapId,
+								})
+								if err != nil {
+									return err
+								}
+								// Marshal response into json
+								resp, err = json.MarshalIndent(status, "", indent)
+								if err != nil {
+									return err
+								}
+							case "OUT":
+								status, err := client.GetSwapOut(ctx, &rpc.GetSwapOutRequest{
+									Id: swapId,
+								})
+								if err != nil {
+									return err
+								}
+								// Marshal response into json
+								resp, err = json.MarshalIndent(status, "", indent)
+								if err != nil {
+									return err
+								}
+							default:
+								return fmt.Errorf("invalid swap type: %s", swapType)
+							}
+
+							fmt.Printf("%s\n", resp)
 
 							return nil
 						},

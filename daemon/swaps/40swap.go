@@ -37,17 +37,17 @@ func chainToDtoChain(chain models.Chain) (api.ChainDtoChain, error) {
 }
 
 func parseErr(response *http.Response) error {
-	if response.StatusCode >= 400 {
+	if response.StatusCode >= http.StatusBadRequest {
 		body := map[string]any{}
 		err := json.NewDecoder(response.Body).Decode(&body)
 		if err != nil {
 			return err
 		}
 
-		if response.StatusCode == 404 {
+		if response.StatusCode == http.StatusNotFound {
 			return ErrSwapNotFound
 		}
-		if response.StatusCode >= 500 {
+		if response.StatusCode >= http.StatusInternalServerError {
 			return fmt.Errorf("failed to get swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
 		}
 
@@ -55,6 +55,28 @@ func parseErr(response *http.Response) error {
 	}
 
 	return nil
+}
+
+func (f *Client) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
+	response, err := f.client.ConfigurationControllerGetConfiguration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Marshal response into a struct
+	var config ConfigurationResponse
+	err = json.NewDecoder(response.Body).Decode(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &config, nil
 }
 
 func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {

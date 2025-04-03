@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "copy-lnd-data",
+      "type": "shell",
+      "command": "cd daemon && just copy-lnd-data",
+      "problemMatcher": []
+    }
+  ]
+}

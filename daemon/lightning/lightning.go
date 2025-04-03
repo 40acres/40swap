@@ -20,7 +20,7 @@ type GraphStatus struct {
 	ChainSynced bool
 }
 
-//go:generate mockgen -destination=mock.go -package=lightning . Client
+//go:generate go tool mockgen -destination=mock.go -package=lightning . Client
 type Client interface {
 	PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error
 	MonitorPaymentRequest(ctx context.Context, paymentHash string) (Preimage, NetworkFeeSats, error)

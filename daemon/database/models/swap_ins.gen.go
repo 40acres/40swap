@@ -18,7 +18,7 @@ type SwapIn struct {
 	SwapID             string            `gorm:"column:swap_id;type:text;not null" json:"swap_id"`
 	AmountSats         int64             `gorm:"column:amount_sats;type:bigint;not null" json:"amount_sats"`
 	Status             SwapStatus        `gorm:"column:status;type:swap_status;not null" json:"status"`
-	Outcome            SwapOutcome       `gorm:"column:outcome;type:swap_outcome;not null" json:"outcome"`
+	Outcome            *SwapOutcome      `gorm:"column:outcome;type:swap_outcome" json:"outcome"`
 	SourceChain        Chain             `gorm:"column:source_chain;type:chain_enum;not null" json:"source_chain"`
 	ClaimAddress       string            `gorm:"column:claim_address;type:text" json:"claim_address"`
 	ClaimTxID          string            `gorm:"column:claim_tx_id;type:text" json:"claim_tx_id"`

@@ -9,6 +9,7 @@ import (
 
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
@@ -16,8 +17,16 @@ import (
 
 const MONITORING_INTERVAL_SECONDS = 10
 
-func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network rpc.Network) error {
-	log.Info("Starting 40swapd")
+func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network lightning.Network) error {
+	log.Infof("Starting 40swapd on network %s", network)
+
+	config, err := swaps.GetConfiguration(ctx)
+	if err != nil {
+		return err
+	}
+	if config.BitcoinNetwork != network {
+		return fmt.Errorf("network mismatch: daemon expected %s, server's got %s", network, config.BitcoinNetwork)
+	}
 
 	go func() {
 		err := server.ListenAndServe()
@@ -79,7 +88,8 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case errors.Is(err, swaps.ErrSwapNotFound):
 		logger.Warn("swap not found")
 
-		currentSwap.Status = models.StatusDone
+		outcome := models.OutcomeFailed
+		currentSwap.Outcome = &outcome
 
 		err := m.repository.SaveSwapIn(&currentSwap)
 		if err != nil {
@@ -94,32 +104,38 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	switch newStatus {
 	case models.StatusCreated:
 		// Do nothing
-		logger.Debug("Waiting for payment")
+		logger.Debug("waiting for payment")
 	case models.StatusContractFundedUnconfirmed:
-		logger.Debug("On-chain payment detected, waiting for confirmation")
+		logger.Debug("on-chain payment detected, waiting for confirmation")
 	case models.StatusContractFunded:
-		logger.Debug("Contract funded, waiting for 40swap to pay the invoice")
+		logger.Debug("contract funded, waiting for 40swap to pay the invoice")
 	case models.StatusInvoicePaid:
-		logger.Debug("Lightning invoice paid, claiming on-chain tx")
+		logger.Debug("lightning invoice paid, claiming on-chain tx")
 	case models.StatusContractClaimedUnconfirmed:
 		logger.Debug("40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation")
 	case models.StatusDone:
 		switch models.SwapOutcome(newSwap.Outcome) {
 		case models.OutcomeRefunded:
-			logger.Debug("Failed. The funds have been refunded")
+			outcome := models.OutcomeRefunded
+			currentSwap.Outcome = &outcome
+			logger.Debug("failed. The funds have been refunded")
 		case models.OutcomeExpired:
-			logger.Debug("Failed. The contract has expired, waiting to be refunded")
+			outcome := models.OutcomeExpired
+			currentSwap.Outcome = &outcome
+			logger.Debug("failed. The contract has expired, waiting to be refunded")
 		default:
+			outcome := models.OutcomeExpired
+			currentSwap.Outcome = &outcome
 			// FAILED doesn't exist in the 40swap backend so we don't need to check it
-			logger.Debug("Success. The funds have been claimed")
+			logger.Debug("success. The funds have been claimed")
 		}
 	case models.StatusContractRefundedUnconfirmed:
-		log.Debug("The refund has been sent, waiting for on-chain confirmation")
+		log.Debug("the refund has been sent, waiting for on-chain confirmation")
 	case models.StatusContractExpired:
 		if true { // check refund was requested
-			log.Info("On-chain contract expired. initiating a refund'")
+			log.Info("on-chain contract expired. initiating a refund'")
 		} else {
-			log.Debug("On-chain contract expired. Refund is in-progress")
+			log.Debug("on-chain contract expired. Refund is in-progress")
 		}
 	}
 
