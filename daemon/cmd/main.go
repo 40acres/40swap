@@ -84,6 +84,10 @@ func main() {
 				Usage: "Keep the database running after the daemon stops for embedded databases",
 				Value: false,
 			},
+			&cli.StringFlag{
+				Name:  "lndconnect",
+				Usage: "LND connect URI",
+			},
 			&grpcPort,
 			&serverUrl,
 			&tlsCert,
@@ -143,12 +147,20 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
 					}
 
-					lnClient, err := lnd.NewClient(ctx,
-						lnd.WithLndEndpoint(c.String("lnd-host")),
-						lnd.WithMacaroonFilePath(c.String("macaroon")),
-						lnd.WithTLSCertFilePath(c.String("tls-cert")),
+					options := []lnd.Option{
 						lnd.WithNetwork(rpc.ToLightningNetworkType(network)),
-					)
+					}
+					lndConnect := c.String("lndconnect")
+					if lndConnect != "" {
+						options = append(options, lnd.WithLNDConnectURI(lndConnect))
+					} else {
+						options = append(options,
+							lnd.WithLndEndpoint(c.String("lnd-host")),
+							lnd.WithMacaroonFilePath(c.String("macaroon")),
+							lnd.WithTLSCertFilePath(c.String("tls-cert")))
+					}
+
+					lnClient, err := lnd.NewClient(ctx, options...)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to LND: %w", err)
 					}
@@ -156,7 +168,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, network)
+					err = daemon.Start(ctx, server, db, swapClient, rpc.ToLightningNetworkType(network))
 					if err != nil {
 						return err
 					}

@@ -120,10 +120,35 @@ func TestServer_SwapIn(t *testing.T) {
 			err:     errors.New("invalid refund address: address is not for the current active network 'regtest'"),
 		},
 		{
+			name: "Request not between minimum and maximum amount",
+			setup: func() *Server {
+				amtDecimal := decimal.NewFromUint64(amt)
+				defaultExpiry := 3 * 24 * 60 * 60 * time.Second
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.1),
+					MaximumAmount: decimal.NewFromFloat(0.2),
+				}, nil)
+				lightningClient.EXPECT().GenerateInvoice(ctx, amtDecimal, defaultExpiry, "").Return(invoice, []byte{}, nil)
+
+				return &server
+			},
+			req: &SwapInRequest{
+				AmountSats: &amt,
+				RefundTo:   "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("amount 0.002 is not in the range [0.1, 0.2]"),
+		},
+		{
 			name: "Valid request with provided invoice",
 			setup: func() *Server {
 				amtDecimal := decimal.NewFromUint64(amt)
 				defaultExpiry := 3 * 24 * 60 * 60 * time.Second
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
 				lightningClient.EXPECT().GenerateInvoice(ctx, amtDecimal, defaultExpiry, "").Return(invoice, []byte{}, nil)
 				swapClient.EXPECT().CreateSwapIn(ctx, gomock.Any()).Return(&swaps.SwapInResponse{
 					SwapId:             swapId,
@@ -151,6 +176,10 @@ func TestServer_SwapIn(t *testing.T) {
 		{
 			name: "Valid request with amount",
 			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
 				swapClient.EXPECT().CreateSwapIn(ctx, gomock.Any()).Return(&swaps.SwapInResponse{
 					SwapId:             swapId,
 					InputAmount:        decimal.NewFromFloat(0.00200105),

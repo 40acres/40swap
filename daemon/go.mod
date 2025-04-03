@@ -236,4 +236,5 @@ require (
 tool (
 	github.com/air-verse/air
 	github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+	go.uber.org/mock/mockgen
 )
