@@ -91,7 +91,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         if (amount === null) {
             utxoResponse = await this.callRPC('listunspent');
         } else {
-            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumAmount': amount } ]);
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumSumAmount': amount } ]);
         }
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
