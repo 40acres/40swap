@@ -45,6 +45,12 @@
       "request": "attach",
       "mode": "local",
       "processId": "cmd"
-    }
+    },
+    {
+      "name": "Backend",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "cd server-backend && npm run start:dev"
+  }
   ]
 }

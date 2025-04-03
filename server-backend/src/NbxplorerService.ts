@@ -150,7 +150,6 @@ const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
         hash: z.string().min(1),
     }),
 });
-
 const liquidAssetValueSchema = z.object({
     assetId: z.string(),
     value: z.number(),
