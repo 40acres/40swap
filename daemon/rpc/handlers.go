@@ -53,9 +53,16 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("invalid invoice: %w", err)
 	}
 
+	// If the user didn't provide a refund address, generate one to the connected lightning node
 	if req.RefundTo == "" {
-		return nil, fmt.Errorf("refund address is required")
+		address, err := server.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate address: %w", err)
+		}
+
+		req.RefundTo = address
 	}
+
 	address, err := btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("invalid refund address: %w", err)

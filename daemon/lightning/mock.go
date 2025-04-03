@@ -42,6 +42,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// GenerateAddress mocks base method.
+func (m *MockClient) GenerateAddress(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerateAddress", ctx)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GenerateAddress indicates an expected call of GenerateAddress.
+func (mr *MockClientMockRecorder) GenerateAddress(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateAddress", reflect.TypeOf((*MockClient)(nil).GenerateAddress), ctx)
+}
+
 // GenerateInvoice mocks base method.
 func (m *MockClient) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (string, []byte, error) {
 	m.ctrl.T.Helper()
