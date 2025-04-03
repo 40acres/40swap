@@ -292,6 +292,11 @@ func main() {
 							&grpcPort,
 							&amountSats,
 							&address,
+							&cli.FloatFlag{
+								Name:  "max-routing-fee",
+								Usage: "The maximum routing fee in percentage",
+								Value: 0.5,
+							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							grpcPort, err := validatePort(cmd.Int("grpc-port"))
@@ -301,10 +306,17 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
+							maxRoutingFee := cmd.Float("max-routing-fee")
+							if maxRoutingFee < 0 || maxRoutingFee > 100 {
+								return fmt.Errorf("max-routing-fee must be between 0 and 100")
+							}
+							mrf := float32(maxRoutingFee)
+
 							swapOutRequest := rpc.SwapOutRequest{
-								Chain:      rpc.Chain_BITCOIN,
-								AmountSats: cmd.Uint("amt"),
-								Address:    cmd.String("address"),
+								Chain:         rpc.Chain_BITCOIN,
+								AmountSats:    cmd.Uint("amt"),
+								Address:       cmd.String("address"),
+								MaxRoutingFee: &mrf,
 							}
 
 							swap, err := client.SwapOut(ctx, &swapOutRequest)
