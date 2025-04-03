@@ -46,8 +46,17 @@ func main() {
 	}()
 
 	app := &cli.Command{
-		Name:  "40swap",
-		Usage: "A CLI for 40swap daemon",
+		Name:  "40swapd",
+		Usage: "Manage 40swap daemon and perform swaps",
+		Description: `The 40swap daemon supports two database modes:
+  1. Embedded: Uses an embedded PostgreSQL database. This is the default mode and requires no additional configuration. You can specify the following parameters:
+	   - db-data-path: Path to the database data directory 			
+  2. External: Connects to an external PostgreSQL database. In this mode, you must provide the following parameters:
+     - db-host: Database host
+     - db-user: Database username
+     - db-password: Database password
+     - db-name: Database name
+     - db-port: Database port`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "db-host",
@@ -86,7 +95,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "db-data-path",
-				Usage: "Database path",
+				Usage: "Database path (NOTE: This is only used for embedded databases)",
 				Value: "./.data",
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("40SWAPD_DB_DATA_PATH")),
