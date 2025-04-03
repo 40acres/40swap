@@ -84,8 +84,15 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async getUnspentUtxos(): Promise<RPCUtxo[]> {
-        const utxoResponse = await this.callRPC('listunspent');
+    async getUnspentUtxos(amount: number | null = null): Promise<RPCUtxo[]> {
+        // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
+        // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
+        let utxoResponse: unknown;
+        if (amount === null) {
+            utxoResponse = await this.callRPC('listunspent');
+        } else {
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumAmount': amount } ]);
+        }
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
@@ -94,7 +101,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         totalInputValue: number,
     }> {
         let totalInputValue = 0;
-        const confirmedUtxos = await this.getUnspentUtxos();
+        const confirmedUtxos = await this.getUnspentUtxos(amount);
         if (confirmedUtxos.length === 0) {
             throw new Error('No confirmed UTXOs found');
         }
