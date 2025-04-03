@@ -20,10 +20,8 @@ import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
-import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { LiquidService } from './LiquidService.js';
-
+import { getLiquidNetwork } from './LiquidUtils.js';
 const ECPair = ECPairFactory(ecc);
 
 @Injectable()
@@ -85,7 +83,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             assert(address);
             await this.nbxplorer.trackAddress(address);
         } else if (request.chain === 'LIQUID') {
-            const liquidNetworkToUse = network === bitcoin ? liquidNetwork : liquidRegtest;
+            const liquidNetworkToUse = getLiquidNetwork(network);
             address = liquidPayments.p2wsh({
                 network: liquidNetworkToUse,
                 redeem: {
