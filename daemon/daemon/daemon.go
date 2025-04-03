@@ -153,7 +153,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		}
 	}
 
-	logger.Infof("swap in processed")
+	logger.Debug("swap in processed")
 
 	return nil
 }
