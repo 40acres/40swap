@@ -101,7 +101,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         const selectedUtxos = [];
         for (const utxo of confirmedUtxos) {
             selectedUtxos.push(utxo);
-            totalInputValue += Number(utxo.amount) * 1e8;
+            totalInputValue += utxo.amount * 1e8;
             if (totalInputValue >= amount) {
                 break;
             }
