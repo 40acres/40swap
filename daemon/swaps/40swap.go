@@ -57,6 +57,28 @@ func parseErr(response *http.Response) error {
 	return nil
 }
 
+func (f *Client) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
+	response, err := f.client.ConfigurationControllerGetConfiguration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Marshal response into a struct
+	var config ConfigurationResponse
+	err = json.NewDecoder(response.Body).Decode(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
 func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
 	chain, err := chainToDtoChain(swapReq.Chain)
 	if err != nil {

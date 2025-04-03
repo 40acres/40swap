@@ -64,6 +64,18 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
 	}
 
+	config, err := server.swapClient.GetConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get configuration: %w", err)
+	}
+	invoiceAmount := decimal.NewFromFloat(invoice.MilliSat.ToBTC())
+	if invoiceAmount.LessThan(config.MinimumAmount) || invoiceAmount.GreaterThan(config.MaximumAmount) {
+		return nil, fmt.Errorf("amount %s is not in the range [%s, %s]", invoiceAmount, config.MinimumAmount, config.MaximumAmount)
+	}
+
+	feeRatio := config.FeePercentage.Div(decimal.NewFromInt(100))
+	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRatio)
+
 	refundPrivateKey, err := btcec.NewPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate EC key pair: %w", err)
@@ -79,11 +91,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	if err != nil {
 		return nil, fmt.Errorf("could not create swap: %w", err)
 	}
-
-	invoiceAmountSats := decimal.NewFromInt(int64(invoice.MilliSat.ToSatoshis()))
-	// TODO: fetch from config controller
-	serviceFee := decimal.NewFromFloat(0.5)
-	serviceFeeSats := invoiceAmountSats.Mul(serviceFee).IntPart()
+	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
+	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
 	err = server.Repository.SaveSwapIn(&models.SwapIn{
 		SwapID: swap.SwapId,
@@ -97,7 +106,8 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
-		ServiceFeeSats:     int64(serviceFeeSats),
+		ServiceFeeSats:     serviceFeeSats.IntPart(),
+		OnChainFeeSats:     inputAmountSats.Sub(outputAmountSats).Sub(serviceFeeSats).IntPart(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
@@ -113,16 +123,32 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 }
 
 func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
-	log.Info("Swapping out")
+	log.Infof("Received SwapOut request: %v", req)
+	network := ToLightningNetworkType(server.network)
 
 	// Validate request
 	if req.AmountSats > 21_000_000*100_000_000 {
 		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
 	}
 
-	_, err := btcutil.DecodeAddress(req.Address, ToChainCfgNetwork(server.network))
+	config, err := server.swapClient.GetConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get configuration: %w", err)
+	}
+	invoiceAmount := decimal.NewFromUint64(req.AmountSats).Div(decimal.NewFromInt(1e8))
+	if invoiceAmount.LessThan(config.MinimumAmount) || invoiceAmount.GreaterThan(config.MaximumAmount) {
+		return nil, fmt.Errorf("amount %s is not in the range [%s, %s]", invoiceAmount, config.MinimumAmount, config.MaximumAmount)
+	}
+
+	feeRate := config.FeePercentage.Div(decimal.NewFromInt(100))
+	serviceFeeSats := invoiceAmount.Mul(decimal.NewFromInt(1e8)).Mul(feeRate)
+
+	address, err := btcutil.DecodeAddress(req.Address, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
+		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
 	}
 
 	// Private key for the claim
@@ -145,10 +171,6 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	if err != nil {
 		return nil, err
 	}
-	serviceFee, err := money.NewFromBtc(swap.InputAmount.Add(swap.OutputAmount.Neg()))
-	if err != nil {
-		return nil, err
-	}
 
 	swapModel := models.SwapOut{
 		// SwapId:             swap.SwapId, // Wait we merge the models
@@ -157,9 +179,9 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		DestinationChain:   models.Bitcoin,
 		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
 		PaymentRequest:     swap.Invoice,
-		AmountSats:         int64(amount),     // nolint:gosec
-		ServiceFeeSats:     int64(serviceFee), // nolint:gosec
-		MaxRoutingFeeRatio: 0.005,             // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
+		AmountSats:         int64(amount), // nolint:gosec
+		ServiceFeeSats:     serviceFeeSats.IntPart(),
+		MaxRoutingFeeRatio: 0.005, // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
 	}
 
 	err = server.Repository.SaveSwapOut(&swapModel)
@@ -174,6 +196,8 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 
 		return nil, fmt.Errorf("error paying the invoice: %w", err)
 	}
+
+	log.Info("Swap created: ", swap.SwapId)
 
 	return &SwapOutResponse{}, nil
 }
