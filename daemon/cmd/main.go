@@ -46,47 +46,72 @@ func main() {
 	}()
 
 	app := &cli.Command{
-		Name:  "40swap",
-		Usage: "A CLI for 40swap daemon",
+		Name:  "40swapd",
+		Usage: "Manage 40swap daemon and perform swaps",
+		Description: `The 40swap daemon supports two database modes:
+  1. Embedded: Uses an embedded PostgreSQL database. This is the default mode and requires no additional configuration. You can specify the following parameters:
+	   - db-data-path: Path to the database data directory 			
+  2. External: Connects to an external PostgreSQL database. In this mode, you must provide the following parameters:
+     - db-host: Database host
+     - db-user: Database username
+     - db-password: Database password
+     - db-name: Database name
+     - db-port: Database port`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "db-host",
 				Usage: "Database host",
 				Value: "embedded",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_HOST")),
 			},
 			&cli.StringFlag{
 				Name:  "db-user",
 				Usage: "Database username",
 				Value: "40swap",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_USER")),
 			},
 			&cli.StringFlag{
 				Name:  "db-password",
 				Usage: "Database password",
 				Value: "40swap",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_PASSWORD")),
 			},
 			&cli.StringFlag{
 				Name:  "db-name",
 				Usage: "Database name",
 				Value: "40swap",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_NAME")),
 			},
 			&cli.IntFlag{
 				Name:  "db-port",
 				Usage: "Database port",
 				Value: 5433,
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_PORT")),
 			},
 			&cli.StringFlag{
 				Name:  "db-data-path",
-				Usage: "Database path",
+				Usage: "Database path (NOTE: This is only used for embedded databases)",
 				Value: "./.data",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_DATA_PATH")),
 			},
 			&cli.BoolFlag{
 				Name:  "db-keep-alive",
 				Usage: "Keep the database running after the daemon stops for embedded databases",
 				Value: false,
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_DB_KEEP_ALIVE")),
 			},
 			&cli.StringFlag{
 				Name:  "lndconnect",
-				Usage: "LND connect URI",
+				Usage: "LND connect URI (NOTE: This is mutually exclusive with tls-cert, macaroon, and lnd-host)",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("40SWAPD_LNDCONNECT")),
 			},
 			&grpcPort,
 			&serverUrl,
@@ -384,10 +409,14 @@ func main() {
 var regtest = cli.BoolFlag{
 	Name:  "regtest",
 	Usage: "Use regtest network",
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_REGTEST")),
 }
 var testnet = cli.BoolFlag{
 	Name:  "testnet",
 	Usage: "Use testnet network",
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_TESTNET")),
 }
 
 // Chains
@@ -403,8 +432,10 @@ var liquid = cli.BoolFlag{
 // Ports and hosts
 var grpcPort = cli.IntFlag{
 	Name:  "grpc-port",
-	Usage: "Grpc port for client to daemon communication",
+	Usage: "Grpc port where the daemon is listening",
 	Value: 50051,
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_GRPC_PORT")),
 }
 var amountSats = cli.UintFlag{
 	Name:     "amt",
@@ -422,6 +453,8 @@ var serverUrl = cli.StringFlag{
 	Name:  "server-url",
 	Usage: "Server URL",
 	Value: "https://app.40swap.com",
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_SERVER_URL")),
 }
 
 // config files
@@ -429,14 +462,20 @@ var tlsCert = cli.StringFlag{
 	Name:  "tls-cert",
 	Usage: "TLS certificate file",
 	Value: "/root/.lnd/tls.cert",
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_TLS_CERT")),
 }
 var macaroon = cli.StringFlag{
 	Name:  "macaroon",
 	Usage: "Macaroon file",
 	Value: "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_MACAROON")),
 }
 var lndHost = cli.StringFlag{
 	Name:  "lnd-host",
 	Usage: "LND host",
 	Value: "localhost:10009",
+	Sources: cli.NewValueSourceChain(
+		cli.EnvVar("40SWAPD_LND_HOST")),
 }
