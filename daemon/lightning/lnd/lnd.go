@@ -360,6 +360,7 @@ func (c *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal
 }
 
 func (c *Client) GenerateAddress(ctx context.Context) (string, error) {
+	// TODO: Add a parameter to this method to generate other types of addresses
 	res, err := c.lndClient.NewAddress(ctx, &lnrpc.NewAddressRequest{
 		Type: lnrpc.AddressType_UNUSED_WITNESS_PUBKEY_HASH,
 	})
