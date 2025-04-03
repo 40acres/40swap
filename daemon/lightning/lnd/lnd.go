@@ -87,8 +87,8 @@ var (
 
 var ErrMutuallyExclusiveOptions = errors.New("LNDConnect is mutually exclusive with filesystem-level credentials")
 
-// NewClient creates a lnd client from a daprlndconnectURI string.
-// This Client establishes a grpc connection with a lnd node using dapr.
+// NewClient creates a lnd client from a lndconnectURI string.
+// This Client establishes a grpc connection with a lnd node using grpc.
 // It is using two stubs: router and ln.
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	// Default options
@@ -218,9 +218,9 @@ func credentialsFromCertString(certDer string) (credentials.TransportCredentials
 }
 
 // PayInvoice uses the lnd node to pay the invoice provided by the paymentRequest
-func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error {
+func (c *Client) PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error {
 	// Decode payment request
-	payReq, err := dc.lndClient.DecodePayReq(ctx, &lnrpc.PayReqString{PayReq: paymentRequest})
+	payReq, err := c.lndClient.DecodePayReq(ctx, &lnrpc.PayReqString{PayReq: paymentRequest})
 	if err != nil {
 		err = fmt.Errorf("error decoding payment request: %w", err)
 
@@ -236,7 +236,7 @@ func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string, feeLimi
 		TimeoutSeconds: int32((time.Minute * 5).Seconds()),
 	}
 
-	stream, err := dc.routerClient.SendPaymentV2(ctx, sendRequest)
+	stream, err := c.routerClient.SendPaymentV2(ctx, sendRequest)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (dc *Client) PayInvoice(ctx context.Context, paymentRequest string, feeLimi
 }
 
 // MonitorPaymentRequest monitors a payment to know its status
-func (dc *Client) MonitorPaymentRequest(ctx context.Context, paymentHash string) (lightning.Preimage, lightning.NetworkFeeSats, error) {
+func (c *Client) MonitorPaymentRequest(ctx context.Context, paymentHash string) (lightning.Preimage, lightning.NetworkFeeSats, error) {
 	hash, err := hex.DecodeString(paymentHash)
 	if err != nil {
 		return "", 0, err
@@ -269,7 +269,7 @@ func (dc *Client) MonitorPaymentRequest(ctx context.Context, paymentHash string)
 		PaymentHash: hash,
 	}
 
-	stream, err := dc.routerClient.TrackPaymentV2(ctx, monitorRequest)
+	stream, err := c.routerClient.TrackPaymentV2(ctx, monitorRequest)
 	if err != nil {
 		return "", 0, err
 	}
@@ -311,11 +311,11 @@ func checkContextDeadline(err error, prefix string) error {
 	return fmt.Errorf("%s: %w", prefix, err)
 }
 
-func (dc *Client) MonitorPaymentReception(ctx context.Context, rhash []byte) (lightning.Preimage, error) {
+func (c *Client) MonitorPaymentReception(ctx context.Context, rhash []byte) (lightning.Preimage, error) {
 	invoiceSubscription := &invoicesrpc.SubscribeSingleInvoiceRequest{
 		RHash: rhash,
 	}
-	stream, err := dc.invoicesClient.SubscribeSingleInvoice(ctx, invoiceSubscription)
+	stream, err := c.invoicesClient.SubscribeSingleInvoice(ctx, invoiceSubscription)
 	if err != nil {
 		return "", checkContextDeadline(err, "subscribing to invoice")
 	}
@@ -342,7 +342,7 @@ func (dc *Client) MonitorPaymentReception(ctx context.Context, rhash []byte) (li
 	}
 }
 
-func (dc *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error) {
+func (c *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error) {
 	invoiceReq := &lnrpc.Invoice{
 		Value:           amountSats.IntPart(),
 		Memo:            memo,
@@ -352,7 +352,7 @@ func (dc *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decima
 		DescriptionHash: nil,                         // Optional description hash
 	}
 
-	res, err := dc.lndClient.AddInvoice(ctx, invoiceReq)
+	res, err := c.lndClient.AddInvoice(ctx, invoiceReq)
 	if err != nil {
 		return "", nil, err
 	}
@@ -360,9 +360,20 @@ func (dc *Client) GenerateInvoice(ctx context.Context, amountSats decimal.Decima
 	return res.PaymentRequest, res.RHash, nil
 }
 
+func (c *Client) GenerateAddress(ctx context.Context) (string, error) {
+	res, err := c.lndClient.NewAddress(ctx, &lnrpc.NewAddressRequest{
+		Type: lnrpc.AddressType_UNUSED_WITNESS_PUBKEY_HASH,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return res.Address, nil
+}
+
 // CloseConnection closes the connection with the lnd node
-func (dc *Client) CloseConnection() {
-	dc.closeConnection()
+func (c *Client) CloseConnection() {
+	c.closeConnection()
 }
 
 // Generates the gRPC router client
