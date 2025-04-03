@@ -3,7 +3,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import axios from 'axios';
-
+import { z } from 'zod';
 
 export class LiquidConfigurationDetails {
     readonly rpcUrl!: string;
@@ -11,22 +11,24 @@ export class LiquidConfigurationDetails {
     public xpub!: string;
 }
 
-export interface RPCUtxo {
-    txid: string;
-    vout: number;
-    address: string;
-    label: string;
-    scriptPubKey: string;
-    amount: number;
-    asset: string;
-    amountblinder: string;
-    assetblinder: string;
-    confirmations: number;
-    spendable: boolean;
-    solvable: boolean;
-    desc: string;
-    safe: boolean;
-}
+const RPCUtxoSchema = z.object({
+    txid: z.string(),
+    vout: z.number(),
+    address: z.string(),
+    label: z.string(),
+    scriptPubKey: z.string(),
+    amount: z.number(),
+    asset: z.string(),
+    amountblinder: z.string(),
+    assetblinder: z.string(),
+    confirmations: z.number(),
+    spendable: z.boolean(),
+    solvable: z.boolean(),
+    desc: z.string(),
+    safe: z.boolean(),
+});
+
+export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
@@ -84,7 +86,7 @@ export class LiquidService implements OnApplicationBootstrap  {
 
     async getUnspentUtxos(): Promise<RPCUtxo[]> {
         const utxoResponse = await this.callRPC('listunspent');
-        return utxoResponse as RPCUtxo[];
+        return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
     async getConfirmedUtxosAndInputValueForAmount(amount: number): Promise<{ 
