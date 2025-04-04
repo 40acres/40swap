@@ -40,15 +40,8 @@ export class SwapOutController {
     @Post()
     @ApiCreatedResponse({description: 'Create a swap out', type: GetSwapOutResponseDto})
     async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
-        if (request.chain === 'BITCOIN') {
-            const swap = await this.swapService.createSwapOut(request);
-            return this.mapToResponse(swap);
-        }
-        if (request.chain === 'LIQUID') {
-            const swap = await this.swapService.createLiquidSwapOut(request);
-            return this.mapToResponse(swap);
-        }
-        throw new BadRequestException('Invalid chain');
+        const swap = await this.swapService.createSwapOut(request);
+        return this.mapToResponse(swap);
     }
 
 

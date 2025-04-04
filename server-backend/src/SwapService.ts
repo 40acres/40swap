@@ -130,9 +130,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapOut(request: SwapOutRequest): Promise<SwapOut> {
-        if (request.chain !== 'BITCOIN') {
-            throw new Error('not implemented'); // TODO
+        let sweepAddress: string|null = null;
+        if (request.chain === 'BITCOIN') {
+            sweepAddress = await this.lnd.getNewAddress();
         }
+        if (request.chain === 'LIQUID') {
+            sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
+        }
+        assert(sweepAddress, 'Could not create sweep address for requested chain');
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const invoice = await this.lnd.addHodlInvoice({
@@ -140,9 +145,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-
         const refundKey = ECPair.makeRandom();
-        const sweepAddress = await this.lnd.getNewAddress();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
@@ -173,45 +176,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
-        );
-        this.runAndMonitor(swap, runner);
-        return swap;
-    }
-
-    async createLiquidSwapOut(request: SwapOutRequest): Promise<SwapOut> {
-        const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
-        const preImageHash = Buffer.from(request.preImageHash, 'hex');
-        const invoice = await this.lnd.addHodlInvoice({
-            hash: preImageHash,
-            amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
-            expiry: this.swapConfig.expiryDuration.asSeconds(),
-        });
-        const refundKeys = ECPair.makeRandom();
-        const refundAddress = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true });
-        const repository = this.dataSource.getRepository(SwapOut);
-        const swap = await repository.save({
-            id: base58Id(),
-            chain: request.chain,
-            contractAddress: null,
-            inputAmount,
-            outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
-            lockScript: null,
-            status: 'CREATED',
-            preImageHash,
-            invoice,
-            timeoutBlockHeight: 0,
-            sweepAddress: refundAddress.address,
-            unlockPrivKey: refundKeys.privateKey!,
-            counterpartyPubKey: Buffer.from(request.claimPubKey, 'hex'),
-            unlockTx: null,
-            preImage: null,
-            lockTx: null,
-            outcome: null,
-            lockTxHeight: 0,
-            unlockTxHeight: 0,
-        } satisfies Omit<SwapOut, 'createdAt'|'modifiedAt'>);
-        const runner = new SwapOutRunner(
-            swap, repository, this.bitcoinConfig, this.bitcoinService, this.nbxplorer, this.lnd, this.swapConfig,
         );
         this.runAndMonitor(swap, runner);
         return swap;
