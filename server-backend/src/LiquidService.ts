@@ -3,7 +3,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService, NBXplorerUtxo, NBXplorerUtxosResponse } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import axios from 'axios';
-
+import { z } from 'zod';
 
 export class LiquidConfigurationDetails {
     readonly rpcUrl!: string;
@@ -11,22 +11,24 @@ export class LiquidConfigurationDetails {
     public xpub!: string;
 }
 
-export interface RPCUtxo {
-    txid: string;
-    vout: number;
-    address: string;
-    label: string;
-    scriptPubKey: string;
-    amount: number;
-    asset: string;
-    amountblinder: string;
-    assetblinder: string;
-    confirmations: number;
-    spendable: boolean;
-    solvable: boolean;
-    desc: string;
-    safe: boolean;
-}
+const RPCUtxoSchema = z.object({
+    txid: z.string(),
+    vout: z.number(),
+    address: z.string(),
+    label: z.string(),
+    scriptPubKey: z.string(),
+    amount: z.number(),
+    asset: z.string(),
+    amountblinder: z.string(),
+    assetblinder: z.string(),
+    confirmations: z.number(),
+    spendable: z.boolean(),
+    solvable: z.boolean(),
+    desc: z.string(),
+    safe: z.boolean(),
+});
+
+export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
@@ -99,9 +101,16 @@ export class LiquidService implements OnApplicationBootstrap  {
         return utxoResponse?.confirmed.utxOs ?? [];
     }
 
-    async getUnspentUtxos(): Promise<RPCUtxo[]> {
-        const utxoResponse = await this.callRPC('listunspent');
-        return utxoResponse;
+    async getUnspentUtxos(amount: number | null = null): Promise<RPCUtxo[]> {
+        // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
+        // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
+        let utxoResponse: unknown;
+        if (amount === null) {
+            utxoResponse = await this.callRPC('listunspent');
+        } else {
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumSumAmount': amount } ]);
+        }
+        return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
     async getConfirmedUtxosAndInputValueForAmount(amount: number): Promise<{ 
@@ -109,22 +118,15 @@ export class LiquidService implements OnApplicationBootstrap  {
         totalInputValue: number,
     }> {
         let totalInputValue = 0;
-        const confirmedUtxos = await this.getUnspentUtxos();
+        const confirmedUtxos = await this.getUnspentUtxos(amount);
         if (confirmedUtxos.length === 0) {
             throw new Error('No confirmed UTXOs found');
         }
-        const selectedUtxos = [];
-        for (const utxo of confirmedUtxos) {
-            selectedUtxos.push(utxo);
-            totalInputValue += Number(utxo.amount) * 1e8;
-            if (totalInputValue >= amount) {
-                break;
-            }
-        }
+        totalInputValue = confirmedUtxos.reduce((sum, utxo) => sum + utxo.amount * 1e8, 0);
         if (totalInputValue < amount) {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
-        return { utxos: selectedUtxos, totalInputValue };
+        return { utxos: confirmedUtxos, totalInputValue };
     }
   
     async signPsbt(psbtBase64: string): Promise<string> {

@@ -1,20 +1,36 @@
-import BIP32Factory from 'bip32';
-import * as liquid from 'liquidjs-lib';
+import { bitcoin as bitcoinMainnet, regtest as bitcoinRegtest, testnet as bitcoinTestnet, Network as bitcoinNetwork } from 'bitcoinjs-lib/src/networks.js';
+import { liquid as liquidMainnet, regtest as liquidRegtest, testnet as liquidTestnet, Network as liquidNetwork } from 'liquidjs-lib/src/networks.js';
 import { nbxplorerHotWallet, NbxplorerService } from './NbxplorerService';
-import * as ecc from 'tiny-secp256k1';
-import { Network } from 'bitcoinjs-lib';
-import { varuint } from 'liquidjs-lib/src/bufferutils.js';
-import { ECPairFactory, ECPairInterface } from 'ecpair';
-import { FourtySwapConfiguration } from './configuration';
 import { LiquidService, RPCUtxo } from './LiquidService.js';
-import assert from 'node:assert';
+import { varuint } from 'liquidjs-lib/src/bufferutils.js';
+import { FourtySwapConfiguration } from './configuration';
+import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { SwapOut } from './entities/SwapOut';
+import { Network } from 'bitcoinjs-lib';
+import * as liquid from 'liquidjs-lib';
+import * as ecc from 'tiny-secp256k1';
+import assert from 'node:assert';
+import BIP32Factory from 'bip32';
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
 
 
 export type ScriptElement = Buffer | number | string;
+
+
+export function getLiquidNetwork(network: bitcoinNetwork): liquidNetwork {
+    switch (network) {
+    case bitcoinMainnet:
+        return liquidMainnet;
+    case bitcoinRegtest:
+        return liquidRegtest;
+    case bitcoinTestnet:
+        return liquidTestnet;
+    default:
+        throw new Error(`Unsupported network: ${network}`);
+    }
+}
 
 
 export const getHexString = (input: Buffer): string => {
