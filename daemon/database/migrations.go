@@ -196,11 +196,73 @@ func RemoveNotNullSwapOut() *gormigrate.Migration {
 	}
 }
 
+func AddPreimageTxIdTimeoutBlockHeightToSwapOut() *gormigrate.Migration {
+	const ID = "4_add_preimage_tx_id_timeout_block_height_to_swap_out"
+
+	type swapOut struct {
+		PreImage           *lntypes.Preimage `gorm:"serializer:preimage"`
+		TxId               string
+		TimeoutBlockHeight uint64
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().AddColumn(&swapOut{}, "PreImage"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().AddColumn(&swapOut{}, "TimeoutBlockHeight"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().AddColumn(&swapOut{}, "TxId")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().DropColumn(&swapOut{}, "PreImage"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().DropColumn(&swapOut{}, "TimeoutBlockHeight"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().DropColumn(&swapOut{}, "TxId")
+		},
+	}
+}
+
+func ChangeNameClaimPubkey() *gormigrate.Migration {
+	const ID = "5_change_name_claim_pubkey"
+
+	type swapOut struct {
+		ClaimPrivateKey string `gorm:"column:private_key"`
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().RenameColumn(&swapOut{}, "claim_pubkey", "claim_private_key"); err != nil {
+				return err
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().RenameColumn(&swapOut{}, "claim_private_key", "claim_pubkey"); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
 	AddColumnRefundRequested(),
 	RemoveNotNullSwapOut(),
+	AddPreimageTxIdTimeoutBlockHeightToSwapOut(),
+	ChangeNameClaimPubkey(),
 }
 
 type Migrator struct {

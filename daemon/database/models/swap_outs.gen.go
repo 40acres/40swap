@@ -4,24 +4,29 @@
 
 package models
 
+import "github.com/lightningnetwork/lnd/lntypes"
+
 const TableNameSwapOut = "swap_outs"
 
 // SwapOut mapped from table <swap_outs>
 type SwapOut struct {
-	ID                 int64        `gorm:"column:id;type:bigint;primaryKey;autoIncrement:true;<-:create" json:"id"`
-	SwapID             string       `gorm:"column:swap_id;type:text;not null" json:"swap_id"`
-	Status             SwapStatus   `gorm:"column:status;type:swap_status;not null" json:"status"`
-	AmountSats         int64        `gorm:"column:amount_sats;type:bigint;not null" json:"amount_sats"`
-	DestinationAddress string       `gorm:"column:destination_address;type:text;not null" json:"destination_address"`
-	ServiceFeeSats     int64        `gorm:"column:service_fee_sats;type:bigint;not null" json:"service_fee_sats"`
-	OnchainFeeSats     int64        `gorm:"column:onchain_fee_sats;type:bigint" json:"onchain_fee_sats"`
-	OffchainFeeSats    int64        `gorm:"column:offchain_fee_sats;type:bigint" json:"offchain_fee_sats"`
-	DestinationChain   Chain        `gorm:"column:destination_chain;type:chain_enum;not null" json:"destination_chain"`
-	ClaimPubkey        string       `gorm:"column:claim_pubkey;type:text;not null" json:"claim_pubkey"`
-	PaymentRequest     string       `gorm:"column:payment_request;type:text;not null" json:"payment_request"`
-	Description        string       `gorm:"column:description;type:text" json:"description"`
-	MaxRoutingFeeRatio float64      `gorm:"column:max_routing_fee_ratio;type:numeric;not null" json:"max_routing_fee_ratio"`
-	Outcome            *SwapOutcome `gorm:"column:outcome;type:swap_outcome" json:"outcome"`
+	ID                 int64             `gorm:"column:id;type:bigint;primaryKey;autoIncrement:true;<-:create" json:"id"`
+	SwapID             string            `gorm:"column:swap_id;type:text;not null" json:"swap_id"`
+	Status             SwapStatus        `gorm:"column:status;type:swap_status;not null" json:"status"`
+	AmountSats         int64             `gorm:"column:amount_sats;type:bigint;not null" json:"amount_sats"`
+	DestinationAddress string            `gorm:"column:destination_address;type:text;not null" json:"destination_address"`
+	ServiceFeeSats     int64             `gorm:"column:service_fee_sats;type:bigint;not null" json:"service_fee_sats"`
+	OnchainFeeSats     int64             `gorm:"column:onchain_fee_sats;type:bigint" json:"onchain_fee_sats"`
+	OffchainFeeSats    int64             `gorm:"column:offchain_fee_sats;type:bigint" json:"offchain_fee_sats"`
+	DestinationChain   Chain             `gorm:"column:destination_chain;type:chain_enum;not null" json:"destination_chain"`
+	ClaimPrivateKey    string            `gorm:"column:claim_private_key;type:text;not null" json:"claim_private_key"`
+	PaymentRequest     string            `gorm:"column:payment_request;type:text;not null" json:"payment_request"`
+	Description        string            `gorm:"column:description;type:text" json:"description"`
+	MaxRoutingFeeRatio float64           `gorm:"column:max_routing_fee_ratio;type:numeric;not null" json:"max_routing_fee_ratio"`
+	Outcome            *SwapOutcome      `gorm:"column:outcome;type:swap_outcome" json:"outcome"`
+	PreImage           *lntypes.Preimage `gorm:"column:pre_image;type:text;serializer:preimage" json:"pre_image"`
+	TimeoutBlockHeight int64             `gorm:"column:timeout_block_height;type:bigint" json:"timeout_block_height"`
+	TxID               string            `gorm:"column:tx_id;type:text" json:"tx_id"`
 }
 
 // TableName SwapOut's table name

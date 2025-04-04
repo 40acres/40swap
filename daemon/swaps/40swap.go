@@ -135,6 +135,42 @@ func (f *Client) GetSwapOut(ctx context.Context, swapId string) (*SwapOutRespons
 	return &swapOutResponse, nil
 }
 
+func (f *Client) GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error) {
+	response, err := f.client.SwapOutControllerGetClaimPsbt(ctx, swapId, &api.SwapOutControllerGetClaimPsbtParams{
+		Address: address,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode >= 400 {
+		return nil, fmt.Errorf("failed to get claim PSBT: %d - %s", response.StatusCode, response.Status)
+	}
+
+	var getClaimPSBTResponse GetClaimPSBTResponse
+	err = json.NewDecoder(response.Body).Decode(&getClaimPSBTResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &getClaimPSBTResponse, nil
+}
+
+func (f *Client) PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error) {
+	response, err := f.client.SwapOutControllerClaimSwap(ctx, swapId, api.SwapOutControllerClaimSwapJSONRequestBody{
+		Tx: tx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode >= 400 {
+		return nil, fmt.Errorf("failed to post claim Tx: %d - %s", response.StatusCode, response.Status)
+	}
+
+	return &PostClaimResponse{}, nil
+}
+
 func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest) (*SwapInResponse, error) {
 	chain, err := chainToDtoChain(swapReq.Chain)
 	if err != nil {

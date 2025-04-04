@@ -17,7 +17,12 @@ import (
 
 const MONITORING_INTERVAL_SECONDS = 10
 
-func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network lightning.Network) error {
+type Repository interface {
+	database.SwapInRepository
+	database.SwapOutRepository
+}
+
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, network lightning.Network) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -47,6 +52,7 @@ func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository
 				repository: db,
 				swapClient: swaps,
 				now:        time.Now,
+				network:    network,
 			}
 			monitor.MonitorSwaps(ctx)
 
@@ -56,11 +62,10 @@ func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository
 }
 
 type SwapMonitor struct {
-	repository interface {
-		database.SwapInRepository
-	}
+	repository Repository
 	swapClient swaps.ClientInterface
 	now        func() time.Time
+	network    lightning.Network
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
@@ -71,10 +76,25 @@ func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
 		return
 	}
 
+	swapOuts, err := m.repository.GetPendingSwapOuts()
+	if err != nil {
+		log.Errorf("failed to get pending swap outs: %v", err)
+		return
+	}
+
 	for _, swapIn := range swapIns {
 		err := m.MonitorSwapIn(ctx, swapIn)
 		if err != nil {
 			log.Errorf("failed to monitor swap in: %v", err)
+
+			continue
+		}
+	}
+
+	for _, swapOut := range swapOuts {
+		err := m.MonitorSwapOut(ctx, swapOut)
+		if err != nil {
+			log.Errorf("failed to monitor swap out: %v", err)
 
 			continue
 		}
@@ -154,6 +174,64 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	}
 
 	logger.Debug("swap in processed")
+
+	return nil
+}
+
+func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.SwapOut) error {
+	logger := log.WithField("id", currentSwap.SwapID)
+	logger.Info("processing swap out")
+
+	newSwap, err := m.swapClient.GetSwapOut(ctx, currentSwap.SwapID)
+	switch {
+	case errors.Is(err, swaps.ErrSwapNotFound):
+		logger.Warn("swap not found")
+
+		currentSwap.Status = models.StatusDone
+
+		err := m.repository.SaveSwapOut(&currentSwap)
+		if err != nil {
+			return fmt.Errorf("failed to save swap out: %w", err)
+		}
+	case err != nil:
+		return fmt.Errorf("failed to get swap out: %w", err)
+	}
+
+	newStatus := models.SwapStatus(newSwap.Status)
+	changed := currentSwap.Status != newStatus
+	switch newStatus {
+	case models.StatusCreated:
+		logger.Debug("Waiting for payment")
+	case models.StatusInvoicePaymentIntentReceived:
+		logger.Debug("Off-chain payment detected")
+	case models.StatusContractFundedUnconfirmed:
+		logger.Debug("On-chain payment detected, waiting for confirmation")
+		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
+	case models.StatusContractFunded:
+		logger.Debug("Contract funded confirmed, claiming on-chain tx")
+		// TODO: claim the on-chain tx
+		err := m.ClaimSwapOut(ctx, &currentSwap)
+		if err != nil {
+			return fmt.Errorf("failed to claim swap out: %w", err)
+		}
+	case models.StatusContractClaimedUnconfirmed:
+		logger.Debug("40swap has published the claim transaction, waiting for confirmation")
+	case models.StatusDone:
+		// Once it gets to DONE, we update the outcome
+		currentSwap.Outcome = &newSwap.Outcome
+	case models.StatusContractExpired:
+	case models.StatusContractRefundedUnconfirmed:
+	}
+
+	if changed {
+		currentSwap.Status = newStatus
+		err := m.repository.SaveSwapOut(&currentSwap)
+		if err != nil {
+			return fmt.Errorf("failed to save swap out: %w", err)
+		}
+	}
+
+	logger.Infof("swap out processed")
 
 	return nil
 }

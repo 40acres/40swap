@@ -18,6 +18,8 @@ type ClientInterface interface {
 	GetConfiguration(ctx context.Context) (*ConfigurationResponse, error)
 	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
 	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
+	GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error)
+	PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error)
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
 	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
 }
@@ -37,14 +39,22 @@ type CreateSwapOutRequest struct {
 }
 
 type SwapOutResponse struct {
-	SwapId             string            `json:"swapId"`
-	TimeoutBlockHeight uint32            `json:"timeoutBlockHeight"`
-	Invoice            string            `json:"invoice"`
-	InputAmount        decimal.Decimal   `json:"inputAmount"`
-	OutputAmount       decimal.Decimal   `json:"outputAmount"`
-	Status             models.SwapStatus `json:"status"`
-	CreatedAt          time.Time         `json:"createdAt"`
+	SwapId             string             `json:"swapId"`
+	TimeoutBlockHeight uint32             `json:"timeoutBlockHeight"`
+	Invoice            string             `json:"invoice"`
+	InputAmount        decimal.Decimal    `json:"inputAmount"`
+	OutputAmount       decimal.Decimal    `json:"outputAmount"`
+	Status             models.SwapStatus  `json:"status"`
+	Outcome            models.SwapOutcome `json:"outcome"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	TxId               *string            `json:"lockTx"`
 }
+
+type GetClaimPSBTResponse struct {
+	PSBT string `json:"psbt"`
+}
+
+type PostClaimResponse struct{}
 
 type CreateSwapInRequest struct {
 	Chain           models.Chain

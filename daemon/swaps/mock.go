@@ -70,6 +70,21 @@ func (mr *MockClientInterfaceMockRecorder) CreateSwapOut(ctx, swapReq any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapOut", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapOut), ctx, swapReq)
 }
 
+// GetClaimPSBT mocks base method.
+func (m *MockClientInterface) GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClaimPSBT", ctx, swapId, address)
+	ret0, _ := ret[0].(*GetClaimPSBTResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClaimPSBT indicates an expected call of GetClaimPSBT.
+func (mr *MockClientInterfaceMockRecorder) GetClaimPSBT(ctx, swapId, address any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClaimPSBT", reflect.TypeOf((*MockClientInterface)(nil).GetClaimPSBT), ctx, swapId, address)
+}
+
 // GetConfiguration mocks base method.
 func (m *MockClientInterface) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
 	m.ctrl.T.Helper()
@@ -113,4 +128,19 @@ func (m *MockClientInterface) GetSwapOut(ctx context.Context, swapId string) (*S
 func (mr *MockClientInterfaceMockRecorder) GetSwapOut(ctx, swapId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapOut", reflect.TypeOf((*MockClientInterface)(nil).GetSwapOut), ctx, swapId)
+}
+
+// PostClaim mocks base method.
+func (m *MockClientInterface) PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PostClaim", ctx, swapId, tx)
+	ret0, _ := ret[0].(*PostClaimResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PostClaim indicates an expected call of PostClaim.
+func (mr *MockClientInterfaceMockRecorder) PostClaim(ctx, swapId, tx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostClaim", reflect.TypeOf((*MockClientInterface)(nil).PostClaim), ctx, swapId, tx)
 }
