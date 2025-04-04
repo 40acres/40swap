@@ -33,6 +33,7 @@ type SwapIn struct {
 	ServiceFeeSats     int64             `gorm:"column:service_fee_sats;type:bigint;not null" json:"service_fee_sats"`
 	CreatedAt          time.Time         `gorm:"column:created_at;type:timestamp with time zone;<-:create" json:"created_at"`
 	UpdatedAt          time.Time         `gorm:"column:updated_at;type:timestamp with time zone;<-:update" json:"updated_at"`
+	RefundRequestedAt  time.Time         `gorm:"column:refund_requested_at;type:timestamp with time zone" json:"refund_requested_at"`
 }
 
 // TableName SwapIn's table name
