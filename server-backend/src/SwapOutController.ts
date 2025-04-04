@@ -44,6 +44,7 @@ export class SwapOutController {
         return this.mapToResponse(swap);
     }
 
+
     @Get('/:id')
     @ApiOkResponse({description: 'Get a swap out', type: GetSwapOutResponseDto})
     async getSwap(@Param('id') id: string): Promise<GetSwapOutResponse> {
