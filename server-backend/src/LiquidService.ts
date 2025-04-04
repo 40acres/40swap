@@ -66,7 +66,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async callRPC(method: string, params: unknown[] = []): Promise<any> {
+    async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
             const response = await fetch(this.rpcUrl, {
@@ -87,7 +87,7 @@ export class LiquidService implements OnApplicationBootstrap  {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
             
-            const data = await response.json() as { result: any };
+            const data = await response.json() as { result: unknown };
             return data.result;
         } catch (error) {
             this.logger.error(`Error calling Elements RPC ${method}: ${(error as Error).message}`);
