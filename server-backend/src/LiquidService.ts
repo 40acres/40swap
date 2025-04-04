@@ -105,17 +105,10 @@ export class LiquidService implements OnApplicationBootstrap  {
         if (confirmedUtxos.length === 0) {
             throw new Error('No confirmed UTXOs found');
         }
-        const selectedUtxos = [];
-        for (const utxo of confirmedUtxos) {
-            selectedUtxos.push(utxo);
-            totalInputValue += utxo.amount * 1e8;
-            if (totalInputValue >= amount) {
-                break;
-            }
-        }
+        totalInputValue = confirmedUtxos.reduce((sum, utxo) => sum + utxo.amount * 1e8, 0);
         if (totalInputValue < amount) {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
-        return { utxos: selectedUtxos, totalInputValue };
+        return { utxos: confirmedUtxos, totalInputValue };
     }
 }
