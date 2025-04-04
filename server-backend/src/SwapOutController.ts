@@ -18,7 +18,6 @@ import {
     signContractSpend,
     swapOutRequestSchema,
     txRequestSchema,
-    swapChainRequestSchema,
 } from '@40swap/shared';
 
 const ECPair = ECPairFactory(ecc);
@@ -27,7 +26,6 @@ class SwapOutRequestDto extends createZodDto(swapOutRequestSchema) {}
 class TxRequestDto extends createZodDto(txRequestSchema) {}
 class GetSwapOutResponseDto extends createZodDto(swapOutRequestSchema) {}
 class PsbtResponseDto extends createZodDto(psbtResponseSchema) {}
-class SwapChainRequestDto extends createZodDto(swapChainRequestSchema) {}
 
 @Controller('/swap/out')
 export class SwapOutController {
@@ -48,9 +46,9 @@ export class SwapOutController {
 
     @Post('/liquid')
     @ApiCreatedResponse({ description: 'Create a liquid swap out', type: GetSwapOutResponseDto })
-    async liquidSwapOut(@Body() request: SwapChainRequestDto): Promise<GetSwapOutResponse> {
-        if (request.originChain !== 'LIGHTNING' || request.destinationChain !== 'LIQUID') {
-            throw new BadRequestException('We only support swaps from LIGHTNING to LIQUID currently');
+    async liquidSwapOut(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
+        if (request.chain !== 'LIQUID') {
+            throw new BadRequestException('Swap out to liquid expected');
         }
         const swap = await this.swapService.createSwapOutLightningToLiquid(request);
         return this.mapToResponse(swap);

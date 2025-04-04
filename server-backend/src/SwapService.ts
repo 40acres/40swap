@@ -1,4 +1,4 @@
-import { getSwapInInputAmount, getSwapOutOutputAmount, SwapChainRequest, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import { getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -178,7 +178,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         return swap;
     }
 
-    async createSwapOutLightningToLiquid(request: SwapChainRequest): Promise<SwapOut> {
+    async createSwapOutLightningToLiquid(request: SwapOutRequest): Promise<SwapOut> {
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const invoice = await this.lnd.addHodlInvoice({
@@ -191,7 +191,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
-            chain: request.destinationChain,
+            chain: request.chain,
             contractAddress: null,
             inputAmount,
             outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
