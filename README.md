@@ -23,7 +23,7 @@ docker compose up
 ```
 3. Initialize blockchain and lightning nodes
 ```bash
-server-backend/dev/lightning-setup.sh
+server-backend/dev/nodes-setup.sh
 ```
 4. Build shared module
 ```bash

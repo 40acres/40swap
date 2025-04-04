@@ -32,7 +32,6 @@ linters:
     # style
     - dupl
     - errname
-    - forbidigo
     - goimports
     - nlreturn
     - revive

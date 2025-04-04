@@ -10,51 +10,63 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// PreimageSerializer handles serialization/deserialization of lntypes.Preimage
-type PreimageSerializer struct {
-}
+// PreimageSerializer handles serialization/deserialization of *lntypes.Preimage
+type PreimageSerializer struct{}
 
 // Scan implements serializer interface
-func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst reflect.Value, dbValue interface{}) (err error) {
+func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst reflect.Value, dbValue interface{}) error {
+	preimagePointer := dst.Elem().FieldByName(field.Name)
 	if dbValue == nil {
+		// Ensure it sets a nil pointer for *lntypes.Preimage
+		preimagePointer.Set(reflect.Zero(field.FieldType))
+
 		return nil
 	}
 
-	preimageStr, ok := dbValue.(string)
-	if !ok {
-		if bytesVal, ok := dbValue.([]byte); ok {
-			preimageStr = string(bytesVal)
-		} else {
-			return errors.New(fmt.Sprint("Failed to cast preimage value:", dbValue))
-		}
+	var preimageStr string
+	switch v := dbValue.(type) {
+	case string:
+		preimageStr = v
+	case []byte:
+		preimageStr = string(v)
+	default:
+		return fmt.Errorf("failed to cast preimage value: %v", dbValue)
 	}
 
-	bytes, err := lntypes.MakePreimageFromStr(preimageStr)
+	if preimageStr == "" {
+		preimagePointer.Set(reflect.Zero(field.FieldType)) // Ensure nil pointer
+
+		return nil
+	}
+
+	preimage, err := lntypes.MakePreimageFromStr(preimageStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse preimage: %w", err)
 	}
 
-	fieldValue := reflect.New(field.FieldType).Elem()
-	fieldValue.Set(reflect.ValueOf(bytes))
-	field.ReflectValueOf(ctx, dst).Set(fieldValue)
+	preimagePointer.Set(reflect.ValueOf(&preimage)) // Set *lntypes.Preimage
 
 	return nil
 }
 
 // Value implements serializer interface
 func (PreimageSerializer) Value(ctx context.Context, field *schema.Field, dst reflect.Value, fieldValue interface{}) (interface{}, error) {
-	if p, ok := fieldValue.(lntypes.Preimage); ok {
-		if len(p) == 0 {
-			return nil, nil
-		}
-
-		return p.String(), nil
+	if fieldValue == nil {
+		return nil, nil
 	}
 
-	return nil, errors.New("invalid preimage value")
+	preimage, ok := fieldValue.(*lntypes.Preimage)
+	if !ok {
+		return nil, errors.New("invalid preimage value: not a *lntypes.Preimage")
+	}
+
+	if preimage == nil {
+		return nil, nil // Return nil for nil preimage
+	}
+
+	return preimage.String(), nil
 }
 
 func RegisterPreimageSerializer() {
-	// Register a custom serializer
 	schema.RegisterSerializer("preimage", PreimageSerializer{})
 }

@@ -17,7 +17,7 @@ import (
 
 // generate generates Gorm models out of a table schema.
 //
-//go:generate go run ../database/cli/main.go generate
+//go:generate go run ./cli/main.go generate --path .
 func generate(db *gorm.DB, path string) (err error) {
 	// The following are helpers to tune the generation.
 	// createOnly sets the create only Gorm tag.
@@ -68,12 +68,15 @@ func generate(db *gorm.DB, path string) (err error) {
 		g.GenerateModelAs("swap_ins", "SwapIn",
 			gen.FieldType("status", "SwapStatus"),
 			gen.FieldType("source_chain", "Chain"),
-			gen.FieldType("outcome", "SwapOutcome"),
-			gen.FieldType("pre_image", "lntypes.Preimage"),
+			gen.FieldType("outcome", "*SwapOutcome"),
+			gen.FieldType("pre_image", "*lntypes.Preimage"),
+			gen.FieldGORMTag("pre_image", func(tag field.GormTag) field.GormTag {
+				return tag.Append("serializer", "preimage")
+			}),
 		),
 		g.GenerateModelAs("swap_outs", "SwapOut",
 			gen.FieldType("status", "SwapStatus"),
-			gen.FieldType("outcome", "SwapOutcome"),
+			gen.FieldType("outcome", "*SwapOutcome"),
 			gen.FieldType("destination_chain", "Chain"),
 		),
 	)

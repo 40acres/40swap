@@ -20,6 +20,7 @@ server-backend/dev/40swap.lightning.yml
 
 daemon/cmd/cmd
 40swap.lightning.yml
+40swap.elements.yml
 .data/
 daemon/tmp
 build-errors.log

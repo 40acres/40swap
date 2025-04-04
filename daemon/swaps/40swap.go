@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/40acres/40swap/daemon/api"
 	"github.com/40acres/40swap/daemon/database/models"
@@ -35,6 +36,49 @@ func chainToDtoChain(chain models.Chain) (api.ChainDtoChain, error) {
 	}
 }
 
+func parseErr(response *http.Response) error {
+	if response.StatusCode >= http.StatusBadRequest {
+		body := map[string]any{}
+		err := json.NewDecoder(response.Body).Decode(&body)
+		if err != nil {
+			return err
+		}
+
+		if response.StatusCode == http.StatusNotFound {
+			return ErrSwapNotFound
+		}
+		if response.StatusCode >= http.StatusInternalServerError {
+			return fmt.Errorf("failed to get swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
+		}
+
+		return fmt.Errorf("failed to get swap: %d - %s: %s", response.StatusCode, response.Status, body["message"])
+	}
+
+	return nil
+}
+
+func (f *Client) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
+	response, err := f.client.ConfigurationControllerGetConfiguration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Marshal response into a struct
+	var config ConfigurationResponse
+	err = json.NewDecoder(response.Body).Decode(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
 func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
 	chain, err := chainToDtoChain(swapReq.Chain)
 	if err != nil {
@@ -52,9 +96,11 @@ func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
-	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("failed to create swap: swap: %d - %s", response.StatusCode, response.Status)
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
 	}
 
 	// Marshal response into a struct
@@ -72,9 +118,11 @@ func (f *Client) GetSwapOut(ctx context.Context, swapId string) (*SwapOutRespons
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
-	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("failed to get swap: %d - %s", response.StatusCode, response.Status)
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
 	}
 
 	// Marshal response into a struct
@@ -103,18 +151,33 @@ func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest)
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
-	if response.StatusCode >= 400 {
-		body := map[string]any{}
-		err = json.NewDecoder(response.Body).Decode(&body)
-		if err != nil {
-			return nil, err
-		}
-		if response.StatusCode == 400 {
-			return nil, fmt.Errorf("Failed to create swap: %s", body["message"])
-		}
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
+	}
 
-		return nil, fmt.Errorf("failed to create swap: swap: %d - %s: %s", response.StatusCode, response.Status, body["error"])
+	// Marshal response into a struct
+	var swapInResponse SwapInResponse
+	err = json.NewDecoder(response.Body).Decode(&swapInResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &swapInResponse, nil
+}
+
+func (f *Client) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error) {
+	response, err := f.client.SwapInControllerGetSwap(ctx, swapId)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
 	}
 
 	// Marshal response into a struct
