@@ -13,4 +13,4 @@ USER 40swap
 
 COPY --from=builder /workspace/cmd/40swapd /usr/bin/
 
-ENTRYPOINT ["/usr/bin/40swapd"]
+ENTRYPOINT ["/usr/bin/40swapd", "start"]
