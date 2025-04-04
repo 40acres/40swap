@@ -70,22 +70,6 @@ func TestServer_SwapIn(t *testing.T) {
 			err:     errors.New("invalid invoice: invoice not for current active network 'mainnet'"),
 		},
 		{
-			name: "Refund address is not provided",
-			setup: func() *Server {
-				amtDecimal := decimal.NewFromUint64(amt)
-				defaultExpiry := 3 * 24 * 60 * 60 * time.Second
-				lightningClient.EXPECT().GenerateInvoice(ctx, amtDecimal, defaultExpiry, "").Return(invoice, []byte{}, nil)
-
-				return &server
-			},
-			req: &SwapInRequest{
-				AmountSats: &amt,
-			},
-			want:    nil,
-			wantErr: true,
-			err:     errors.New("refund address is required"),
-		},
-		{
 			name: "Refund address is not valid",
 			setup: func() *Server {
 				amtDecimal := decimal.NewFromUint64(amt)
@@ -141,7 +125,7 @@ func TestServer_SwapIn(t *testing.T) {
 			err:     errors.New("amount 0.002 is not in the range [0.1, 0.2]"),
 		},
 		{
-			name: "Valid request with provided invoice",
+			name: "Valid request with provided invoice and refund address",
 			setup: func() *Server {
 				amtDecimal := decimal.NewFromUint64(amt)
 				defaultExpiry := 3 * 24 * 60 * 60 * time.Second
@@ -174,12 +158,13 @@ func TestServer_SwapIn(t *testing.T) {
 			},
 		},
 		{
-			name: "Valid request with amount",
+			name: "Valid request with amount and no refund address",
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
 					MaximumAmount: decimal.NewFromFloat(0.01),
 				}, nil)
+				lightningClient.EXPECT().GenerateAddress(ctx).Return("bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx", nil)
 				swapClient.EXPECT().CreateSwapIn(ctx, gomock.Any()).Return(&swaps.SwapInResponse{
 					SwapId:             swapId,
 					InputAmount:        decimal.NewFromFloat(0.00200105),
@@ -194,8 +179,7 @@ func TestServer_SwapIn(t *testing.T) {
 				return &server
 			},
 			req: &SwapInRequest{
-				Invoice:  &invoice,
-				RefundTo: "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
+				Invoice: &invoice,
 			},
 			want: &SwapInResponse{
 				SwapId:       swapId,

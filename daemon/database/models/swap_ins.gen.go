@@ -28,7 +28,7 @@ type SwapIn struct {
 	RefundPrivatekey   string            `gorm:"column:refund_privatekey;type:text;not null" json:"refund_privatekey"`
 	RedeemScript       string            `gorm:"column:redeem_script;type:text" json:"redeem_script"`
 	PaymentRequest     string            `gorm:"column:payment_request;type:text;not null" json:"payment_request"`
-	PreImage           *lntypes.Preimage `gorm:"column:pre_image;type:text" json:"pre_image" serializer:"preimage"`
+	PreImage           *lntypes.Preimage `gorm:"column:pre_image;type:text;serializer:preimage" json:"pre_image"`
 	OnChainFeeSats     int64             `gorm:"column:on_chain_fee_sats;type:bigint;not null" json:"on_chain_fee_sats"`
 	ServiceFeeSats     int64             `gorm:"column:service_fee_sats;type:bigint;not null" json:"service_fee_sats"`
 	CreatedAt          time.Time         `gorm:"column:created_at;type:timestamp with time zone;<-:create" json:"created_at"`
