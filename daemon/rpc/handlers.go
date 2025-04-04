@@ -53,9 +53,16 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("invalid invoice: %w", err)
 	}
 
+	// If the user didn't provide a refund address, generate one to the connected lightning node
 	if req.RefundTo == "" {
-		return nil, fmt.Errorf("refund address is required")
+		address, err := server.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate address: %w", err)
+		}
+
+		req.RefundTo = address
 	}
+
 	address, err := btcutil.DecodeAddress(req.RefundTo, lightning.ToChainCfgNetwork(network))
 	if err != nil {
 		return nil, fmt.Errorf("invalid refund address: %w", err)
@@ -172,6 +179,13 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, err
 	}
 
+	maxRoutingFeeRatio := 0.005 // 0.5% is a good max value for Lightning Network
+	if req.MaxRoutingFeePercent != nil {
+		maxRoutingFeeRatio = decimal.NewFromFloat32(*req.MaxRoutingFeePercent).
+			Div(decimal.NewFromInt(100)).
+			InexactFloat64()
+	}
+
 	swapModel := models.SwapOut{
 		// SwapId:             swap.SwapId, // Wait we merge the models
 		Status:             swap.Status,
@@ -181,7 +195,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		PaymentRequest:     swap.Invoice,
 		AmountSats:         int64(amount), // nolint:gosec
 		ServiceFeeSats:     serviceFeeSats.IntPart(),
-		MaxRoutingFeeRatio: 0.005, // 0.5% is a good max value for Lightning Network - TODO: pass this as a parameter
+		MaxRoutingFeeRatio: maxRoutingFeeRatio,
 	}
 
 	err = server.Repository.SaveSwapOut(&swapModel)

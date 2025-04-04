@@ -57,10 +57,10 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
     
     async onApplicationBootstrap(): Promise<void> {
-        this.logger.debug('Starting to initialize LiquidService xpub');
+        this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
-            this.logger.log('LiquidService xpub initialized successfully');
+            this.logger.log('LiquidService initialized successfully');
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.error(`Failed to initialize Liquid xpub: ${errorMessage}`);
@@ -84,8 +84,15 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async getUnspentUtxos(): Promise<RPCUtxo[]> {
-        const utxoResponse = await this.callRPC('listunspent');
+    async getUnspentUtxos(amount: number | null = null): Promise<RPCUtxo[]> {
+        // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
+        // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
+        let utxoResponse: unknown;
+        if (amount === null) {
+            utxoResponse = await this.callRPC('listunspent');
+        } else {
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumSumAmount': amount } ]);
+        }
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
@@ -94,21 +101,14 @@ export class LiquidService implements OnApplicationBootstrap  {
         totalInputValue: number,
     }> {
         let totalInputValue = 0;
-        const confirmedUtxos = await this.getUnspentUtxos();
+        const confirmedUtxos = await this.getUnspentUtxos(amount);
         if (confirmedUtxos.length === 0) {
             throw new Error('No confirmed UTXOs found');
         }
-        const selectedUtxos = [];
-        for (const utxo of confirmedUtxos) {
-            selectedUtxos.push(utxo);
-            totalInputValue += Number(utxo.amount) * 1e8;
-            if (totalInputValue >= amount) {
-                break;
-            }
-        }
+        totalInputValue = confirmedUtxos.reduce((sum, utxo) => sum + utxo.amount * 1e8, 0);
         if (totalInputValue < amount) {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
-        return { utxos: selectedUtxos, totalInputValue };
+        return { utxos: confirmedUtxos, totalInputValue };
     }
 }
