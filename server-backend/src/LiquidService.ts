@@ -2,7 +2,6 @@
 import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
-import axios from 'axios';
 import { z } from 'zod';
 
 export class LiquidConfigurationDetails {
@@ -69,15 +68,27 @@ export class LiquidService implements OnApplicationBootstrap  {
 
     async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
         try {
-            const response = await axios.post(this.rpcUrl, {
-                jsonrpc: '1.0',
-                id: '40swap',
-                method,
-                params,
-            }, {
-                auth: this.rpcAuth,
+            const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
+            const response = await fetch(this.rpcUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${authString}`,
+                },
+                body: JSON.stringify({
+                    jsonrpc: '1.0',
+                    id: '40swap',
+                    method,
+                    params,
+                }),
             });
-            return response.data.result;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            
+            const data = await response.json() as { result: unknown };
+            return data.result;
         } catch (error) {
             this.logger.error(`Error calling Elements RPC ${method}: ${(error as Error).message}`);
             throw error;
