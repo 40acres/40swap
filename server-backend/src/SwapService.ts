@@ -178,7 +178,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         return swap;
     }
 
-    async createSwapOutLightningToLiquid(request: SwapOutRequest): Promise<SwapOut> {
+    async createLiquidSwapOut(request: SwapOutRequest): Promise<SwapOut> {
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const invoice = await this.lnd.addHodlInvoice({

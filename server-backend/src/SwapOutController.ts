@@ -40,19 +40,17 @@ export class SwapOutController {
     @Post()
     @ApiCreatedResponse({description: 'Create a swap out', type: GetSwapOutResponseDto})
     async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
-        const swap = await this.swapService.createSwapOut(request);
-        return this.mapToResponse(swap);
+        if (request.chain === 'BITCOIN') {
+            const swap = await this.swapService.createSwapOut(request);
+            return this.mapToResponse(swap);
+        }
+        if (request.chain === 'LIQUID') {
+            const swap = await this.swapService.createLiquidSwapOut(request);
+            return this.mapToResponse(swap);
+        }
+        throw new BadRequestException('Invalid chain');
     }
 
-    @Post('/liquid')
-    @ApiCreatedResponse({ description: 'Create a liquid swap out', type: GetSwapOutResponseDto })
-    async liquidSwapOut(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
-        if (request.chain !== 'LIQUID') {
-            throw new BadRequestException('Swap out to liquid expected');
-        }
-        const swap = await this.swapService.createSwapOutLightningToLiquid(request);
-        return this.mapToResponse(swap);
-    }
 
     @Get('/:id')
     @ApiOkResponse({description: 'Get a swap out', type: GetSwapOutResponseDto})
