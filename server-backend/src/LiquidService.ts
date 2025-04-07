@@ -57,7 +57,7 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
     
     async onApplicationBootstrap(): Promise<void> {
-        this.logger.debug('Initializing LiquidService xpub :)');
+        this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
             this.logger.log('LiquidService initialized successfully');

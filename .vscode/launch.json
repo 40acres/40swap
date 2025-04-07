@@ -51,6 +51,12 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "cd server-backend && npm run start:dev"
-  }
+    },
+    {
+      "name": "Test backend",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "cd server-backend && npm test"
+    }
   ]
 }

@@ -54,6 +54,7 @@ describe('40Swap backend', () => {
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
+            .withBuild()
             .withWaitStrategy('40swap-backend-1', Wait.forHealthCheck())
             .withWaitStrategy('lnd-lsp-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('lnd-alice-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))

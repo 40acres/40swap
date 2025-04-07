@@ -450,7 +450,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     private async getEvents(params: { lastEventId: number }): Promise<BitcoinEvent[]> {
-        this.logger.log(`Fetching blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
+        this.logger.debug(`Fetching blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
         this.abortController = new AbortController();
         const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
@@ -466,9 +466,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 });
             this.abortController = undefined;
             clearTimeout(timeout);
-            this.logger.log(await response.json());
-            // return bitcoinNbxplorerEvent.array().parse(await response.json());
-            return bitcoinNbxplorerEvent.array().parse([]);
+            return bitcoinNbxplorerEvent.array().parse(await response.json());
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
