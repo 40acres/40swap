@@ -2,7 +2,6 @@
 import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
-import axios from 'axios';
 import { z } from 'zod';
 
 export class LiquidConfigurationDetails {
@@ -57,10 +56,10 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
     
     async onApplicationBootstrap(): Promise<void> {
-        this.logger.debug('Starting to initialize LiquidService xpub');
+        this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
-            this.logger.log('LiquidService xpub initialized successfully');
+            this.logger.log('LiquidService initialized successfully');
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.error(`Failed to initialize Liquid xpub: ${errorMessage}`);
@@ -69,23 +68,42 @@ export class LiquidService implements OnApplicationBootstrap  {
 
     async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
         try {
-            const response = await axios.post(this.rpcUrl, {
-                jsonrpc: '1.0',
-                id: '40swap',
-                method,
-                params,
-            }, {
-                auth: this.rpcAuth,
+            const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
+            const response = await fetch(this.rpcUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${authString}`,
+                },
+                body: JSON.stringify({
+                    jsonrpc: '1.0',
+                    id: '40swap',
+                    method,
+                    params,
+                }),
             });
-            return response.data.result;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            
+            const data = await response.json() as { result: unknown };
+            return data.result;
         } catch (error) {
             this.logger.error(`Error calling Elements RPC ${method}: ${(error as Error).message}`);
             throw error;
         }
     }
 
-    async getUnspentUtxos(): Promise<RPCUtxo[]> {
-        const utxoResponse = await this.callRPC('listunspent');
+    async getUnspentUtxos(amount: number | null = null): Promise<RPCUtxo[]> {
+        // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
+        // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
+        let utxoResponse: unknown;
+        if (amount === null) {
+            utxoResponse = await this.callRPC('listunspent');
+        } else {
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumSumAmount': amount } ]);
+        }
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
@@ -94,21 +112,14 @@ export class LiquidService implements OnApplicationBootstrap  {
         totalInputValue: number,
     }> {
         let totalInputValue = 0;
-        const confirmedUtxos = await this.getUnspentUtxos();
+        const confirmedUtxos = await this.getUnspentUtxos(amount);
         if (confirmedUtxos.length === 0) {
             throw new Error('No confirmed UTXOs found');
         }
-        const selectedUtxos = [];
-        for (const utxo of confirmedUtxos) {
-            selectedUtxos.push(utxo);
-            totalInputValue += Number(utxo.amount) * 1e8;
-            if (totalInputValue >= amount) {
-                break;
-            }
-        }
+        totalInputValue = confirmedUtxos.reduce((sum, utxo) => sum + utxo.amount * 1e8, 0);
         if (totalInputValue < amount) {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
-        return { utxos: selectedUtxos, totalInputValue };
+        return { utxos: confirmedUtxos, totalInputValue };
     }
 }
