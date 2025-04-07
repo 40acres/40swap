@@ -286,10 +286,10 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async track(xpub: string, cryptoCode: string = 'btc'): Promise<void> {
-        // const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}`, { method: 'POST' });
-        // if (response.status >= 300) {
-        //     throw new Error('nbxplorer threw an error when tracking xpub');
-        // }
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}`, { method: 'POST' });
+        if (response.status >= 300) {
+            throw new Error('nbxplorer threw an error when tracking xpub');
+        }
     }
 
     async trackAddress(address: string, cryptoCode: string = 'btc'): Promise<void> {
