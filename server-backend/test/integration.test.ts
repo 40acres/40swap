@@ -106,7 +106,7 @@ describe('40Swap backend', () => {
                 rpcUrl: 'http://localhost:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
-                xpub: 'tpubDDX4WuDaVMkmH3Bj6Z9nYRuW8cmx3U8HPZ1qFuWX5RGraZ6agYpDbSnMR7zAnJueKLyABJkVCKmZxxJ8eK6wvM7f52LA7ZtJjDpaP8Ws45R',
+                xpub: 'tpubDDX4WuDaVMkmH3Bj6Z9nYRuW8cmx3U8HPZ1qFuWX5RGraZ6agYpDbSnMR7zAnJueKLyABJkVCKmZxxJ8eK6wvM7f52LA7ZtJjDpaP8Ws45R', // TODO: get actual xpub. It will be needed for testing liquid features
             },
         };
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
