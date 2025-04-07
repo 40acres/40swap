@@ -16,8 +16,13 @@ export function sleep(ms = 1000): Promise<void> {
 
 export async function waitFor(fn: () => Promise<boolean>): Promise<void> {
     for (let i = 0; i < 5; i++) {
-        if (await fn()) {
-            return;
+        try {
+            const res = await fn();
+            if (res) {
+                return;
+            }
+        } catch (e) {
+            console.error(e);
         }
         await sleep(1000);
     }
