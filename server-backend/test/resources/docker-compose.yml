@@ -132,4 +132,15 @@ services:
     image: ghcr.io/vulpemventures/elements:23.2.4
     restart: unless-stopped
     depends_on:
-      - bitcoind
+      bitcoind:
+        condition: service_started
+    command: >-
+      -chain=liquidregtest
+      -rpcuser=40swap
+      -rpcpassword=pass
+      -mainchainrpchost=bitcoind
+      -mainchainrpcport=18443
+      -mainchainrpcuser=40swap
+      -mainchainrpcpassword=pass
+      -con_blocksubsidy=5000000000
+      -txindex=1

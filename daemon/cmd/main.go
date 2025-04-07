@@ -220,11 +220,9 @@ func main() {
 								Aliases: []string{"e"},
 							},
 							&cli.StringFlag{
-								Name: "refund-to",
-								// TODO descriptor and xpub
-								Usage:    "The address where the swap will be refunded to",
-								Aliases:  []string{"r"},
-								Required: true,
+								Name:    "refund-to",
+								Usage:   "The address where the swap will be refunded to",
+								Aliases: []string{"r"},
 							},
 							&amountSats,
 							&grpcPort,
@@ -292,6 +290,11 @@ func main() {
 							&grpcPort,
 							&amountSats,
 							&address,
+							&cli.FloatFlag{
+								Name:  "max-routing-fee-percent",
+								Usage: "The maximum routing fee in percentage for the lightning networ",
+								Value: 0.5,
+							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							grpcPort, err := validatePort(cmd.Int("grpc-port"))
@@ -301,10 +304,17 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
+							maxRoutingFeePercent := cmd.Float("max-routing-fee-percent")
+							if maxRoutingFeePercent < 0 || maxRoutingFeePercent > 100 {
+								return fmt.Errorf("max-routing-fee-percent must be between 0 and 100")
+							}
+							mrfp := float32(maxRoutingFeePercent)
+
 							swapOutRequest := rpc.SwapOutRequest{
-								Chain:      rpc.Chain_BITCOIN,
-								AmountSats: cmd.Uint("amt"),
-								Address:    cmd.String("address"),
+								Chain:                rpc.Chain_BITCOIN,
+								AmountSats:           cmd.Uint("amt"),
+								Address:              cmd.String("address"),
+								MaxRoutingFeePercent: &mrfp,
 							}
 
 							swap, err := client.SwapOut(ctx, &swapOutRequest)

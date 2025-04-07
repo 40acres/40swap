@@ -207,14 +207,14 @@ export type NBXplorerLiquidTransactionInput = z.infer<typeof liquidTransactionIn
 export type NBXplorerLiquidWalletTransaction = z.infer<typeof liquidTransactionEventSchema>['data'];
 
 const liquidNbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
+const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, nbxplorerTransactionEvent]);
+const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
 export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
 export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
-
-const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, nbxplorerTransactionEvent]);
 export type NBXplorerBlockEvent = z.infer<typeof nbxplorerBlockEvent>;
 export type NBXplorerNewTransactionEvent = z.infer<typeof nbxplorerTransactionEvent>;
-
-const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
+export type BitcoinEvent = z.infer<typeof bitcoinNbxplorerEvent>;
+export type LiquidEvent = z.infer<typeof liquidNbxplorerEvent>;
 export type NBXplorerEvent = z.infer<typeof nbxplorerEvent>;
 
 type CreatePsbtParams = {
@@ -449,7 +449,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         await dbTx.getRepository(ApplicationState).update({ key: LIQUID_STATE_KEY }, { value: eventId });
     }
 
-    private async getEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
+    private async getEvents(params: { lastEventId: number }): Promise<BitcoinEvent[]> {
         this.logger.debug(`Fetching blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
         this.abortController = new AbortController();
         const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
@@ -466,7 +466,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 });
             this.abortController = undefined;
             clearTimeout(timeout);
-            return nbxplorerEvent.array().parse(await response.json());
+            return bitcoinNbxplorerEvent.array().parse(await response.json());
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
@@ -476,7 +476,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    private async getLiquidEvents(params: { lastEventId: number }): Promise<NBXplorerEvent[]> {
+    private async getLiquidEvents(params: { lastEventId: number }): Promise<LiquidEvent[]> {
         this.logger.debug(`Fetching liquid blockchain events from nbxplorer. LastEventId=${params.lastEventId}`);
         this.liquidAbortController = new AbortController();
         const timeout = setTimeout(() => this.liquidAbortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
@@ -493,7 +493,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 });
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
-            return nbxplorerEvent.array().parse(await response.json());
+            return liquidNbxplorerEvent.array().parse(await response.json());
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
