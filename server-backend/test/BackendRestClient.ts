@@ -2,7 +2,7 @@ import { StartedGenericContainer } from 'testcontainers/build/generic-container/
 import { GetSwapInResponse, getSwapInResponseSchema, SwapInRequest } from '../../shared/src/api.types';
 
 export class BackendRestClient {
-    public baseUrl: string;
+    private baseUrl: string;
 
     constructor(container: StartedGenericContainer) {
         this.baseUrl = `http://${container.getHost()}:${container.getMappedPort(8081)}`;
