@@ -2,11 +2,9 @@ import { StartedGenericContainer } from 'testcontainers/build/generic-container/
 import { GetSwapInResponse, getSwapInResponseSchema, SwapInRequest } from '../../shared/src/api.types';
 
 export class BackendRestClient {
-    private baseUrl: string;
+    public baseUrl: string;
 
-    constructor(
-        container: StartedGenericContainer
-    ) {
+    constructor(container: StartedGenericContainer) {
         this.baseUrl = `http://${container.getHost()}:${container.getMappedPort(8081)}`;
     }
 
@@ -25,10 +23,17 @@ export class BackendRestClient {
     }
 
     async getSwapIn(id: string): Promise<GetSwapInResponse> {
-        const resp = await fetch(`${this.baseUrl}/api/swap/in/${id}`);
+        const resp = await fetch(`${this.baseUrl}/api/swap/in/${id}`, {
+            method: 'GET',
+            headers: {
+                'content-type': 'application/json',
+            },
+        });
         if (resp.status >= 300) {
             throw new Error(`error retrieving swap. ${await resp.text()}`);
         }
-        return getSwapInResponseSchema.parse(await resp.json());
+        const json = await resp.json();
+        console.log(json);
+        return getSwapInResponseSchema.parse(json);
     }
 }

@@ -79,7 +79,7 @@ describe('40Swap backend', () => {
                 requiredConfirmations: 3,
             },
             nbxplorer: {
-                baseUrl: 'http://nbxplorer:32838/v1/cryptos/btc',
+                baseUrl: 'http://nbxplorer:32838/v1/cryptos',
                 fallbackFeeRate: 10,
             },
             mempoolBlockExplorer: {
@@ -99,6 +99,13 @@ describe('40Swap backend', () => {
                 socket: 'lnd-lsp:10009',
                 cert: lndLsp.cert,
                 macaroon: lndLsp.macaroon,
+            },
+            elements: {
+                network: 'regtest',
+                rpcUrl: 'http://localhost:18884',
+                rpcUsername: '40swap',
+                rpcPassword: 'pass',
+                xpub: 'tpubDDX4WuDaVMkmH3Bj6Z9nYRuW8cmx3U8HPZ1qFuWX5RGraZ6agYpDbSnMR7zAnJueKLyABJkVCKmZxxJ8eK6wvM7f52LA7ZtJjDpaP8Ws45R',
             },
         };
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
