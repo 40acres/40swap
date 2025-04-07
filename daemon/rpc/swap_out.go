@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/40acres/40swap/daemon/database/models"
@@ -18,18 +17,15 @@ func (server *Server) CreateSwapOut(ctx context.Context, claimPubKey string, amo
 
 	preimageBytes := make([]byte, 32)
 	_, _ = rand.Read(preimageBytes)
-	hash := sha256.New()
-	hash.Write(preimageBytes)
-	preimageHash := hash.Sum(nil)
 
-	preimage, err := lntypes.MakePreimage(preimageHash)
+	preimage, err := lntypes.MakePreimage(preimageBytes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create preimage: %w", err)
 	}
 
 	swapRequest := swaps.CreateSwapOutRequest{
 		Chain:        models.Bitcoin,
-		PreImageHash: preimage.String(),
+		PreImageHash: preimage.Hash().String(),
 		ClaimPubKey:  claimPubKey,
 		Amount:       amountSats,
 	}

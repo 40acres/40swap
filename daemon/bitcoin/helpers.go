@@ -33,7 +33,7 @@ func SignInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHa
 
 	valid := signature.Verify(sigHash, key.PubKey())
 	if !valid {
-		return nil, fmt.Errorf("signature verification failed: %v", err)
+		return nil, fmt.Errorf("signature verification failed: %w", err)
 	}
 
 	return sigWithHashType, nil
@@ -57,7 +57,7 @@ func VerifyInputs(pkt *psbt.Packet, tx *wire.MsgTx, hashCache *txscript.TxSigHas
 			if scriptErr, ok := err.(txscript.Error); ok {
 				return fmt.Errorf("input %d: script error: %s desc: %s", i, scriptErr.ErrorCode, scriptErr.Description)
 			} else {
-				return fmt.Errorf("input %d: error executing script: %v", i, err)
+				return fmt.Errorf("input %d: error executing script: %w", i, err)
 			}
 
 		}
