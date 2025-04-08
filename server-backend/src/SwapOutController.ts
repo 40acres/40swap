@@ -1,7 +1,7 @@
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -20,9 +20,8 @@ import {
     swapOutRequestSchema,
     txRequestSchema,
 } from '@40swap/shared';
-import { getLiquidNetwork } from './LiquidUtils.js';
-
-
+import { getLiquidNetwork, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { LiquidService } from './LiquidService.js';
 const ECPair = ECPairFactory(ecc);
 
 class SwapOutRequestDto extends createZodDto(swapOutRequestSchema) {}
@@ -39,6 +38,7 @@ export class SwapOutController {
         private dataSource: DataSource,
         private bitcoinConfig: BitcoinConfigurationDetails,
         private bitcoinService: BitcoinService,
+        private liquidService: LiquidService,
         private swapService: SwapService,
     ) {}
 
@@ -69,10 +69,9 @@ export class SwapOutController {
             throw new NotFoundException('swap not found');
         }
         assert(swap.lockTx != null);
-        const lockTx = Transaction.fromBuffer(swap.lockTx);
         if (swap.chain === 'BITCOIN') {
             try {
-                
+                const lockTx = Transaction.fromBuffer(swap.lockTx);
                 const claimTx = Transaction.fromHex(txRequest.tx);
                 if (claimTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
                     throw new BadRequestException('invalid claim tx');
@@ -84,6 +83,7 @@ export class SwapOutController {
         }
         if (swap.chain === 'LIQUID') {
             try {
+                const lockTx = liquid.Transaction.fromBuffer(swap.lockTx);
                 const claimTx = liquid.Transaction.fromHex(txRequest.tx);
                 if (claimTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
                     throw new BadRequestException('invalid claim tx');
@@ -124,8 +124,8 @@ export class SwapOutController {
             } catch (e) {
                 throw new BadRequestException(`invalid address ${outputAddress}`);
             }
-            const pset = await this.swapService.buildLiquidClaimPset(swap, outputAddress);
-            return { psbt: pset.toBase64() };
+            const pset = await this.buildLiquidClaimPset(swap, outputAddress);
+            return { psbt: "pset.toBase64()" };
         }
         throw new BadRequestException('invalid chain');
     }
@@ -156,6 +156,18 @@ export class SwapOutController {
                 return psbt;
             },
         );
+    }
+
+    async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {
+        const liquidNetwork = getLiquidNetwork(this.bitcoinConfig.network);
+        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, {
+            xpub: this.liquidService.xpub,
+            rpcUrl: this.liquidService.configurationDetails.rpcUrl,
+            rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
+            rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
+        }, liquidNetwork);
+        const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
+        return await psetBuilder.getPset(swap, lockTx, destinationAddress);
     }
 
     private mapToResponse(swap: SwapOut): GetSwapOutResponse {

@@ -20,8 +20,6 @@ import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
-import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
-import * as liquid from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetwork } from './LiquidUtils.js';
 
@@ -245,12 +243,5 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.logger.log(`Pausing swap (id=${id})`);
             await runner.stop();
         }
-    }
-
-    async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {
-        const liquidNetwork = getLiquidNetwork(this.bitcoinConfig.network);
-        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.elementsConfig, liquidNetwork);
-        const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
-        return await psetBuilder.getPset(swap, lockTx, destinationAddress);
     }
 }
