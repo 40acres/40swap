@@ -12,5 +12,4 @@ export class SwapIn extends Swap {
 
     @Column({ type: 'text' })
     status!: SwapInStatus;
-
 }
