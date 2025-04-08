@@ -143,9 +143,11 @@ func (f *Client) GetClaimPSBT(ctx context.Context, swapId, address string) (*Get
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
-	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("failed to get claim PSBT: %d - %s", response.StatusCode, response.Status)
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
 	}
 
 	var getClaimPSBTResponse GetClaimPSBTResponse
@@ -157,20 +159,17 @@ func (f *Client) GetClaimPSBT(ctx context.Context, swapId, address string) (*Get
 	return &getClaimPSBTResponse, nil
 }
 
-func (f *Client) PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error) {
+func (f *Client) PostClaim(ctx context.Context, swapId, tx string) error {
 	body := api.SwapOutControllerClaimSwapJSONRequestBody{
 		Tx: tx,
 	}
 	response, err := f.client.SwapOutControllerClaimSwap(ctx, swapId, body)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer response.Body.Close()
 
-	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("failed to post claim Tx: %d - %s", response.StatusCode, response.Status)
-	}
-
-	return &PostClaimResponse{}, nil
+	return parseErr(response)
 }
 
 func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest) (*SwapInResponse, error) {

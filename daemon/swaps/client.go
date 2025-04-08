@@ -19,7 +19,7 @@ type ClientInterface interface {
 	CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error)
 	GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error)
 	GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error)
-	PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error)
+	PostClaim(ctx context.Context, swapId, tx string) error
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
 	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
 }
@@ -53,8 +53,6 @@ type SwapOutResponse struct {
 type GetClaimPSBTResponse struct {
 	PSBT string `json:"psbt"`
 }
-
-type PostClaimResponse struct{}
 
 type CreateSwapInRequest struct {
 	Chain           models.Chain
