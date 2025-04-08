@@ -3,6 +3,7 @@ package bitcoin
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -42,7 +43,6 @@ func SignInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHa
 // verifies if the inputs are valid and can be spent
 func VerifyInputs(pkt *psbt.Packet, tx *wire.MsgTx, hashCache *txscript.TxSigHashes, prevoutFetcher txscript.PrevOutputFetcher) error {
 	for i := range pkt.Inputs {
-
 		lockupTxOutput := pkt.Inputs[i].WitnessUtxo
 
 		// Create a script engine to validate
@@ -53,15 +53,16 @@ func VerifyInputs(pkt *psbt.Packet, tx *wire.MsgTx, hashCache *txscript.TxSigHas
 		}
 
 		err = vm.Execute()
+		var scriptErr *txscript.Error
 		if err != nil {
-			if scriptErr, ok := err.(txscript.Error); ok {
+			if errors.As(err, &scriptErr) {
 				return fmt.Errorf("input %d: script error: %s desc: %s", i, scriptErr.ErrorCode, scriptErr.Description)
 			} else {
 				return fmt.Errorf("input %d: error executing script: %w", i, err)
 			}
-
 		}
 	}
+
 	return nil
 }
 

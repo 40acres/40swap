@@ -136,9 +136,10 @@ func (f *Client) GetSwapOut(ctx context.Context, swapId string) (*SwapOutRespons
 }
 
 func (f *Client) GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error) {
-	response, err := f.client.SwapOutControllerGetClaimPsbt(ctx, swapId, &api.SwapOutControllerGetClaimPsbtParams{
+	params := api.SwapOutControllerGetClaimPsbtParams{
 		Address: address,
-	})
+	}
+	response, err := f.client.SwapOutControllerGetClaimPsbt(ctx, swapId, &params)
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +158,10 @@ func (f *Client) GetClaimPSBT(ctx context.Context, swapId, address string) (*Get
 }
 
 func (f *Client) PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error) {
-	response, err := f.client.SwapOutControllerClaimSwap(ctx, swapId, api.SwapOutControllerClaimSwapJSONRequestBody{
+	body := api.SwapOutControllerClaimSwapJSONRequestBody{
 		Tx: tx,
-	})
+	}
+	response, err := f.client.SwapOutControllerClaimSwap(ctx, swapId, body)
 	if err != nil {
 		return nil, err
 	}

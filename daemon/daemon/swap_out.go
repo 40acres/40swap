@@ -107,7 +107,7 @@ func signPSBT(pkt *psbt.Packet, privateKey *btcec.PrivateKey, fetcher txscript.P
 	// Signing the input
 	sig, err := bitcoin.SignInput(pkt, 0, privateKey, txscript.SigHashAll, fetcher)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign input: %v", err)
+		return nil, fmt.Errorf("failed to sign input: %w", err)
 	}
 
 	return sig, nil

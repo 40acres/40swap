@@ -21,6 +21,7 @@ func (o SwapOutcome) String() string {
 func (o *SwapOutcome) Scan(value interface{}) error {
 	if value == nil {
 		*o = ""
+
 		return nil
 	}
 

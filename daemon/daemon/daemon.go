@@ -79,6 +79,7 @@ func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
 	swapOuts, err := m.repository.GetPendingSwapOuts()
 	if err != nil {
 		log.Errorf("failed to get pending swap outs: %v", err)
+
 		return
 	}
 
