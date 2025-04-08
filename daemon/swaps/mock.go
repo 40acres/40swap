@@ -131,12 +131,11 @@ func (mr *MockClientInterfaceMockRecorder) GetSwapOut(ctx, swapId any) *gomock.C
 }
 
 // PostClaim mocks base method.
-func (m *MockClientInterface) PostClaim(ctx context.Context, swapId, tx string) (*PostClaimResponse, error) {
+func (m *MockClientInterface) PostClaim(ctx context.Context, swapId, tx string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PostClaim", ctx, swapId, tx)
-	ret0, _ := ret[0].(*PostClaimResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // PostClaim indicates an expected call of PostClaim.

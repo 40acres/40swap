@@ -188,6 +188,8 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	case errors.Is(err, swaps.ErrSwapNotFound):
 		logger.Warn("swap not found")
 
+		outcome := models.OutcomeFailed
+		currentSwap.Outcome = &outcome
 		currentSwap.Status = models.StatusDone
 
 		err := m.repository.SaveSwapOut(&currentSwap)
