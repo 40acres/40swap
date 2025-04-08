@@ -70,18 +70,21 @@ export class SwapInRunner {
         }
     }
 
-    private async retrySendPayment(invoice: string, cltvLimit: number, retries: number = 3): Promise<Buffer> {
+    private async retrySendPayment(invoice: string, cltvLimit: number, retries: number = 3, initialDelay: number = 300000, backoffFactor: number = 2): Promise<Buffer> {
+        let delay = initialDelay;
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 return await this.lnd.sendPayment(invoice, cltvLimit);
             } catch (e) {
                 this.logger.warn(`Attempt ${attempt} to send payment failed (id=${this.swap.id})`, e);
                 if (attempt === retries) {
-                    throw e;
+                    throw e; // Throw error after exhausting retries
                 }
+                await new Promise(resolve => setTimeout(resolve, delay)); // Wait for the delay
+                delay *= backoffFactor; // Double the delay for the next retry
             }
         }
-        throw new Error('Retries exhausted'); 
+        throw new Error('Retries exhausted');
     }
 
     private async onStatusChange(status: SwapInStatus): Promise<void> {
