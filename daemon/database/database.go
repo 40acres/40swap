@@ -39,6 +39,8 @@ type Database struct {
 }
 
 func New(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
+	models.RegisterPreimageSerializer()
+
 	db := Database{
 		host:     host,
 		username: username,
@@ -81,8 +83,6 @@ func New(username, password, database string, port uint32, dataPath, host string
 			return nil
 		}
 	}
-
-	models.RegisterPreimageSerializer()
 
 	orm, err := db.getGorm()
 	if err != nil {

@@ -35,7 +35,6 @@
     "@nestjs/typeorm": "^10.0.2",
     "@scure/bip32": "^1.6.2",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
-    "axios": "^1.8.3",
     "bitcoinjs-lib": "6.1.6",
     "bolt11": "^1.4.1",
     "decimal.js": "^10.4.3",

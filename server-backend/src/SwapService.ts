@@ -25,6 +25,7 @@ import * as liquid from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetwork } from './LiquidUtils.js';
 
+
 const ECPair = ECPairFactory(ecc);
 
 @Injectable()
@@ -148,7 +149,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-
         const refundKey = ECPair.makeRandom();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({

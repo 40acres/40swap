@@ -20,6 +20,7 @@ import (
 type MockClientInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockClientInterfaceMockRecorder is the mock recorder for MockClientInterface.
@@ -40,61 +41,76 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // CreateSwapIn mocks base method.
-func (m *MockClientInterface) CreateSwapIn(arg0 context.Context, arg1 *CreateSwapInRequest) (*SwapInResponse, error) {
+func (m *MockClientInterface) CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSwapIn", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateSwapIn", ctx, req)
 	ret0, _ := ret[0].(*SwapInResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSwapIn indicates an expected call of CreateSwapIn.
-func (mr *MockClientInterfaceMockRecorder) CreateSwapIn(arg0, arg1 any) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) CreateSwapIn(ctx, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapIn", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapIn), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapIn", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapIn), ctx, req)
 }
 
 // CreateSwapOut mocks base method.
-func (m *MockClientInterface) CreateSwapOut(arg0 context.Context, arg1 CreateSwapOutRequest) (*SwapOutResponse, error) {
+func (m *MockClientInterface) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSwapOut", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateSwapOut", ctx, swapReq)
 	ret0, _ := ret[0].(*SwapOutResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSwapOut indicates an expected call of CreateSwapOut.
-func (mr *MockClientInterfaceMockRecorder) CreateSwapOut(arg0, arg1 any) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) CreateSwapOut(ctx, swapReq any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapOut", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapOut), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapOut", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapOut), ctx, swapReq)
+}
+
+// GetConfiguration mocks base method.
+func (m *MockClientInterface) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConfiguration", ctx)
+	ret0, _ := ret[0].(*ConfigurationResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConfiguration indicates an expected call of GetConfiguration.
+func (mr *MockClientInterfaceMockRecorder) GetConfiguration(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfiguration", reflect.TypeOf((*MockClientInterface)(nil).GetConfiguration), ctx)
 }
 
 // GetSwapIn mocks base method.
-func (m *MockClientInterface) GetSwapIn(arg0 context.Context, arg1 string) (*SwapInResponse, error) {
+func (m *MockClientInterface) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSwapIn", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSwapIn", ctx, swapId)
 	ret0, _ := ret[0].(*SwapInResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSwapIn indicates an expected call of GetSwapIn.
-func (mr *MockClientInterfaceMockRecorder) GetSwapIn(arg0, arg1 any) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) GetSwapIn(ctx, swapId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapIn", reflect.TypeOf((*MockClientInterface)(nil).GetSwapIn), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapIn", reflect.TypeOf((*MockClientInterface)(nil).GetSwapIn), ctx, swapId)
 }
 
 // GetSwapOut mocks base method.
-func (m *MockClientInterface) GetSwapOut(arg0 context.Context, arg1 string) (*SwapOutResponse, error) {
+func (m *MockClientInterface) GetSwapOut(ctx context.Context, swapId string) (*SwapOutResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSwapOut", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSwapOut", ctx, swapId)
 	ret0, _ := ret[0].(*SwapOutResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSwapOut indicates an expected call of GetSwapOut.
-func (mr *MockClientInterfaceMockRecorder) GetSwapOut(arg0, arg1 any) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) GetSwapOut(ctx, swapId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapOut", reflect.TypeOf((*MockClientInterface)(nil).GetSwapOut), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapOut", reflect.TypeOf((*MockClientInterface)(nil).GetSwapOut), ctx, swapId)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
@@ -16,8 +17,16 @@ import (
 
 const MONITORING_INTERVAL_SECONDS = 10
 
-func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network rpc.Network) error {
-	log.Info("Starting 40swapd")
+func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network lightning.Network) error {
+	log.Infof("Starting 40swapd on network %s", network)
+
+	config, err := swaps.GetConfiguration(ctx)
+	if err != nil {
+		return err
+	}
+	if config.BitcoinNetwork != network {
+		return fmt.Errorf("network mismatch: daemon expected %s, server's got %s", network, config.BitcoinNetwork)
+	}
 
 	go func() {
 		err := server.ListenAndServe()
@@ -37,6 +46,7 @@ func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository
 			monitor := &SwapMonitor{
 				repository: db,
 				swapClient: swaps,
+				now:        time.Now,
 			}
 			monitor.MonitorSwaps(ctx)
 
@@ -50,6 +60,7 @@ type SwapMonitor struct {
 		database.SwapInRepository
 	}
 	swapClient swaps.ClientInterface
+	now        func() time.Time
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
@@ -79,12 +90,15 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case errors.Is(err, swaps.ErrSwapNotFound):
 		logger.Warn("swap not found")
 
-		currentSwap.Outcome = models.OutcomeFailed
+		outcome := models.OutcomeFailed
+		currentSwap.Outcome = &outcome
 
 		err := m.repository.SaveSwapIn(&currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)
 		}
+
+		return nil
 	case err != nil:
 		return fmt.Errorf("failed to get swap in: %w", err)
 	}
@@ -106,21 +120,26 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case models.StatusDone:
 		switch models.SwapOutcome(newSwap.Outcome) {
 		case models.OutcomeRefunded:
-			currentSwap.Outcome = models.OutcomeRefunded
+			outcome := models.OutcomeRefunded
+			currentSwap.Outcome = &outcome
 			logger.Debug("failed. The funds have been refunded")
 		case models.OutcomeExpired:
-			currentSwap.Outcome = models.OutcomeExpired
+			outcome := models.OutcomeExpired
+			currentSwap.Outcome = &outcome
 			logger.Debug("failed. The contract has expired, waiting to be refunded")
 		default:
-			currentSwap.Outcome = models.OutcomeSuccess
+			outcome := models.OutcomeSuccess
+			currentSwap.Outcome = &outcome
 			// FAILED doesn't exist in the 40swap backend so we don't need to check it
 			logger.Debug("success. The funds have been claimed")
 		}
 	case models.StatusContractRefundedUnconfirmed:
 		log.Debug("the refund has been sent, waiting for on-chain confirmation")
 	case models.StatusContractExpired:
-		if true { // check refund was requested
+		if currentSwap.RefundRequestedAt.IsZero() { // check refund was requested
+			currentSwap.RefundRequestedAt = m.now()
 			log.Info("on-chain contract expired. initiating a refund'")
+			// TODO: Initiate a refund
 		} else {
 			log.Debug("on-chain contract expired. Refund is in-progress")
 		}
@@ -134,7 +153,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		}
 	}
 
-	logger.Infof("swap in processed")
+	logger.Debug("swap in processed")
 
 	return nil
 }

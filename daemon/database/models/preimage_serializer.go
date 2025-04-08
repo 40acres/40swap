@@ -15,9 +15,10 @@ type PreimageSerializer struct{}
 
 // Scan implements serializer interface
 func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst reflect.Value, dbValue interface{}) error {
+	preimagePointer := dst.Elem().FieldByName(field.Name)
 	if dbValue == nil {
 		// Ensure it sets a nil pointer for *lntypes.Preimage
-		dst.Set(reflect.Zero(field.FieldType))
+		preimagePointer.Set(reflect.Zero(field.FieldType))
 
 		return nil
 	}
@@ -33,7 +34,7 @@ func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst ref
 	}
 
 	if preimageStr == "" {
-		dst.Set(reflect.Zero(field.FieldType)) // Ensure nil pointer
+		preimagePointer.Set(reflect.Zero(field.FieldType)) // Ensure nil pointer
 
 		return nil
 	}
@@ -43,7 +44,7 @@ func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst ref
 		return fmt.Errorf("failed to parse preimage: %w", err)
 	}
 
-	dst.Set(reflect.ValueOf(&preimage)) // Set *lntypes.Preimage
+	preimagePointer.Set(reflect.ValueOf(&preimage)) // Set *lntypes.Preimage
 
 	return nil
 }
@@ -57,6 +58,10 @@ func (PreimageSerializer) Value(ctx context.Context, field *schema.Field, dst re
 	preimage, ok := fieldValue.(*lntypes.Preimage)
 	if !ok {
 		return nil, errors.New("invalid preimage value: not a *lntypes.Preimage")
+	}
+
+	if preimage == nil {
+		return nil, nil // Return nil for nil preimage
 	}
 
 	return preimage.String(), nil

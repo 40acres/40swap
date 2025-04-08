@@ -133,9 +133,29 @@ func RemoveNotNullInOutcome() *gormigrate.Migration {
 	}
 }
 
+// This migration adds the `RefundRequestedAt` column to the `SwapIn` table
+func AddColumnRefundRequested() *gormigrate.Migration {
+	const ID = "3_add_column_refund_requested"
+
+	type swapIn struct {
+		RefundRequestedAt *time.Time
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			return tx.Migrator().AddColumn(&swapIn{}, "RefundRequestedAt")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			return tx.Migrator().DropColumn(&swapIn{}, "RefundRequestedAt")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
+	AddColumnRefundRequested(),
 }
 
 type Migrator struct {

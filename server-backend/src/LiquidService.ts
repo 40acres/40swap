@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FourtySwapConfiguration } from './configuration.js';
-import { NbxplorerService, NBXplorerUtxo, NBXplorerUtxosResponse } from './NbxplorerService.js';
+import { NbxplorerService} from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
-import axios from 'axios';
 import { z } from 'zod';
 
 export class LiquidConfigurationDetails {
@@ -57,48 +56,43 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
     
     async onApplicationBootstrap(): Promise<void> {
-        this.logger.debug('Starting to initialize LiquidService xpub');
+        this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
-            this.logger.log('LiquidService xpub initialized successfully');
+            this.logger.log('LiquidService initialized successfully');
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.error(`Failed to initialize Liquid xpub: ${errorMessage}`);
         }
     }
 
-    async callRPC(method: string, params: any[] = []): Promise<any> {
+    async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
         try {
-            const response = await axios.post(this.rpcUrl, {
-                jsonrpc: '1.0',
-                id: '40swap',
-                method,
-                params,
-            }, {
-                auth: this.rpcAuth,
+            const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
+            const response = await fetch(this.rpcUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${authString}`,
+                },
+                body: JSON.stringify({
+                    jsonrpc: '1.0',
+                    id: '40swap',
+                    method,
+                    params,
+                }),
             });
-            return response.data.result;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            
+            const data = await response.json() as { result: unknown };
+            return data.result;
         } catch (error) {
-            this.logger.error(`Error calling Elements RPC ${method}: ${(error as any).message}`);
+            this.logger.error(`Error calling Elements RPC ${method}: ${(error as Error).message}`);
             throw error;
         }
-    }
-
-    async getUtxos(): Promise<NBXplorerUtxosResponse | void> {
-        if (!this.xpub) {
-            this.logger.error('Attempting to get UTXOs with empty xpub');
-            throw new Error('Xpub is not initialized');
-        }
-        const utxoResponse = await this.nbxplorer.getUTXOs(this.xpub, 'lbtc');
-        if (!utxoResponse) {
-            throw new Error('No UTXOs returned from NBXplorer');
-        }
-        return utxoResponse;
-    }
-
-    async getConfirmedUtxos(): Promise<NBXplorerUtxo[]> {
-        const utxoResponse = await this.getUtxos();
-        return utxoResponse?.confirmed.utxOs ?? [];
     }
 
     async getUnspentUtxos(amount: number | null = null): Promise<RPCUtxo[]> {
@@ -130,14 +124,14 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
   
     async signPsbt(psbtBase64: string): Promise<string> {
-        return this.callRPC('walletprocesspsbt', [psbtBase64]);
+        return this.callRPC('walletprocesspsbt', [psbtBase64]) as unknown as string;
     }
   
     async getNewAddress(): Promise<string> {
-        return this.callRPC('getnewaddress');
+        return this.callRPC('getnewaddress') as unknown as string;
     }
   
-    async getWalletInfo(): Promise<any> {
-        return this.callRPC('getwalletinfo');
+    async getWalletInfo(): Promise<string> {
+        return this.callRPC('getwalletinfo') as unknown as string;
     }
 }

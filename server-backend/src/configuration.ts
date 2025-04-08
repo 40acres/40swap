@@ -59,7 +59,6 @@ export const configSchema = z.object({
             .refine(d => d.toISOString() !== 'P0D'),
     }),
     elements: z.object({
-        network: z.enum(['bitcoin', 'regtest', 'testnet']),
         xpub: z.string(),
         rpcUrl: z.string().url(),
         rpcUsername: z.string(),
