@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
+import { getLiquidNetwork, LiquidLockPSETBuilder, LiquidRefundPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -132,11 +132,8 @@ export class SwapOutRunner {
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
             if (swap.chain === 'LIQUID') {
-                const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-                const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
-                const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx));
-                const psetTx = liquid.Extractor.extract(pset);
-                await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
+                const refundTx = await this.buildLiquidRefundTx(swap);
+                await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
                 await this.lnd.cancelInvoice(swap.preImageHash);
             } else if (swap.chain === 'BITCOIN') {
                 const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
@@ -330,5 +327,13 @@ export class SwapOutRunner {
                 return psbt;
             }
         ).extractTransaction();
+    }
+
+    async buildLiquidRefundTx(swap: SwapOut): Promise<liquid.Transaction> {
+        const network = getLiquidNetwork(this.bitcoinConfig.network);
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
+        const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!));
+        const psetTx = liquid.Extractor.extract(pset);
+        return psetTx;
     }
 }
