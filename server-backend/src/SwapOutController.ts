@@ -61,42 +61,6 @@ export class SwapOutController {
         return this.mapToResponse(swap);
     }
 
-    // TODO: remove this, only for testing
-    @Post('/claim/liquid/signed')
-    @ApiCreatedResponse({description: 'Claim a swap out'})
-    async getLiquidClaimTX(@Body() txRequest: TxRequestDto, @Query('privKey') privKey: string, @Query('preimage') preimage: string): Promise<{ tx: string }> {
-        const pset = liquid.Pset.fromBase64(txRequest.tx);
-        const inputIndex = 0;
-        const input = pset.inputs[inputIndex];
-        if (!input.witnessScript) {
-            throw new Error('El input no tiene witnessScript');
-        }
-        const preimageBuffer = Buffer.from(preimage, 'hex');
-        const keyPair = ECPair.fromWIF(privKey, getLiquidNetwork(this.bitcoinConfig.network));
-        const sighashType = liquid.Transaction.SIGHASH_ALL;
-        const signature = liquid.script.signature.encode(
-            keyPair.sign(pset.getInputPreimage(inputIndex, sighashType)),
-            sighashType,
-        );
-        const signer = new liquid.Signer(pset);
-        signer.addSignature(
-            inputIndex,
-            {
-                partialSig: {
-                    pubkey: keyPair.publicKey,
-                    signature,
-                },
-            },
-            liquid.Pset.ECDSASigValidator(ecc),
-        );
-        const finalizer = new liquid.Finalizer(pset);
-        const stack = [signature,preimageBuffer,input.witnessScript!];
-        finalizer.finalizeInput(inputIndex, () => {
-            return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
-        });
-        const transaction = liquid.Extractor.extract(pset);
-        return { tx: transaction.toHex() };
-    }
 
     @Post('/:id/claim')
     @ApiCreatedResponse({description: 'Claim a swap out'})
