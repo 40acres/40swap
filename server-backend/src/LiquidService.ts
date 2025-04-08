@@ -2,6 +2,7 @@
 import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
+import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
 
 export class LiquidConfigurationDetails {
@@ -27,7 +28,20 @@ const RPCUtxoSchema = z.object({
     safe: z.boolean(),
 });
 
+const MempoolInfoSchema = z.object({
+    loaded: z.boolean(),
+    size: z.number(),
+    bytes: z.number(),
+    usage: z.number(),
+    total_fee: z.number(),
+    maxmempool: z.number(),
+    mempoolminfee: z.number(),
+    minrelaytxfee: z.number(),
+    unbroadcastcount: z.number(),
+});
+
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
+export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
@@ -121,5 +135,45 @@ export class LiquidService implements OnApplicationBootstrap  {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
         return { utxos: confirmedUtxos, totalInputValue };
+    }
+
+    async getNewAddress(): Promise<string> {
+        return this.callRPC('getnewaddress') as unknown as string;
+    }
+
+    async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
+        const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]) as unknown as string;
+        return liquid.Transaction.fromBuffer(Buffer.from(hexTx, 'hex'));
+    }
+
+    async getMempoolInfo(): Promise<MempoolInfo> {
+        const mempoolInfo = await this.callRPC('getmempoolinfo') as unknown as MempoolInfo;
+        return mempoolInfo;
+    }
+
+    async signPset(psetBase64: string): Promise<liquid.Pset> {
+        const result = await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL']) as unknown as {
+            complete: boolean;
+            psbt: string;
+        };
+        if (!result.complete) {
+            throw new Error('Could not process PSET');
+        }
+        const processedPset = liquid.Pset.fromBase64(result.psbt);
+        if (!processedPset.isComplete()) {
+            throw new Error('PSET is not complete');
+        }
+        return processedPset;
+    }
+
+    async getFinalizedPsetHex(pset: string): Promise<string> {
+        const response = await this.callRPC('finalizepsbt', [pset]) as unknown as {
+            hex: string;
+            complete: boolean;
+        };
+        if (!response.complete) {
+            throw new Error('PSET is not complete');
+        }
+        return response.hex;
     }
 }
