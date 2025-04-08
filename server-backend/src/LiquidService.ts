@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FourtySwapConfiguration } from './configuration.js';
-import { NbxplorerService} from './NbxplorerService.js';
+import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
