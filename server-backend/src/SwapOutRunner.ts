@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { LiquidTransactionOutput, NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
+import { NBXplorerLiquidTransactionOutput, NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
+import { getLiquidNetwork, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -90,8 +90,8 @@ export class SwapOutRunner {
             this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             if (swap.chain === 'LIQUID') {
-                swap.timeoutBlockHeight = await this.getLiquidHeight();
-                swap.lockScript = liquidReverseSwapScript(
+                swap.timeoutBlockHeight = await this.getLiquidCltvExpiry();
+                swap.lockScript = reverseSwapScript(
                     swap.preImageHash, 
                     swap.counterpartyPubKey, 
                     ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
@@ -112,7 +112,7 @@ export class SwapOutRunner {
                 );
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
-            } else {
+            } else if (swap.chain === 'BITCOIN') {
                 swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,
@@ -132,15 +132,16 @@ export class SwapOutRunner {
         } else if (status === 'CONTRACT_EXPIRED') {
             assert(swap.lockTx != null);
             if (swap.chain === 'LIQUID') {
-                const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-                const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
-                const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx));
-                const psetTx = liquid.Extractor.extract(pset);
-                await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
-                await this.lnd.cancelInvoice(swap.preImageHash);
-            } else {
+                const refundTx = await this.buildLiquidRefundTx(swap);
+                await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
+            } else if (swap.chain === 'BITCOIN') {
                 const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
                 await this.nbxplorer.broadcastTx(refundTx);
+            }
+            try {
+                await this.lnd.cancelInvoice(swap.preImageHash);
+            } catch (e) {
+                this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id})`, e);
             }
         }
     }
@@ -152,7 +153,7 @@ export class SwapOutRunner {
         return invoice.htlcs[0].expiryHeight;
     }
 
-    private async getLiquidHeight(): Promise<number> {
+    private async getLiquidCltvExpiry(): Promise<number> {
         const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
         const currentLiquidHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight;
         const currentBitcoinHeight = (await this.nbxplorer.getNetworkStatus()).chainHeight;
@@ -203,7 +204,7 @@ export class SwapOutRunner {
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
         const expectedAmount = swap.chain === 'LIQUID' ? 
-            new Decimal((output as unknown as LiquidTransactionOutput).value.value).div(1e8) : 
+            new Decimal((output as unknown as NBXplorerLiquidTransactionOutput).value.value).div(1e8) : 
             new Decimal(output.value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
             // eslint-disable-next-line max-len
@@ -330,5 +331,13 @@ export class SwapOutRunner {
                 return psbt;
             }
         ).extractTransaction();
+    }
+
+    async buildLiquidRefundTx(swap: SwapOut): Promise<liquid.Transaction> {
+        const network = getLiquidNetwork(this.bitcoinConfig.network);
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
+        const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!));
+        const psetTx = liquid.Extractor.extract(pset);
+        return psetTx;
     }
 }
