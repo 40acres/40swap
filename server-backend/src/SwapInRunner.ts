@@ -21,7 +21,7 @@ export class SwapInRunner {
     private readonly logger = new Logger(SwapInRunner.name);
     private runningPromise: Promise<void>;
     private notifyFinished!: () => void;
-    private expiryPoller: NodeJS.Timeout|undefined;
+    private expiryPoller: NodeJS.Timeout | undefined;
 
     constructor(
         private swap: SwapIn,
@@ -70,16 +70,28 @@ export class SwapInRunner {
         }
     }
 
+    private async retrySendPayment(invoice: string, cltvLimit: number, retries: number = 3): Promise<Buffer> {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                return await this.lnd.sendPayment(invoice, cltvLimit);
+            } catch (e) {
+                this.logger.warn(`Attempt ${attempt} to send payment failed (id=${this.swap.id})`, e);
+                if (attempt === retries) {
+                    throw e;
+                }
+            }
+        }
+        throw new Error('Retries exhausted'); 
+    }
+
     private async onStatusChange(status: SwapInStatus): Promise<void> {
         this.logger.log(`Swap in changed to status ${status} (id=${this.swap.id})`);
         if (status === 'CONTRACT_FUNDED') {
             try {
                 const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
-                this.swap.preImage = await this.lnd.sendPayment(this.swap.invoice, cltvLimit);
+                this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
             } catch (e) {
-                // we don't do anything, just let the contract expire and handle it as a refund
-                // TODO retry
-                this.logger.log(`The lightning payment failed (id=${this.swap.id})`, e);
+                this.logger.log(`The lightning payment failed after retries (id=${this.swap.id})`, e);
                 return;
             }
             this.swap.status = 'INVOICE_PAID';
