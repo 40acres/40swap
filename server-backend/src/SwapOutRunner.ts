@@ -134,10 +134,14 @@ export class SwapOutRunner {
             if (swap.chain === 'LIQUID') {
                 const refundTx = await this.buildLiquidRefundTx(swap);
                 await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
-                await this.lnd.cancelInvoice(swap.preImageHash);
             } else if (swap.chain === 'BITCOIN') {
                 const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
                 await this.nbxplorer.broadcastTx(refundTx);
+            }
+            try {
+                await this.lnd.cancelInvoice(swap.preImageHash);
+            } catch (e) {
+                this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id})`, e);
             }
         }
     }
