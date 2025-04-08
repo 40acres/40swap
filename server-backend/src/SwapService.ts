@@ -83,7 +83,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         );
         let address: string|undefined;
         if (request.chain === 'BITCOIN') {
-            address = payments.p2wsh({network, redeem: { output: lockScript, network } }).address;
+            address = payments.p2wsh({network, redeem: { output: lockScript, network }}).address;
             assert(address);
             await this.nbxplorer.trackAddress(address);
         } else if (request.chain === 'LIQUID') {
