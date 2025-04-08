@@ -12,7 +12,6 @@ import { SwapOut } from './entities/SwapOut.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-
 import {
     GetSwapOutResponse,
     PsbtResponse,
