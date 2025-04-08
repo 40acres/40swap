@@ -173,6 +173,7 @@ func RemoveNotNullSwapOut() *gormigrate.Migration {
 			if err := tx.Migrator().AlterColumn(&swapOut{}, "OffchainFeeSATS"); err != nil {
 				return err
 			}
+
 			return nil
 		},
 		Rollback: func(tx *gorm.DB) error {
@@ -191,6 +192,7 @@ func RemoveNotNullSwapOut() *gormigrate.Migration {
 			if err := tx.Migrator().AlterColumn(&swapOut{}, "OffchainFeeSATS"); err != nil {
 				return err
 			}
+
 			return nil
 		},
 	}
@@ -245,12 +247,14 @@ func ChangeNameClaimPubkey() *gormigrate.Migration {
 			if err := tx.Migrator().RenameColumn(&swapOut{}, "claim_pubkey", "claim_private_key"); err != nil {
 				return err
 			}
+
 			return nil
 		},
 		Rollback: func(tx *gorm.DB) error {
 			if err := tx.Migrator().RenameColumn(&swapOut{}, "claim_private_key", "claim_pubkey"); err != nil {
 				return err
 			}
+
 			return nil
 		},
 	}
