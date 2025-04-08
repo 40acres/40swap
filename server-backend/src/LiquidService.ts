@@ -5,11 +5,16 @@ import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nest
 import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
 
-export class LiquidConfigurationDetails {
-    readonly rpcUrl!: string;
-    readonly rpcAuth!: {username: string, password: string};
-    public xpub!: string;
-}
+const LiquidConfigurationDetailsSchema = z.object({
+    rpcUrl: z.string(),
+    rpcAuth: z.object({
+        username: z.string(),
+        password: z.string(),
+    }),
+    xpub: z.string(),
+});
+
+export type LiquidConfigurationDetails = z.infer<typeof LiquidConfigurationDetailsSchema>;
 
 const RPCUtxoSchema = z.object({
     txid: z.string(),
@@ -40,6 +45,20 @@ const MempoolInfoSchema = z.object({
     unbroadcastcount: z.number(),
 });
 
+const WalletProcessPsbtResultSchema = z.object({
+    complete: z.boolean(),
+    psbt: z.string(),
+});
+
+export type WalletProcessPsbtResult = z.infer<typeof WalletProcessPsbtResultSchema>;
+
+const FinalizedPsbtResultSchema = z.object({
+    hex: z.string(),
+    complete: z.boolean(),
+});
+
+export type FinalizedPsbtResult = z.infer<typeof FinalizedPsbtResultSchema>;
+
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
 
@@ -62,11 +81,11 @@ export class LiquidService implements OnApplicationBootstrap  {
             username: this.elementsConfig.rpcUsername,
             password: this.elementsConfig.rpcPassword,
         };
-        this.configurationDetails = {
+        this.configurationDetails = LiquidConfigurationDetailsSchema.parse({
             rpcUrl: this.rpcUrl,
             rpcAuth: this.rpcAuth,
             xpub: this.xpub,
-        };
+        });
     }
     
     async onApplicationBootstrap(): Promise<void> {
@@ -138,24 +157,24 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
 
     async getNewAddress(): Promise<string> {
-        return this.callRPC('getnewaddress') as unknown as string;
+        const address = await this.callRPC('getnewaddress');
+        return z.string().parse(address);
     }
 
     async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
-        const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]) as unknown as string;
-        return liquid.Transaction.fromBuffer(Buffer.from(hexTx, 'hex'));
+        const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]);
+        return liquid.Transaction.fromBuffer(Buffer.from(z.string().parse(hexTx), 'hex'));
     }
 
     async getMempoolInfo(): Promise<MempoolInfo> {
-        const mempoolInfo = await this.callRPC('getmempoolinfo') as unknown as MempoolInfo;
-        return mempoolInfo;
+        const mempoolInfo = await this.callRPC('getmempoolinfo');
+        return MempoolInfoSchema.parse(mempoolInfo);
     }
 
     async signPset(psetBase64: string): Promise<liquid.Pset> {
-        const result = await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL']) as unknown as {
-            complete: boolean;
-            psbt: string;
-        };
+        const result = WalletProcessPsbtResultSchema.parse(
+            await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL'])
+        );
         if (!result.complete) {
             throw new Error('Could not process PSET');
         }
@@ -167,10 +186,9 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
 
     async getFinalizedPsetHex(pset: string): Promise<string> {
-        const response = await this.callRPC('finalizepsbt', [pset]) as unknown as {
-            hex: string;
-            complete: boolean;
-        };
+        const response = FinalizedPsbtResultSchema.parse(
+            await this.callRPC('finalizepsbt', [pset])
+        );
         if (!response.complete) {
             throw new Error('PSET is not complete');
         }
