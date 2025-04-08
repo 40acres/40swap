@@ -31,7 +31,7 @@ const ECPair = ECPairFactory(ecc);
 @Injectable()
 export class SwapService implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly logger = new Logger(SwapService.name);
-    private readonly runningSwaps: Map<string, SwapInRunner | SwapOutRunner>;
+    private readonly runningSwaps: Map<string, SwapInRunner|SwapOutRunner>;
     private readonly swapConfig: FourtySwapConfiguration['swap'];
     private readonly elementsConfig: FourtySwapConfiguration['elements'];
 
@@ -81,9 +81,9 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             counterpartyPubKey,
             timeoutBlockHeight,
         );
-        let address: string | undefined;
+        let address: string|undefined;
         if (request.chain === 'BITCOIN') {
-            address = payments.p2wsh({ network, redeem: { output: lockScript, network } }).address;
+            address = payments.p2wsh({network, redeem: { output: lockScript, network } }).address;
             assert(address);
             await this.nbxplorer.trackAddress(address);
         } else if (request.chain === 'LIQUID') {
@@ -119,7 +119,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             outcome: null,
             lockTxHeight: 0,
             unlockTxHeight: 0,
-        } satisfies Omit<SwapIn, 'createdAt' | 'modifiedAt'>);
+        } satisfies Omit<SwapIn, 'createdAt'|'modifiedAt'>);
         const runner = new SwapInRunner(
             swap,
             repository,
@@ -171,7 +171,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             outcome: null,
             lockTxHeight: 0,
             unlockTxHeight: 0,
-        } satisfies Omit<SwapOut, 'createdAt' | 'modifiedAt'>);
+        } satisfies Omit<SwapOut, 'createdAt'|'modifiedAt'>);
         const runner = new SwapOutRunner(
             swap,
             repository,
@@ -217,7 +217,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             status: Not('DONE'),
         });
         for (const swap of [...resumableSwapIns, ...resumableSwapOuts]) {
-            const runner = swap instanceof SwapIn ? new SwapInRunner(
+            const runner =  swap instanceof SwapIn ? new SwapInRunner(
                 swap,
                 swapInRepository,
                 this.bitcoinConfig,
