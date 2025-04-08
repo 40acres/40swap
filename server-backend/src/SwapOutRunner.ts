@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { getLiquidNetwork, LiquidLockPSETBuilder, LiquidRefundPSETBuilder, liquidReverseSwapScript } from './LiquidUtils.js';
+import { getLiquidNetwork, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -91,7 +91,7 @@ export class SwapOutRunner {
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             if (swap.chain === 'LIQUID') {
                 swap.timeoutBlockHeight = await this.getLiquidCltvExpiry();
-                swap.lockScript = liquidReverseSwapScript(
+                swap.lockScript = reverseSwapScript(
                     swap.preImageHash, 
                     swap.counterpartyPubKey, 
                     ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
