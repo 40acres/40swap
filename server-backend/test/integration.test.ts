@@ -51,6 +51,61 @@ describe('40Swap backend', () => {
         expect(invoice.state).toEqual('SETTLED');
     });
 
+    it('should complete a swap in with custom lockBlockDeltaIn', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
+        let swap = await backend.createSwapIn({
+            chain: 'BITCOIN',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+            lockBlockDeltaIn: 500, // Custom CLTV expiry for testing
+        });
+        expect(swap.status).toEqual<SwapInStatus>('CREATED');
+
+        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+
+        swap = await backend.getSwapIn(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+        const invoice = await lndUser.lookupInvoice(rHash as Buffer);
+        expect(invoice.state).toEqual('SETTLED');
+    });
+
+    it('should fail if lockBlockDeltaIn is less than 144', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        await expect(
+            backend.createSwapIn({
+                chain: 'BITCOIN',
+                invoice: paymentRequest!,
+                refundPublicKey: refundKey.publicKey.toString('hex'),
+                lockBlockDeltaIn: 100, // Less than the minimum allowed
+            })
+        ).rejects.toThrow('lockBlockDeltaIn must be at least 144 blocks');
+    });
+
+    it('should refund after timeout block height', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        const swap = await backend.createSwapIn({
+            chain: 'BITCOIN',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+            lockBlockDeltaIn: 144, // Minimum allowed value
+        });
+
+        // Simulate passing of 144 blocks
+        bitcoind.mine(144);
+
+        // Verify refund
+        const swapIn = await backend.getSwapIn(swap.swapId);
+        expect(swapIn.status).toEqual<SwapInStatus>('CONTRACT_REFUNDED_UNCONFIRMED');
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
@@ -124,7 +179,7 @@ describe('40Swap backend', () => {
         await bitcoind.mine(10);
         await waitForChainSync(allLnds);
         for (const lnd of allLnds) {
-            for(let i = 0; i < 10; i++) {
+            for (let i = 0; i < 10; i++) {
                 await bitcoind.sendToAddress(lnd.address, 5);
             }
         }

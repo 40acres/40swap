@@ -7,9 +7,12 @@ export class SwapIn extends Swap {
     @Column({ type: 'text' })
     contractAddress!: string;
 
-    @Column({ type: 'bytea'})
+    @Column({ type: 'bytea' })
     lockScript!: Buffer;
 
     @Column({ type: 'text' })
     status!: SwapInStatus;
+
+    @Column({ type: 'integer', nullable: true })
+    lockBlockDeltaIn?: number;
 }
