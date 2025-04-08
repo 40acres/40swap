@@ -12,7 +12,6 @@ import { SwapOut } from './entities/SwapOut.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 
 import {
     GetSwapOutResponse,
@@ -22,7 +21,6 @@ import {
     swapOutRequestSchema,
     txRequestSchema,
 } from '@40swap/shared';
-import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { getLiquidNetwork } from './LiquidUtils.js';
 
 
@@ -74,7 +72,7 @@ export class SwapOutController {
             throw new Error('El input no tiene witnessScript');
         }
         const preimageBuffer = Buffer.from(preimage, 'hex');
-        const keyPair = ECPair.fromWIF(privKey, liquidRegtest);
+        const keyPair = ECPair.fromWIF(privKey, getLiquidNetwork(this.bitcoinConfig.network));
         const sighashType = liquid.Transaction.SIGHASH_ALL;
         const signature = liquid.script.signature.encode(
             keyPair.sign(pset.getInputPreimage(inputIndex, sighashType)),
