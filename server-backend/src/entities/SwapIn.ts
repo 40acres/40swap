@@ -13,6 +13,4 @@ export class SwapIn extends Swap {
     @Column({ type: 'text' })
     status!: SwapInStatus;
 
-    @Column({ type: 'integer', nullable: true })
-    lockBlockDeltaIn?: number;
 }
