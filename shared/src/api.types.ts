@@ -86,34 +86,6 @@ export const getSwapOutResponseSchema = swapResponseSchema.extend({
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 
-export const claimLiquidRequestSchema = z.object({
-    privKey: z.string(),
-    preImage: z.string(),
-    destinationAddress: z.string()
-});
-export type ClaimLiquidRequest = z.infer<typeof claimLiquidRequestSchema>;
-
-export const intiateSwapFromLNToLQResponse = z.object({
-    invoice: z.string(),
-    hash: z.string(),
-    liquidHtlcAddress: z.string(),
-    htlcScript: z.string(),
-    claimPubKey: z.string(),
-    refundPubKey: z.string(),
-    locktime: z.number(),
-    amount: z.number(),
-});
-export type IntiateSwapFromLNToLQResponse = z.infer<typeof intiateSwapFromLNToLQResponse>;
-export type RedeemSwapFromLNToLQRequest = z.infer<typeof intiateSwapFromLNToLQResponse>;
-
-export const getSwapChainResponseSchema = swapResponseSchema.extend({
-    invoice: z.string(),
-    status: swapOutStatusSchema,
-    redeemScript: z.string().optional(),
-    contractAddress: z.string().optional(),
-});
-export type GetSwapChainResponse = z.infer<typeof getSwapOutResponseSchema>;
-
 export const frontendConfigurationSchema = z.object({
     bitcoinNetwork: z.enum(['bitcoin', 'regtest', 'testnet']).transform(n => networks[n]),
     feePercentage: z.number(),
