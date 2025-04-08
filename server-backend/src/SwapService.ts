@@ -73,8 +73,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
          * If not provided, the default value from the swap configuration is used.
          */
         const lockBlockDeltaIn = request.lockBlockDeltaIn ?? this.swapConfig.lockBlockDelta.in;
-        if (lockBlockDeltaIn < 144) {
-            throw new BadRequestException('lockBlockDeltaIn must be at least 144 blocks');
+        if (lockBlockDeltaIn < this.swapConfig.lockBlockDelta.minIn) {
+            throw new BadRequestException(`lockBlockDeltaIn must be at least ${this.swapConfig.lockBlockDelta.minIn} blocks`);
         }
         const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
         const claimKey = ECPair.makeRandom();
