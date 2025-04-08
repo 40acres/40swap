@@ -23,6 +23,7 @@ import {
     txRequestSchema,
 } from '@40swap/shared';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
+import { getLiquidNetwork } from './LiquidUtils.js';
 
 
 const ECPair = ECPairFactory(ecc);
@@ -99,45 +100,6 @@ export class SwapOutController {
         return { tx: transaction.toHex() };
     }
 
-    @Post('/:id/claim/liquid')
-    @ApiCreatedResponse({description: 'Claim a swap out'})
-    async posttLiquidClaimTX(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
-        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
-        assert(swap.lockTx != null);
-        try {
-            const lockTx = liquid.Transaction.fromBuffer(swap.lockTx);
-            const claimTx = liquid.Transaction.fromHex(txRequest.tx);
-            if (claimTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
-                throw new BadRequestException('invalid claim tx');
-            }
-            await this.nbxplorer.broadcastTx(claimTx, 'lbtc');
-        } catch (e) {
-            throw new BadRequestException('invalid liquid tx');
-        }
-    }
-
-    @Get('/:id/claim/liquid')
-    @ApiOkResponse({description: 'Get a claim PSBT for a liquid swap out', type: PsbtResponseDto})
-    async getLiquidClaimPset(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
-        if (outputAddress == null) {
-            throw new BadRequestException('address is required');
-        }
-        try {
-            const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-            liquid.address.toOutputScript(outputAddress, network);
-        } catch (e) {
-            throw new BadRequestException(`invalid address ${outputAddress}`);
-        }
-        const swap = await this.dataSource.getRepository(SwapOut).findOneByOrFail({ id });
-        assert(swap.lockTx != null, 'swap lockTx is null');
-        if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED') {
-            throw new BadRequestException('swap is already being claimed');
-        }
-        assert(swap.status === 'CONTRACT_FUNDED', 'swap is not ready');
-        const pset = await this.swapService.buildLiquidClaimPset(swap, outputAddress);
-        return { psbt: pset.toBase64() };
-    }
-
     @Post('/:id/claim')
     @ApiCreatedResponse({description: 'Claim a swap out'})
     async claimSwap(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
@@ -146,16 +108,31 @@ export class SwapOutController {
             throw new NotFoundException('swap not found');
         }
         assert(swap.lockTx != null);
-        try {
-            const lockTx = Transaction.fromBuffer(swap.lockTx);
-            const refundTx = Transaction.fromHex(txRequest.tx);
-            if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
-                throw new BadRequestException('invalid refund tx');
+        const lockTx = Transaction.fromBuffer(swap.lockTx);
+        if (swap.chain === 'BITCOIN') {
+            try {
+                
+                const claimTx = Transaction.fromHex(txRequest.tx);
+                if (claimTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                    throw new BadRequestException('invalid claim tx');
+                }
+                await this.nbxplorer.broadcastTx(claimTx);
+            } catch (e) {
+                throw new BadRequestException('invalid bitcoin tx');
             }
-            await this.nbxplorer.broadcastTx(refundTx);
-        } catch (e) {
-            throw new BadRequestException('invalid bitcoin tx');
         }
+        if (swap.chain === 'LIQUID') {
+            try {
+                const claimTx = liquid.Transaction.fromHex(txRequest.tx);
+                if (claimTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                    throw new BadRequestException('invalid claim tx');
+                }
+                await this.nbxplorer.broadcastTx(claimTx, 'lbtc');
+            } catch (e) {
+                throw new BadRequestException('invalid liquid tx');
+            }
+        }
+        throw new BadRequestException('invalid chain');
     }
 
     @Get('/:id/claim-psbt')
@@ -164,19 +141,32 @@ export class SwapOutController {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
         }
-        try {
-            address.toOutputScript(outputAddress, this.bitcoinConfig.network);
-        } catch (e) {
-            throw new BadRequestException(`invalid address ${outputAddress}`);
-        }
         const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
         assert(swap.lockTx != null);
-        const lockTx = Transaction.fromBuffer(swap.lockTx);
-        const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
-        return { psbt: claimPsbt.toBase64() };
+        if (swap.chain === 'BITCOIN') {
+            try {
+                address.toOutputScript(outputAddress, this.bitcoinConfig.network);
+            } catch (e) {
+                throw new BadRequestException(`invalid address ${outputAddress}`);
+            }
+            const lockTx = Transaction.fromBuffer(swap.lockTx);
+            const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
+            return { psbt: claimPsbt.toBase64() };
+        }
+        if (swap.chain === 'LIQUID') {
+            assert(swap.status === 'CONTRACT_FUNDED', 'swap is not ready');
+            try {
+                liquid.address.toOutputScript(outputAddress, getLiquidNetwork(this.bitcoinConfig.network));
+            } catch (e) {
+                throw new BadRequestException(`invalid address ${outputAddress}`);
+            }
+            const pset = await this.swapService.buildLiquidClaimPset(swap, outputAddress);
+            return { psbt: pset.toBase64() };
+        }
+        throw new BadRequestException('invalid chain');
     }
 
     buildClaimPsbt(swap: SwapOut, spendingTx: Transaction, outputAddress: string, feeRate: number): Psbt {
