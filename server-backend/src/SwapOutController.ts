@@ -80,8 +80,7 @@ export class SwapOutController {
             } catch (e) {
                 throw new BadRequestException('invalid bitcoin tx');
             }
-        }
-        if (swap.chain === 'LIQUID') {
+        } else if (swap.chain === 'LIQUID') {
             try {
                 const lockTx = liquid.Transaction.fromBuffer(swap.lockTx);
                 const claimTx = liquid.Transaction.fromHex(txRequest.tx);
@@ -93,7 +92,6 @@ export class SwapOutController {
                 throw new BadRequestException('invalid liquid tx');
             }
         }
-        throw new BadRequestException('invalid chain');
     }
 
     @Get('/:id/claim-psbt')
@@ -106,7 +104,7 @@ export class SwapOutController {
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
-        assert(swap.lockTx != null);
+        assert(swap.lockTx != null, "Swap does not have lock tx");
         if (swap.chain === 'BITCOIN') {
             try {
                 address.toOutputScript(outputAddress, this.bitcoinConfig.network);
@@ -125,7 +123,7 @@ export class SwapOutController {
                 throw new BadRequestException(`invalid address ${outputAddress}`);
             }
             const pset = await this.buildLiquidClaimPset(swap, outputAddress);
-            return { psbt: "pset.toBase64()" };
+            return { psbt: pset.toBase64() };
         }
         throw new BadRequestException('invalid chain');
     }

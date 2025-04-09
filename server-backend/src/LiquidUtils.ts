@@ -183,27 +183,30 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     }
 
     async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
-        await Promise.all(utxos.map(async (utxo, i) => {
-            const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub);
-            const witnessUtxo = liquidTx.outs[utxo.vout];
-            this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
-            updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
-            updater.addInWitnessUtxo(i, witnessUtxo);
-            const relativePath = getRelativePathFromDescriptor(utxo.desc);
+        for (let i = 0; i < utxos.length; i++) {
+            const utxo = utxos[i];
             try {
-                const node = bip32.fromBase58(this.liquidService.xpub, this.network);
-                const childNode = node.derivePath(relativePath);
-                updater.addInBIP32Derivation(i, {
-                    masterFingerprint: Buffer.from(node.fingerprint),
-                    pubkey: Buffer.from(childNode.publicKey),
-                    path: relativePath,
-                });
+                const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub);
+                const witnessUtxo = liquidTx.outs[utxo.vout];
+                this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
+                updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
+                updater.addInWitnessUtxo(i, witnessUtxo);
+                const relativePath = getRelativePathFromDescriptor(utxo.desc);
+                try {
+                    const node = bip32.fromBase58(this.liquidService.xpub, this.network);
+                    const childNode = node.derivePath(relativePath);
+                    updater.addInBIP32Derivation(i, {
+                        masterFingerprint: Buffer.from(node.fingerprint),
+                        pubkey: Buffer.from(childNode.publicKey),
+                        path: relativePath,
+                    });
+                } catch (error) {
+                    throw new Error(`Failed to derive path ${relativePath}: ${error}`);
+                }
             } catch (error) {
-                throw new Error(`Failed to derive path ${relativePath}: ${error}`);
+                throw new Error(`Error adding input at index ${i}: ${error}`);
             }
-        })).catch((error) => {
-            throw new Error(`Error adding inputs: ${error}`);
-        });
+        }
     }
     
     async addRequiredOutputs(
