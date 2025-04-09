@@ -6,6 +6,7 @@ import { SwapInStatus } from '../../shared/src/api.types';
 import { SwapOutcome } from '@40swap/shared';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
+import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
 import { ECPair, waitFor, waitForChainSync } from './utils';
 
@@ -17,6 +18,7 @@ describe('40Swap backend', () => {
     let lndUser: Lnd;
     let lndAlice: Lnd;
     let bitcoind: Bitcoind;
+    let elements: Elements;
     let backend: BackendRestClient;
 
     beforeAll(async () => {
@@ -59,10 +61,16 @@ describe('40Swap backend', () => {
             .withWaitStrategy('lnd-lsp-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('lnd-alice-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('lnd-user-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('elements-1', Wait.forLogMessage(/.*init message: Done loading.*/))
             .withEnvironment({ BACKEND_CONFIG_FILE: configFilePath });
-        compose = await composeDef.up(['lnd-lsp']);
+        compose = await composeDef.up(['lnd-lsp', 'elements']);
 
         lndLsp = await Lnd.fromContainer(compose.getContainer('lnd-lsp-1'));
+        elements = new Elements(compose.getContainer('elements-1'));
+        // Initialize Elements wallet and get xpub
+        await elements.startDescriptorWallet();
+        await elements.mine(101);
+        const xpub = await elements.getXpub();
 
         const config = {
             server: {
@@ -106,7 +114,7 @@ describe('40Swap backend', () => {
                 rpcUrl: 'http://localhost:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
-                xpub: 'tpubDDX4WuDaVMkmH3Bj6Z9nYRuW8cmx3U8HPZ1qFuWX5RGraZ6agYpDbSnMR7zAnJueKLyABJkVCKmZxxJ8eK6wvM7f52LA7ZtJjDpaP8Ws45R', // TODO: get actual xpub. It will be needed for testing liquid features
+                xpub,
             },
         };
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));

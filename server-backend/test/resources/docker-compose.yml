@@ -134,13 +134,5 @@ services:
     depends_on:
       bitcoind:
         condition: service_started
-    command: >-
-      -chain=liquidregtest
-      -rpcuser=40swap
-      -rpcpassword=pass
-      -mainchainrpchost=bitcoind
-      -mainchainrpcport=18443
-      -mainchainrpcuser=40swap
-      -mainchainrpcpassword=pass
-      -con_blocksubsidy=5000000000
-      -txindex=1
+    volumes:
+      - ../../../docker/liquid.conf:/home/elements/.elements/elements.conf
