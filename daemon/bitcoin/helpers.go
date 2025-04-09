@@ -2,7 +2,6 @@ package bitcoin
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -16,6 +15,10 @@ import (
 )
 
 func SignInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHashType txscript.SigHashType, fetcher txscript.PrevOutputFetcher) ([]byte, error) {
+	if inputIndex < 0 || inputIndex >= len(packet.Inputs) {
+		return nil, fmt.Errorf("invalid input index: %d", inputIndex)
+	}
+
 	input := &packet.Inputs[inputIndex]
 
 	sigHashes := txscript.NewTxSigHashes(packet.UnsignedTx, fetcher)
@@ -69,13 +72,8 @@ func VerifyInputs(pkt *psbt.Packet, tx *wire.MsgTx, hashCache *txscript.TxSigHas
 }
 
 func Base64ToPsbt(base64Psbt string) (*psbt.Packet, error) {
-	psbtBytes, err := base64.StdEncoding.DecodeString(base64Psbt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode base64 PSBT: %w", err)
-	}
-
 	// Deserialize into a PSBT packet
-	packet, err := psbt.NewFromRawBytes(bytes.NewReader(psbtBytes), false)
+	packet, err := psbt.NewFromRawBytes(bytes.NewReader([]byte(base64Psbt)), true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse PSBT: %w", err)
 	}
