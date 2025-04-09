@@ -46,6 +46,7 @@ func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository
 			monitor := &SwapMonitor{
 				repository: db,
 				swapClient: swaps,
+				now:        time.Now,
 			}
 			monitor.MonitorSwaps(ctx)
 
@@ -59,6 +60,7 @@ type SwapMonitor struct {
 		database.SwapInRepository
 	}
 	swapClient swaps.ClientInterface
+	now        func() time.Time
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
@@ -95,6 +97,8 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)
 		}
+
+		return nil
 	case err != nil:
 		return fmt.Errorf("failed to get swap in: %w", err)
 	}
@@ -124,7 +128,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 			currentSwap.Outcome = &outcome
 			logger.Debug("failed. The contract has expired, waiting to be refunded")
 		default:
-			outcome := models.OutcomeExpired
+			outcome := models.OutcomeSuccess
 			currentSwap.Outcome = &outcome
 			// FAILED doesn't exist in the 40swap backend so we don't need to check it
 			logger.Debug("success. The funds have been claimed")
@@ -132,8 +136,10 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	case models.StatusContractRefundedUnconfirmed:
 		log.Debug("the refund has been sent, waiting for on-chain confirmation")
 	case models.StatusContractExpired:
-		if true { // check refund was requested
+		if currentSwap.RefundRequestedAt.IsZero() { // check refund was requested
+			currentSwap.RefundRequestedAt = m.now()
 			log.Info("on-chain contract expired. initiating a refund'")
+			// TODO: Initiate a refund
 		} else {
 			log.Debug("on-chain contract expired. Refund is in-progress")
 		}
@@ -147,7 +153,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		}
 	}
 
-	logger.Infof("swap in processed")
+	logger.Debug("swap in processed")
 
 	return nil
 }

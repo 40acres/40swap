@@ -2,13 +2,19 @@
 import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
+import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
 
-export class LiquidConfigurationDetails {
-    readonly rpcUrl!: string;
-    readonly rpcAuth!: {username: string, password: string};
-    public xpub!: string;
-}
+const LiquidConfigurationDetailsSchema = z.object({
+    rpcUrl: z.string(),
+    rpcAuth: z.object({
+        username: z.string(),
+        password: z.string(),
+    }),
+    xpub: z.string(),
+});
+
+export type LiquidConfigurationDetails = z.infer<typeof LiquidConfigurationDetailsSchema>;
 
 const RPCUtxoSchema = z.object({
     txid: z.string(),
@@ -27,7 +33,34 @@ const RPCUtxoSchema = z.object({
     safe: z.boolean(),
 });
 
+const MempoolInfoSchema = z.object({
+    loaded: z.boolean(),
+    size: z.number(),
+    bytes: z.number(),
+    usage: z.number(),
+    total_fee: z.number(),
+    maxmempool: z.number(),
+    mempoolminfee: z.number(),
+    minrelaytxfee: z.number(),
+    unbroadcastcount: z.number(),
+});
+
+const WalletProcessPsbtResultSchema = z.object({
+    complete: z.boolean(),
+    psbt: z.string(),
+});
+
+export type WalletProcessPsbtResult = z.infer<typeof WalletProcessPsbtResultSchema>;
+
+const FinalizedPsbtResultSchema = z.object({
+    hex: z.string(),
+    complete: z.boolean(),
+});
+
+export type FinalizedPsbtResult = z.infer<typeof FinalizedPsbtResultSchema>;
+
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
+export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
@@ -48,11 +81,11 @@ export class LiquidService implements OnApplicationBootstrap  {
             username: this.elementsConfig.rpcUsername,
             password: this.elementsConfig.rpcPassword,
         };
-        this.configurationDetails = {
+        this.configurationDetails = LiquidConfigurationDetailsSchema.parse({
             rpcUrl: this.rpcUrl,
             rpcAuth: this.rpcAuth,
             xpub: this.xpub,
-        };
+        });
     }
     
     async onApplicationBootstrap(): Promise<void> {
@@ -121,5 +154,44 @@ export class LiquidService implements OnApplicationBootstrap  {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
         return { utxos: confirmedUtxos, totalInputValue };
+    }
+
+    async getNewAddress(): Promise<string> {
+        const address = await this.callRPC('getnewaddress');
+        return z.string().parse(address);
+    }
+
+    async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
+        const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]);
+        return liquid.Transaction.fromBuffer(Buffer.from(z.string().parse(hexTx), 'hex'));
+    }
+
+    async getMempoolInfo(): Promise<MempoolInfo> {
+        const mempoolInfo = await this.callRPC('getmempoolinfo');
+        return MempoolInfoSchema.parse(mempoolInfo);
+    }
+
+    async signPset(psetBase64: string): Promise<liquid.Pset> {
+        const result = WalletProcessPsbtResultSchema.parse(
+            await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL'])
+        );
+        if (!result.complete) {
+            throw new Error('Could not process PSET');
+        }
+        const processedPset = liquid.Pset.fromBase64(result.psbt);
+        if (!processedPset.isComplete()) {
+            throw new Error('PSET is not complete');
+        }
+        return processedPset;
+    }
+
+    async getFinalizedPsetHex(pset: string): Promise<string> {
+        const response = FinalizedPsbtResultSchema.parse(
+            await this.callRPC('finalizepsbt', [pset])
+        );
+        if (!response.complete) {
+            throw new Error('PSET is not complete');
+        }
+        return response.hex;
     }
 }
