@@ -11,7 +11,7 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -40,14 +40,14 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	changed := currentSwap.Status != newStatus
 	switch newStatus {
 	case models.StatusCreated:
-		logger.Debug("Waiting for payment")
+		logger.Debug("waiting for payment")
 	case models.StatusInvoicePaymentIntentReceived:
-		logger.Debug("Off-chain payment detected")
+		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
-		logger.Debug("On-chain payment detected, waiting for confirmation")
+		logger.Debug("on-chain payment detected, waiting for confirmation")
 		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
 	case models.StatusContractFunded:
-		logger.Debug("Contract funded confirmed, claiming on-chain tx")
+		logger.Debug("contract funded confirmed, claiming on-chain tx")
 		tx, err := m.ClaimSwapOut(ctx, &currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to claim swap out: %w", err)
@@ -77,11 +77,9 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 }
 
 func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error) {
-	logger := log.WithFields(log.Fields{
-		"swap_id": swap.SwapID,
-	})
+	logger := log.WithField("id", swap.SwapID)
 
-	logger.Infof("Claiming swap out: %s", swap.SwapID)
+	logger.Infof("claiming swap out: %s", swap.SwapID)
 	res, err := m.swapClient.GetClaimPSBT(ctx, swap.SwapID, swap.DestinationAddress)
 	if err != nil {
 		return "", err
@@ -100,32 +98,33 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	// Deserialize the private key
 	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
 
-	input := &pkt.Inputs[0]
-	fetcher := txscript.NewCannedPrevOutputFetcher(
-		input.WitnessUtxo.PkScript,
-		input.WitnessUtxo.Value,
-	)
-
 	// Process the PSBT
-	tx, err := bitcoin.ProcessPSBT(logger, pkt, privateKey, swap.PreImage, fetcher, input)
+	tx, err := bitcoin.ProcessPSBT(logger, pkt, privateKey, swap.PreImage, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to process PSBT: %w", err)
 	}
 
-	txBuffer := bytes.NewBuffer(nil)
-	err = tx.Serialize(txBuffer)
+	serializedTx, err := serializePSBT(tx)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
 
-	txHex := hex.EncodeToString(txBuffer.Bytes())
-
 	// Send transaction back to the swap client
-	logger.Debug("Sending transaction back to swap client")
-	err = m.swapClient.PostClaim(ctx, swap.SwapID, txHex)
+	logger.Debug("sending transaction back to swap client")
+	err = m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx)
 	if err != nil {
 		return "", err
 	}
 
 	return tx.TxID(), nil
+}
+
+func serializePSBT(tx *wire.MsgTx) (string, error) {
+	txBuffer := bytes.NewBuffer(nil)
+	err := tx.Serialize(txBuffer)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	return hex.EncodeToString(txBuffer.Bytes()), nil
 }

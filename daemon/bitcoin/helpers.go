@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func SignInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHashType txscript.SigHashType, fetcher txscript.PrevOutputFetcher) ([]byte, error) {
+func signInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHashType txscript.SigHashType, fetcher txscript.PrevOutputFetcher) ([]byte, error) {
 	if inputIndex < 0 || inputIndex >= len(packet.Inputs) {
 		return nil, fmt.Errorf("invalid input index: %d", inputIndex)
 	}
@@ -46,7 +46,7 @@ func SignInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHa
 }
 
 // verifies if the inputs are valid and can be spent
-func VerifyInputs(pkt *psbt.Packet, tx *wire.MsgTx, hashCache *txscript.TxSigHashes, prevoutFetcher txscript.PrevOutputFetcher) error {
+func verifyInputs(pkt *psbt.Packet, tx *wire.MsgTx, hashCache *txscript.TxSigHashes, prevoutFetcher txscript.PrevOutputFetcher) error {
 	for i := range pkt.Inputs {
 		lockupTxOutput := pkt.Inputs[i].WitnessUtxo
 
@@ -86,7 +86,7 @@ func signPSBT(pkt *psbt.Packet, privateKey *btcec.PrivateKey, fetcher txscript.P
 	pkt.Inputs[0].SighashType = txscript.SigHashAll
 
 	// Signing the input
-	sig, err := SignInput(pkt, 0, privateKey, txscript.SigHashAll, fetcher)
+	sig, err := signInput(pkt, 0, privateKey, txscript.SigHashAll, fetcher)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign input: %w", err)
 	}
@@ -139,7 +139,14 @@ func finalizePSBT(pkt *psbt.Packet) error {
 	return nil
 }
 
-func ProcessPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateKey, preimage *lntypes.Preimage, fetcher txscript.PrevOutputFetcher, input *psbt.PInput) (*wire.MsgTx, error) {
+func ProcessPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateKey, preimage *lntypes.Preimage, inputIndex int) (*wire.MsgTx, error) {
+	input := &pkt.Inputs[inputIndex]
+
+	fetcher := txscript.NewCannedPrevOutputFetcher(
+		input.WitnessUtxo.PkScript,
+		input.WitnessUtxo.Value,
+	)
+
 	// Sign transaction
 	logger.Debug("Signing transaction")
 	sig, err := signPSBT(pkt, privateKey, fetcher)
@@ -168,7 +175,7 @@ func ProcessPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateK
 
 	// Verify inputs
 	logger.Debug("Verifying inputs")
-	err = VerifyInputs(pkt, tx, txscript.NewTxSigHashes(tx, fetcher), fetcher)
+	err = verifyInputs(pkt, tx, txscript.NewTxSigHashes(tx, fetcher), fetcher)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify inputs: %w", err)
 	}

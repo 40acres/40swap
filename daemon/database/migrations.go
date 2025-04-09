@@ -199,7 +199,7 @@ func RemoveNotNullSwapOut() *gormigrate.Migration {
 }
 
 func AddPreimageTxIdTimeoutBlockHeightToSwapOut() *gormigrate.Migration {
-	const ID = "4_add_preimage_tx_id_timeout_block_height_to_swap_out"
+	const ID = "5_add_preimage_tx_id_timeout_block_height_to_swap_out"
 
 	type swapOut struct {
 		PreImage           *lntypes.Preimage `gorm:"serializer:preimage"`
@@ -235,7 +235,7 @@ func AddPreimageTxIdTimeoutBlockHeightToSwapOut() *gormigrate.Migration {
 }
 
 func ChangeNameClaimPubkey() *gormigrate.Migration {
-	const ID = "5_change_name_claim_pubkey"
+	const ID = "6_change_name_claim_pubkey"
 
 	type swapOut struct {
 		ClaimPrivateKey string `gorm:"column:private_key"`
