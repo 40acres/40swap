@@ -48,10 +48,12 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
 	case models.StatusContractFunded:
 		logger.Debug("Contract funded confirmed, claiming on-chain tx")
-		err := m.ClaimSwapOut(ctx, &currentSwap)
+		tx, err := m.ClaimSwapOut(ctx, &currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to claim swap out: %w", err)
 		}
+		// Save the transaction ID
+		currentSwap.TxID = tx
 	case models.StatusContractClaimedUnconfirmed:
 		logger.Debug("40swap has published the claim transaction, waiting for confirmation")
 	case models.StatusDone:
@@ -74,7 +76,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	return nil
 }
 
-func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) error {
+func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error) {
 	logger := log.WithFields(log.Fields{
 		"swap_id": swap.SwapID,
 	})
@@ -82,18 +84,18 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) er
 	logger.Infof("Claiming swap out: %s", swap.SwapID)
 	res, err := m.swapClient.GetClaimPSBT(ctx, swap.SwapID, swap.DestinationAddress)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Get psbt from response
 	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	privateKeyBytes, err := hex.DecodeString(swap.ClaimPrivateKey)
 	if err != nil {
-		return fmt.Errorf("failed to decode claim private key: %w", err)
+		return "", fmt.Errorf("failed to decode claim private key: %w", err)
 	}
 	// Deserialize the private key
 	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
@@ -107,13 +109,13 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) er
 	// Process the PSBT
 	tx, err := bitcoin.ProcessPSBT(logger, pkt, privateKey, swap.PreImage, fetcher, input)
 	if err != nil {
-		return fmt.Errorf("failed to process PSBT: %w", err)
+		return "", fmt.Errorf("failed to process PSBT: %w", err)
 	}
 
 	txBuffer := bytes.NewBuffer(nil)
 	err = tx.Serialize(txBuffer)
 	if err != nil {
-		return fmt.Errorf("failed to serialize transaction: %w", err)
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
 
 	txHex := hex.EncodeToString(txBuffer.Bytes())
@@ -122,11 +124,8 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) er
 	logger.Debug("Sending transaction back to swap client")
 	err = m.swapClient.PostClaim(ctx, swap.SwapID, txHex)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// Save the transaction ID
-	swap.TxID = tx.TxID()
-
-	return nil
+	return tx.TxID(), nil
 }
