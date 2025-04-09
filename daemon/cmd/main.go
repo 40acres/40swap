@@ -454,9 +454,8 @@ var amountSats = cli.UintFlag{
 }
 
 var address = cli.StringFlag{
-	Name:     "address",
-	Usage:    "Address to swap to",
-	Required: true,
+	Name:  "address",
+	Usage: "Address to swap to",
 }
 
 var serverUrl = cli.StringFlag{

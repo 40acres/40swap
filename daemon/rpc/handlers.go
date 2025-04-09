@@ -138,6 +138,16 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
 	}
 
+	// If the user didn't provide a refund address, generate one from the LND wallet
+	if req.Address == "" {
+		addr, err := server.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate address: %w", err)
+		}
+
+		req.Address = addr
+	}
+
 	config, err := server.swapClient.GetConfiguration(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get configuration: %w", err)
