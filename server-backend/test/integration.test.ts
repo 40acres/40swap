@@ -2,14 +2,17 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import { SwapInStatus } from '../../shared/src/api.types';
-import { SwapOutcome } from '@40swap/shared';
+import { signContractSpend, SwapOutcome, SwapInStatus } from '@40swap/shared';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { BackendRestClient } from './BackendRestClient';
 import { ECPair, waitFor, waitForChainSync } from './utils';
+import { networks, payments } from 'bitcoinjs-lib';
+import { jest } from '@jest/globals';
 
 jest.setTimeout(2 * 60 * 1000);
+
+const network = networks.regtest;
 
 describe('40Swap backend', () => {
     let compose: StartedDockerComposeEnvironment;
@@ -98,12 +101,39 @@ describe('40Swap backend', () => {
             lockBlockDeltaIn: 144, // Minimum allowed value
         });
 
-        // Simulate passing of 144 blocks
-        bitcoind.mine(144);
+        // Send the input amount to the contract address
+        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
 
-        // Verify refund
+        // Simulate passing the timeout block height
+        await bitcoind.mine(145);
+
+        // Verify Contract_EXPIRED status
+        await waitFor(async () => {
+            const swapIn = await backend.getSwapIn(swap.swapId);
+            return swapIn.status === 'CONTRACT_EXPIRED';
+        });
+
+        // Now request a refund
+        const refundPSBT = await backend.getRefundPsbt(swap.swapId, "bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf");
+
+        // Sign the refund transaction
+        signContractSpend({
+            psbt: refundPSBT,
+            network: network,
+            key: ECPair.fromPrivateKey(refundKey.privateKey!),
+            preImage: Buffer.alloc(0),
+        });
+
+        expect(refundPSBT.getFeeRate()).toBeLessThan(1000);
+        const tx = refundPSBT.extractTransaction();
+
+        await backend.publishRefundTx(swap.swapId, tx);
+        // Wait for the refund to be confirmed
+        await bitcoind.mine(6);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
         const swapIn = await backend.getSwapIn(swap.swapId);
-        expect(swapIn.status).toEqual<SwapInStatus>('CONTRACT_REFUNDED_UNCONFIRMED');
+        expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
     async function setUpComposeEnvironment(): Promise<void> {
