@@ -16,6 +16,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
 
+    // Composite
+    "composite": true,
+
     // Preferences
     "strict": true,
     "removeComments": true,    
