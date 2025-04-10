@@ -80,7 +80,7 @@ export class SwapInRunner {
                 if (attempt === retries) {
                     throw e; // Throw error after exhausting retries
                 }
-                await new Promise(resolve => setTimeout(resolve, delay)); // Wait for the delay
+                await sleep(delay);
                 delay *= backoffFactor; // Double the delay for the next retry
             }
         }
