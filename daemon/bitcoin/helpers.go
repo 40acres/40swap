@@ -2,6 +2,7 @@ package bitcoin
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -176,4 +177,15 @@ func SignFinishExtractPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btce
 	}
 
 	return tx, nil
+}
+
+// Serializes a transaction into a hex string
+func SerializeTx(tx *wire.MsgTx) (string, error) {
+	txBuffer := bytes.NewBuffer(nil)
+	err := tx.Serialize(txBuffer)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	return hex.EncodeToString(txBuffer.Bytes()), nil
 }
