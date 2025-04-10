@@ -34,12 +34,12 @@ jobs:
     permissions:
       contents: read
       packages: read
-    services:
-      docker:
-        image: docker:dind
-        options: --privileged --shm-size=2g
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock:ro
+    # services:
+    #   docker:
+    #     image: docker:dind
+    #     options: --privileged --shm-size=2g
+    #     volumes:
+    #       - /var/run/docker.sock:/var/run/docker.sock:ro
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
