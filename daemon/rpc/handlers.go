@@ -152,6 +152,16 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
 	}
 
+	// If the user didn't provide any address, generate one from the LND wallet
+	if req.Address == "" {
+		addr, err := server.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate address: %w", err)
+		}
+
+		req.Address = addr
+	}
+
 	config, err := server.swapClient.GetConfiguration(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get configuration: %w", err)
@@ -180,7 +190,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	pubkey := hex.EncodeToString(claimKey.PubKey().SerializeCompressed())
 
 	// Create swap out
-	swap, err := server.CreateSwapOut(ctx, pubkey, money.Money(req.AmountSats))
+	swap, preimage, err := server.CreateSwapOut(ctx, pubkey, money.Money(req.AmountSats))
 	if err != nil {
 		log.Error("Error creating swap: ", err)
 
@@ -201,15 +211,16 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	}
 
 	swapModel := models.SwapOut{
-		// SwapId:             swap.SwapId, // Wait we merge the models
+		SwapID:             swap.SwapId,
 		Status:             swap.Status,
 		DestinationAddress: req.Address,
 		DestinationChain:   models.Bitcoin,
-		ClaimPubkey:        hex.EncodeToString(claimKey.Serialize()), // TODO: Add claim pubkey to the model
+		ClaimPrivateKey:    hex.EncodeToString(claimKey.Serialize()),
 		PaymentRequest:     swap.Invoice,
 		AmountSats:         int64(amount), // nolint:gosec
 		ServiceFeeSats:     serviceFeeSats.IntPart(),
 		MaxRoutingFeeRatio: maxRoutingFeeRatio,
+		PreImage:           preimage,
 	}
 
 	err = server.Repository.SaveSwapOut(&swapModel)

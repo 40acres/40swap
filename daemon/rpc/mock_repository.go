@@ -55,6 +55,21 @@ func (mr *MockRepositoryMockRecorder) GetPendingSwapIns() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingSwapIns", reflect.TypeOf((*MockRepository)(nil).GetPendingSwapIns))
 }
 
+// GetPendingSwapOuts mocks base method.
+func (m *MockRepository) GetPendingSwapOuts() ([]models.SwapOut, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingSwapOuts")
+	ret0, _ := ret[0].([]models.SwapOut)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingSwapOuts indicates an expected call of GetPendingSwapOuts.
+func (mr *MockRepositoryMockRecorder) GetPendingSwapOuts() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingSwapOuts", reflect.TypeOf((*MockRepository)(nil).GetPendingSwapOuts))
+}
+
 // SaveSwapIn mocks base method.
 func (m *MockRepository) SaveSwapIn(swapIn *models.SwapIn) error {
 	m.ctrl.T.Helper()
