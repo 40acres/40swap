@@ -224,7 +224,10 @@ func main() {
 								Usage:   "The address where the swap will be refunded to",
 								Aliases: []string{"r"},
 							},
-							&amountSats,
+							&cli.UintFlag{
+								Name:  "amt",
+								Usage: "Amount in sats to swap",
+							},
 							&grpcPort,
 							&bitcoin,
 						},
