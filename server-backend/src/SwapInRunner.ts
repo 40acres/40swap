@@ -70,7 +70,7 @@ export class SwapInRunner {
         }
     }
 
-    private async retrySendPayment(invoice: string, cltvLimit: number, retries: number = 3, initialDelay: number = 300000, backoffFactor: number = 2): Promise<Buffer> {
+    private async retrySendPayment(invoice: string, cltvLimit: number, retries = 3, initialDelay = 300000, backoffFactor = 2): Promise<Buffer> {
         let delay = initialDelay;
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
