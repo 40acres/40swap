@@ -101,6 +101,8 @@ services:
       - "8080"
       - "10009"
       - "9735"
+    ports:
+      - "10003:10009"
   nbxplorer:
     image: nicolasdorier/nbxplorer:2.5.17
     container_name: 40swap_nbxplorer

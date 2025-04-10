@@ -56,13 +56,12 @@ describe('40Swap backend', () => {
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
             .withBuild()
             .withWaitStrategy('40swap-backend-1', Wait.forHealthCheck())
-            .withWaitStrategy('lnd-lsp-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
-            .withWaitStrategy('lnd-alice-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
-            .withWaitStrategy('lnd-user-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('40swap_lnd_lsp', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('40swap_lnd_alice', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('40swap_lnd_user', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withEnvironment({ BACKEND_CONFIG_FILE: configFilePath });
         compose = await composeDef.up(['lnd-lsp']);
-
-        lndLsp = await Lnd.fromContainer(compose.getContainer('lnd-lsp-1'));
+        lndLsp = await Lnd.fromContainer(compose.getContainer('40swap_lnd_lsp'));
 
         const config = {
             server: {
@@ -112,9 +111,9 @@ describe('40Swap backend', () => {
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
 
         compose = await composeDef.up();
-        lndUser = await Lnd.fromContainer(compose.getContainer('lnd-user-1'));
-        lndAlice = await Lnd.fromContainer(compose.getContainer('lnd-alice-1'));
-        bitcoind = new Bitcoind(compose.getContainer('bitcoind-1'));
+        lndUser = await Lnd.fromContainer(compose.getContainer('40swap_lnd_user'));
+        lndAlice = await Lnd.fromContainer(compose.getContainer('40swap_lnd_alice'));
+        bitcoind = new Bitcoind(compose.getContainer('40swap_bitcoind'));
         backend = new BackendRestClient(compose.getContainer('40swap-backend-1'));
     }
 
