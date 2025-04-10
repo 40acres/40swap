@@ -8,28 +8,19 @@
     "esModuleInterop": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "types": [
-      "vite/client"
-    ],
+    "types": ["vite/client"],
     "noEmit": true,
     "isolatedModules": true,
     "sourceMap": true,
     "rootDir": "src",
     "outDir": "dist",
     "skipLibCheck": true,
-    "lib": [
-      "dom",
-      "esnext"
-    ],
+    "lib": ["dom", "esnext"],
     "paths": {
-      "@40swap/shared": [
-        "../shared/src/index.ts"
-      ]
+      "@40swap/shared": ["../shared/src/index.ts"]
     }
   },
-  "references": [
-    {
-      "path": "../shared"
-    }
-  ]
+  "references": [{
+    "path": "../shared"
+  }]
 }
