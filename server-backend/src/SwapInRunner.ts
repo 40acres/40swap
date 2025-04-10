@@ -71,7 +71,7 @@ export class SwapInRunner {
         }
     }
 
-    private async retrySendPayment(invoice: string, cltvLimit: number, retries: number = 3, initialDelay: number = 300000, backoffFactor: number = 2): Promise<Buffer> {
+    private async retrySendPayment(invoice: string, cltvLimit: number, retries = 3, initialDelay = 300000, backoffFactor = 2): Promise<Buffer> {
         let delay = initialDelay;
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
@@ -95,7 +95,7 @@ export class SwapInRunner {
                 const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
                 this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
             } catch (e) {
-                this.logger.log(`The lightning payment failed after retries (id=${this.swap.id})`, e);
+                this.logger.error(`The lightning payment failed after retries (id=${this.swap.id})`, e);
                 return;
             }
             this.swap.status = 'INVOICE_PAID';
