@@ -78,6 +78,10 @@ func generate(db *gorm.DB, path string) (err error) {
 			gen.FieldType("status", "SwapStatus"),
 			gen.FieldType("outcome", "*SwapOutcome"),
 			gen.FieldType("destination_chain", "Chain"),
+			gen.FieldType("pre_image", "*lntypes.Preimage"),
+			gen.FieldGORMTag("pre_image", func(tag field.GormTag) field.GormTag {
+				return tag.Set("serializer", "preimage")
+			}),
 		),
 	)
 

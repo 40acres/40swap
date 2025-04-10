@@ -133,9 +133,140 @@ func RemoveNotNullInOutcome() *gormigrate.Migration {
 	}
 }
 
+// This migration adds the `RefundRequestedAt` column to the `SwapIn` table
+func AddColumnRefundRequested() *gormigrate.Migration {
+	const ID = "3_add_column_refund_requested"
+
+	type swapIn struct {
+		RefundRequestedAt *time.Time
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			return tx.Migrator().AddColumn(&swapIn{}, "RefundRequestedAt")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			return tx.Migrator().DropColumn(&swapIn{}, "RefundRequestedAt")
+		},
+	}
+}
+
+func RemoveNotNullSwapOut() *gormigrate.Migration {
+	const ID = "4_remove_not_null_constraints_swap_out"
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			type swapOut struct {
+				Description     *string
+				OnchainFeeSATS  uint64
+				OffchainFeeSATS uint64
+			}
+
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "Description"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OnchainFeeSATS"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OffchainFeeSATS"); err != nil {
+				return err
+			}
+
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			type swapOut struct {
+				Description     *string `gorm:"not null"`
+				OnchainFeeSATS  uint64  `gorm:"not null"`
+				OffchainFeeSATS uint64  `gorm:"not null"`
+			}
+
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "Description"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OnchainFeeSATS"); err != nil {
+				return err
+			}
+			if err := tx.Migrator().AlterColumn(&swapOut{}, "OffchainFeeSATS"); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+}
+
+func AddPreimageTxIdTimeoutBlockHeightToSwapOut() *gormigrate.Migration {
+	const ID = "5_add_preimage_tx_id_timeout_block_height_to_swap_out"
+
+	type swapOut struct {
+		PreImage           *lntypes.Preimage `gorm:"serializer:preimage"`
+		TxId               string
+		TimeoutBlockHeight uint64
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().AddColumn(&swapOut{}, "PreImage"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().AddColumn(&swapOut{}, "TimeoutBlockHeight"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().AddColumn(&swapOut{}, "TxId")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().DropColumn(&swapOut{}, "PreImage"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().DropColumn(&swapOut{}, "TimeoutBlockHeight"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().DropColumn(&swapOut{}, "TxId")
+		},
+	}
+}
+
+func ChangeNameClaimPubkey() *gormigrate.Migration {
+	const ID = "6_change_name_claim_pubkey"
+
+	type swapOut struct {
+		ClaimPrivateKey string `gorm:"column:private_key"`
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().RenameColumn(&swapOut{}, "claim_pubkey", "claim_private_key"); err != nil {
+				return err
+			}
+
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().RenameColumn(&swapOut{}, "claim_private_key", "claim_pubkey"); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
+	AddColumnRefundRequested(),
+	RemoveNotNullSwapOut(),
+	AddPreimageTxIdTimeoutBlockHeightToSwapOut(),
+	ChangeNameClaimPubkey(),
 }
 
 type Migrator struct {

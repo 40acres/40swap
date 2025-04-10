@@ -56,14 +56,17 @@ func WithExpiry(duration time.Duration) InvoiceOption {
 func CreateMockInvoice(t *testing.T, amsats int64, opts ...InvoiceOption) string {
 	t.Helper()
 
-	amountInMillisats := lnwire.NewMSatFromSatoshis(btcutil.Amount(amsats))
 	var decodedInvoice = zpay32.Invoice{
-		MilliSat:    &amountInMillisats,
 		Net:         &chaincfg.RegressionNetParams,
 		PaymentHash: &TestPaymentHash,
 		Description: &Description,
 		Features:    EmptyFeatures,
 		Timestamp:   time.Now(),
+	}
+
+	if amsats >= 0 {
+		amountInMillisats := lnwire.NewMSatFromSatoshis(btcutil.Amount(amsats))
+		decodedInvoice.MilliSat = &amountInMillisats
 	}
 
 	for _, opt := range opts {
