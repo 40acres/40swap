@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "nest build",
+    "build": "tsc --build",
     "build:loop-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/loop src/loop/loop.client.proto",
     "build:lnd-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/lnd src/lnd/lnd.client.proto",
     "build:protos": "npm run build:lnd-proto && npm run build:loop-proto",
