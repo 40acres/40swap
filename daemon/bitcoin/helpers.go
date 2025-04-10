@@ -189,3 +189,16 @@ func SerializeTx(tx *wire.MsgTx) (string, error) {
 
 	return hex.EncodeToString(txBuffer.Bytes()), nil
 }
+
+// Deserializes string into a btcec.PrivateKey
+func DeserializePrivateKey(privKey string) (*btcec.PrivateKey, error) {
+	privateKeyBytes, err := hex.DecodeString(privKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode refund private key: %w", err)
+	}
+
+	// Deserialize the private key
+	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
+
+	return privateKey, nil
+}

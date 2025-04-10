@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -121,13 +119,10 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 		return "", fmt.Errorf("invalid refund tx")
 	}
 
-	privateKeyBytes, err := hex.DecodeString(swap.RefundPrivatekey)
+	privateKey, err := bitcoin.DeserializePrivateKey(swap.RefundPrivatekey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode refund private key: %w", err)
 	}
-
-	// Deserialize the private key
-	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
 
 	// Process the PSBT
 	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
