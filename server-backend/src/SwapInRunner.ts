@@ -14,6 +14,7 @@ import * as ecc from 'tiny-secp256k1';
 import moment from 'moment';
 import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
+import { sleep } from './utils.js';
 
 const ECPair = ECPairFactory(ecc);
 
