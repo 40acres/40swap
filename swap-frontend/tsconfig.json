@@ -21,7 +21,6 @@
       "dom",
       "esnext"
     ],
-    "composite": true,
     "paths": {
       "@40swap/shared": [
         "../shared/src/index.ts"
