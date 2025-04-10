@@ -57,7 +57,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		return nil, fmt.Errorf("zero amount invoices are not supported")
 	}
 	if req.AmountSats != nil && *req.AmountSats != uint64(*invoice.MilliSat/1000) {
-		return nil, fmt.Errorf("amountSats %d does not match invoice amount %d", *req.AmountSats, *invoice.MilliSat/1000)
+		return nil, fmt.Errorf("request amount %d does not match invoice amount %d", *req.AmountSats, *invoice.MilliSat/1000)
 	}
 
 	// If the user didn't provide a refund address, generate one to the connected lightning node
