@@ -15,6 +15,7 @@ import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
+import { SwapInStatus } from '@40swap/shared';
 
 export const SwapInDetails: Component = () => {
     const { swapInService, localSwapStorageService } = applicationContext;
@@ -22,7 +23,7 @@ export const SwapInDetails: Component = () => {
     const [config] = createResource(() => applicationContext.config);
     const params = useParams();
     const { id: swapId } = params;
-    const [remoteSwap, { refetch }] = createResource(swapId, id => swapInService.getSwap(id) );
+    const [remoteSwap, { refetch }] = createResource(swapId, id => swapInService.getSwap(id));
     const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
     const [refundAddress, setRefundAddress] = createSignal('');
 
@@ -132,7 +133,7 @@ export const SwapInDetails: Component = () => {
                                     <td>Lightning invoice paid, claiming on-chain tx</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                            <Match when={s().status === SwapInStatus.CONTRACT_EXPIRED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>{
@@ -177,26 +178,26 @@ export const SwapInDetails: Component = () => {
                 </Table>
                 <Switch fallback={
                     <div class="d-flex flex-column align-items-center pt-5 gap-4">
-                        <Spinner/>
+                        <Spinner />
                         <div class="text-muted">Completing the swap</div>
                     </div>
                 }>
                     <Match when={s().status === 'CREATED'}>
                         <div class="d-flex justify-content-center">
-                            <QrCode data={bip21Address()} image={bitcoinLogo}/>
+                            <QrCode data={bip21Address()} image={bitcoinLogo} />
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
                             <a href={bip21Address()} class="btn btn-primary" role="button">Pay</a>
                             <Button onclick={() => navigator.clipboard.writeText(s().inputAmount.toString())}>
-                                <Fa icon={faCopy}/> Copy amount
+                                <Fa icon={faCopy} /> Copy amount
                             </Button>
                             <Button onclick={() => navigator.clipboard.writeText(s().contractAddress.toString())}>
-                                <Fa icon={faCopy}/> Copy address
+                                <Fa icon={faCopy} /> Copy address
                             </Button>
                         </div>
                     </Match>
                     <Match when={s().status === 'DONE'}>
-                        <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack}/> Start new swap</A>
+                        <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack} /> Start new swap</A>
                     </Match>
                     <Match when={s().status === 'CONTRACT_EXPIRED' && s().refundRequestDate == null}>
                         <div>

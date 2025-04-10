@@ -12,6 +12,7 @@ import { Spinner } from './Spinner.js';
 import failureImage from './assets/failure-image.png';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
+import { SwapOutStatus } from '@40swap/shared';
 
 
 export const SwapOutDetails: Component = () => {
@@ -34,7 +35,7 @@ export const SwapOutDetails: Component = () => {
         if (swap.status === 'CONTRACT_FUNDED') {
             try {
                 await swapOutService.claim(swap);
-                await localSwapStorageService.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date()});
+                await localSwapStorageService.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
                 refetch();
             } catch (e) {
                 console.log('unhandled error', e);
@@ -88,7 +89,7 @@ export const SwapOutDetails: Component = () => {
                                     <td>Funds locked-up on-chain. Claiming funds to your receiving address</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                            <Match when={s().status === SwapOutStatus.CONTRACT_EXPIRED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>On-chain contract expired. Refunding to 40swap</td>
@@ -144,18 +145,18 @@ export const SwapOutDetails: Component = () => {
 
                 <Switch fallback={
                     <div class="d-flex flex-column align-items-center pt-5 gap-4">
-                        <Spinner/>
+                        <Spinner />
                         <div class="text-muted">Completing the swap</div>
                     </div>
                 }>
                     <Match when={s().status === 'CREATED'}>
                         <div class="d-flex justify-content-center">
-                            <QrCode data={lightningLink()} image={lightningLogo}/>
+                            <QrCode data={lightningLink()} image={lightningLogo} />
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
                             <a href={lightningLink()} class="btn btn-primary" role="button">Pay</a>
                             <Button onclick={() => navigator.clipboard.writeText(s().invoice)}>
-                                <Fa icon={faCopy}/> Copy invoice
+                                <Fa icon={faCopy} /> Copy invoice
                             </Button>
                         </div>
                     </Match>

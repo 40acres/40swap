@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import { signContractSpend, SwapOutcome, SwapInStatus } from '@40swap/shared';
+import {  } from '../../shared/src/api.types';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { BackendRestClient } from './BackendRestClient';
@@ -39,14 +40,14 @@ describe('40Swap backend', () => {
             invoice: paymentRequest!,
             refundPublicKey: refundKey.publicKey.toString('hex'),
         });
-        expect(swap.status).toEqual<SwapInStatus>('CREATED');
+        expect(swap.status).toEqual<SwapInStatus>(SwapInStatus.CREATED);
 
         await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.CONTRACT_FUNDED_UNCONFIRMED);
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.CONTRACT_CLAIMED_UNCONFIRMED);
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.DONE);
 
         swap = await backend.getSwapIn(swap.swapId);
         expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
@@ -63,14 +64,14 @@ describe('40Swap backend', () => {
             refundPublicKey: refundKey.publicKey.toString('hex'),
             lockBlockDeltaIn: 500, // Custom CLTV expiry for testing
         });
-        expect(swap.status).toEqual<SwapInStatus>('CREATED');
+        expect(swap.status).toEqual<SwapInStatus>(SwapInStatus.CREATED);
 
         await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.CONTRACT_FUNDED_UNCONFIRMED);
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.CONTRACT_CLAIMED_UNCONFIRMED);
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.DONE);
 
         swap = await backend.getSwapIn(swap.swapId);
         expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
@@ -103,7 +104,7 @@ describe('40Swap backend', () => {
 
         // Send the input amount to the contract address
         await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.CONTRACT_FUNDED_UNCONFIRMED);
 
         // Simulate passing the timeout block height
         await bitcoind.mine(145);
@@ -111,7 +112,7 @@ describe('40Swap backend', () => {
         // Verify Contract_EXPIRED status
         await waitFor(async () => {
             const swapIn = await backend.getSwapIn(swap.swapId);
-            return swapIn.status === 'CONTRACT_EXPIRED';
+            return swapIn.status === SwapInStatus.CONTRACT_EXPIRED;
         });
 
         // Now request a refund
@@ -131,7 +132,7 @@ describe('40Swap backend', () => {
         await backend.publishRefundTx(swap.swapId, tx);
         // Wait for the refund to be confirmed
         await bitcoind.mine(6);
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === SwapInStatus.DONE);
         const swapIn = await backend.getSwapIn(swap.swapId);
         expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
     });

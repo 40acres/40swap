@@ -8,35 +8,33 @@ const CHAINS = [
 const chainSchema = z.enum(CHAINS);
 export type Chain = z.infer<typeof chainSchema>;
 
-const SWAP_IN_STATUSES = [
-    // happy path
-    'CREATED',
-    'CONTRACT_FUNDED_UNCONFIRMED',
-    'CONTRACT_FUNDED',
-    'INVOICE_PAID',
-    'CONTRACT_CLAIMED_UNCONFIRMED',
-    'DONE',
-    // if it expires after CONTRACT_FUNDED
-    'CONTRACT_REFUNDED_UNCONFIRMED',
-    'CONTRACT_EXPIRED',
-] as const;
-const swapInStatusSchema = z.enum(SWAP_IN_STATUSES);
-export type SwapInStatus = z.infer<typeof swapInStatusSchema>;
+export enum SwapInStatus {
+    // Happy path
+    CREATED = 'CREATED',
+    CONTRACT_FUNDED_UNCONFIRMED = 'CONTRACT_FUNDED_UNCONFIRMED',
+    CONTRACT_FUNDED = 'CONTRACT_FUNDED',
+    INVOICE_PAID = 'INVOICE_PAID',
+    CONTRACT_CLAIMED_UNCONFIRMED = 'CONTRACT_CLAIMED_UNCONFIRMED',
+    DONE = 'DONE',
+    // if it expire after CONTRACT_FUNDED
+    CONTRACT_REFUNDED_UNCONFIRMED = 'CONTRACT_REFUNDED_UNCONFIRMED',
+    CONTRACT_EXPIRED = 'CONTRACT_EXPIRED',
+}
 
-const SWAP_OUT_STATUSES = [
-    // happy path
-    'CREATED',
-    'INVOICE_PAYMENT_INTENT_RECEIVED',
-    'CONTRACT_FUNDED_UNCONFIRMED',
-    'CONTRACT_FUNDED',
-    'CONTRACT_CLAIMED_UNCONFIRMED',
-    'DONE',
-    // if it expires after CONTRACT_FUNDED
-    'CONTRACT_EXPIRED',
-    'CONTRACT_REFUNDED_UNCONFIRMED',
-] as const;
-const swapOutStatusSchema = z.enum(SWAP_OUT_STATUSES);
-export type SwapOutStatus = z.infer<typeof swapOutStatusSchema>;
+export enum SwapOutStatus {
+    CREATED = 'CREATED',
+    INVOICE_PAYMENT_INTENT_RECEIVED = 'INVOICE_PAYMENT_INTENT_RECEIVED',
+    CONTRACT_FUNDED_UNCONFIRMED = 'CONTRACT_FUNDED_UNCONFIRMED',
+    CONTRACT_FUNDED = 'CONTRACT_FUNDED',
+    CONTRACT_CLAIMED_UNCONFIRMED = 'CONTRACT_CLAIMED_UNCONFIRMED',
+    DONE = 'DONE',
+    CONTRACT_EXPIRED = 'CONTRACT_EXPIRED',
+    CONTRACT_REFUNDED_UNCONFIRMED = 'CONTRACT_REFUNDED_UNCONFIRMED',
+}
+
+// Update schemas to use enums
+export const swapInStatusSchema = z.nativeEnum(SwapInStatus);
+export const swapOutStatusSchema = z.nativeEnum(SwapOutStatus);
 
 const SWAP_OUTCOMES = [
     'SUCCESS',
