@@ -11,6 +11,7 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
 	log "github.com/sirupsen/logrus"
 )
@@ -86,9 +87,9 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	}
 
 	// Get psbt from response
-	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
+	pkt, err := psbt.NewFromRawBytes(bytes.NewReader([]byte(res.PSBT)), true)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse PSBT: %w", err)
 	}
 
 	privateKeyBytes, err := hex.DecodeString(swap.ClaimPrivateKey)
