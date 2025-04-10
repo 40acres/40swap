@@ -138,7 +138,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
 	}
 
-	// If the user didn't provide a refund address, generate one from the LND wallet
+	// If the user didn't provide any address, generate one from the LND wallet
 	if req.Address == "" {
 		addr, err := server.lightningClient.GenerateAddress(ctx)
 		if err != nil {

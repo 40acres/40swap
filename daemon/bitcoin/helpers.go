@@ -37,11 +37,6 @@ func signInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHa
 	signature := ecdsa.Sign(key, sigHash)
 	sigWithHashType := append(signature.Serialize(), byte(sigHashType))
 
-	valid := signature.Verify(sigHash, key.PubKey())
-	if !valid {
-		return nil, fmt.Errorf("signature verification failed: %w", err)
-	}
-
 	return sigWithHashType, nil
 }
 
@@ -139,7 +134,7 @@ func finalizePSBT(pkt *psbt.Packet) error {
 	return nil
 }
 
-func ProcessPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateKey, preimage *lntypes.Preimage, inputIndex int) (*wire.MsgTx, error) {
+func SignFinishExtractPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateKey, preimage *lntypes.Preimage, inputIndex int) (*wire.MsgTx, error) {
 	input := &pkt.Inputs[inputIndex]
 
 	fetcher := txscript.NewCannedPrevOutputFetcher(

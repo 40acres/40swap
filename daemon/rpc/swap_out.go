@@ -12,10 +12,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const preimageSize = 32
+
 func (server *Server) CreateSwapOut(ctx context.Context, claimPubKey string, amountSats money.Money) (*swaps.SwapOutResponse, *lntypes.Preimage, error) {
 	log.Info("Creating swap")
 
-	preimageBytes := make([]byte, 32)
+	preimageBytes := make([]byte, preimageSize)
 	_, _ = rand.Read(preimageBytes)
 
 	preimage, err := lntypes.MakePreimage(preimageBytes)

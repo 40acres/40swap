@@ -44,7 +44,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	case models.StatusInvoicePaymentIntentReceived:
 		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
-		logger.Debug("on-chain payment detected, waiting for confirmation")
+		logger.Debug("on-chain HTLC contract detected, waiting for confirmation")
 		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")
@@ -99,7 +99,7 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
 
 	// Process the PSBT
-	tx, err := bitcoin.ProcessPSBT(logger, pkt, privateKey, swap.PreImage, 0)
+	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, swap.PreImage, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to process PSBT: %w", err)
 	}
