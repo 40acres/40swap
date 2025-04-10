@@ -53,9 +53,6 @@ jobs:
       - name: Install dependencies
         working-directory: server-backend
         run: npm ci
-      - name: Build shared
-        working-directory: shared
-        run: npm run build
       - name: Run tests
         working-directory: server-backend
         run: npm test
