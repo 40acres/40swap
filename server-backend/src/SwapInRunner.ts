@@ -94,7 +94,7 @@ export class SwapInRunner {
                 const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
                 this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
             } catch (e) {
-                this.logger.log(`The lightning payment failed after retries (id=${this.swap.id})`, e);
+                this.logger.error(`The lightning payment failed after retries (id=${this.swap.id})`, e);
                 return;
             }
             this.swap.status = 'INVOICE_PAID';
