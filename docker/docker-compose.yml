@@ -113,8 +113,6 @@ services:
         condition: service_healthy
       bitcoind:
         condition: service_started
-      elements:
-        condition: service_started
     restart: always
     environment:
       NBXPLORER_NETWORK: regtest
