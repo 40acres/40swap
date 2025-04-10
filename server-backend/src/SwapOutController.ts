@@ -93,6 +93,7 @@ export class SwapOutController {
         assert(swap.lockTx != null);
         const lockTx = Transaction.fromBuffer(swap.lockTx);
         const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
+        claimPsbt.locktime = swap.timeoutBlockHeight;
         return { psbt: claimPsbt.toBase64() };
     }
 

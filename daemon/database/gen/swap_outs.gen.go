@@ -36,11 +36,14 @@ func newSwapOut(db *gorm.DB, opts ...gen.DOOption) swapOut {
 	_swapOut.OnchainFeeSats = field.NewInt64(tableName, "onchain_fee_sats")
 	_swapOut.OffchainFeeSats = field.NewInt64(tableName, "offchain_fee_sats")
 	_swapOut.DestinationChain = field.NewField(tableName, "destination_chain")
-	_swapOut.ClaimPubkey = field.NewString(tableName, "claim_pubkey")
+	_swapOut.ClaimPrivateKey = field.NewString(tableName, "claim_private_key")
 	_swapOut.PaymentRequest = field.NewString(tableName, "payment_request")
 	_swapOut.Description = field.NewString(tableName, "description")
 	_swapOut.MaxRoutingFeeRatio = field.NewFloat64(tableName, "max_routing_fee_ratio")
 	_swapOut.Outcome = field.NewField(tableName, "outcome")
+	_swapOut.PreImage = field.NewField(tableName, "pre_image")
+	_swapOut.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
+	_swapOut.TxID = field.NewString(tableName, "tx_id")
 
 	_swapOut.fillFieldMap()
 
@@ -60,11 +63,14 @@ type swapOut struct {
 	OnchainFeeSats     field.Int64
 	OffchainFeeSats    field.Int64
 	DestinationChain   field.Field
-	ClaimPubkey        field.String
+	ClaimPrivateKey    field.String
 	PaymentRequest     field.String
 	Description        field.String
 	MaxRoutingFeeRatio field.Float64
 	Outcome            field.Field
+	PreImage           field.Field
+	TimeoutBlockHeight field.Int64
+	TxID               field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -90,11 +96,14 @@ func (s *swapOut) updateTableName(table string) *swapOut {
 	s.OnchainFeeSats = field.NewInt64(table, "onchain_fee_sats")
 	s.OffchainFeeSats = field.NewInt64(table, "offchain_fee_sats")
 	s.DestinationChain = field.NewField(table, "destination_chain")
-	s.ClaimPubkey = field.NewString(table, "claim_pubkey")
+	s.ClaimPrivateKey = field.NewString(table, "claim_private_key")
 	s.PaymentRequest = field.NewString(table, "payment_request")
 	s.Description = field.NewString(table, "description")
 	s.MaxRoutingFeeRatio = field.NewFloat64(table, "max_routing_fee_ratio")
 	s.Outcome = field.NewField(table, "outcome")
+	s.PreImage = field.NewField(table, "pre_image")
+	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
+	s.TxID = field.NewString(table, "tx_id")
 
 	s.fillFieldMap()
 
@@ -119,7 +128,7 @@ func (s *swapOut) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapOut) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 14)
+	s.fieldMap = make(map[string]field.Expr, 17)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["status"] = s.Status
@@ -129,11 +138,14 @@ func (s *swapOut) fillFieldMap() {
 	s.fieldMap["onchain_fee_sats"] = s.OnchainFeeSats
 	s.fieldMap["offchain_fee_sats"] = s.OffchainFeeSats
 	s.fieldMap["destination_chain"] = s.DestinationChain
-	s.fieldMap["claim_pubkey"] = s.ClaimPubkey
+	s.fieldMap["claim_private_key"] = s.ClaimPrivateKey
 	s.fieldMap["payment_request"] = s.PaymentRequest
 	s.fieldMap["description"] = s.Description
 	s.fieldMap["max_routing_fee_ratio"] = s.MaxRoutingFeeRatio
 	s.fieldMap["outcome"] = s.Outcome
+	s.fieldMap["pre_image"] = s.PreImage
+	s.fieldMap["timeout_block_height"] = s.TimeoutBlockHeight
+	s.fieldMap["tx_id"] = s.TxID
 }
 
 func (s swapOut) clone(db *gorm.DB) swapOut {
