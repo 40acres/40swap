@@ -27,7 +27,7 @@ export class SwapOutRunner {
     private readonly logger = new Logger(SwapOutRunner.name);
     private runningPromise: Promise<void>;
     private notifyFinished!: () => void;
-    private expiryPoller: NodeJS.Timeout|undefined;
+    private expiryPoller: NodeJS.Timeout | undefined;
 
     constructor(
         private swap: SwapOut,
@@ -45,12 +45,12 @@ export class SwapOutRunner {
     }
 
     async run(): Promise<void> {
-        if (this.swap.status === 'CREATED') {
+        if (this.swap.status === SwapOutStatus.CREATED) {
             this.expiryPoller = setInterval(
                 () => this.checkExpiry(),
                 moment.duration(1, 'minute').asMilliseconds(),
             );
-            this.onStatusChange('CREATED');
+            this.onStatusChange(SwapOutStatus.CREATED);
         }
         return this.runningPromise;
     }
@@ -64,7 +64,7 @@ export class SwapOutRunner {
 
     private async checkExpiry(): Promise<void> {
         const { swap } = this;
-        if (swap.status === 'CREATED') {
+        if (swap.status === SwapOutStatus.CREATED) {
             const expired = moment(swap.createdAt).isBefore(moment().subtract(this.swapConfig.expiryDuration));
             if (expired) {
                 this.logger.log(`Swap expired (id=${this.swap.id})`);
@@ -73,7 +73,7 @@ export class SwapOutRunner {
                 } catch (e) {
                     this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id})`, e);
                 }
-                swap.status = 'DONE';
+                swap.status = SwapOutStatus.DONE;
                 swap.outcome = 'EXPIRED';
                 this.swap = await this.repository.save(swap);
                 await this.stop();
@@ -86,27 +86,27 @@ export class SwapOutRunner {
     async onStatusChange(status: SwapOutStatus): Promise<void> {
         const { swap } = this;
         this.logger.log(`Swap out changed to status ${status} (id=${this.swap.id})`);
-        if (status === 'CREATED') {
+        if (status === SwapOutStatus.CREATED) {
             this.waitForLightningPaymentIntent();
-        } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
+        } else if (status === SwapOutStatus.INVOICE_PAYMENT_INTENT_RECEIVED) {
             if (swap.chain === 'LIQUID') {
                 swap.timeoutBlockHeight = await this.getLiquidCltvExpiry();
                 swap.lockScript = reverseSwapScript(
-                    swap.preImageHash, 
-                    swap.counterpartyPubKey, 
-                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
+                    swap.preImageHash,
+                    swap.counterpartyPubKey,
+                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey,
                     swap.timeoutBlockHeight
                 );
                 const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-                const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
+                const p2wsh = liquid.payments.p2wsh({ redeem: { output: swap.lockScript, network }, network });
                 assert(p2wsh.address != null);
                 swap.contractAddress = p2wsh.address;
                 this.swap = await this.repository.save(swap);
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
                 const pset = await psetBuilder.getPset(
-                    swap.outputAmount.mul(1e8).toNumber(), 
-                    p2wsh.address, 
+                    swap.outputAmount.mul(1e8).toNumber(),
+                    p2wsh.address,
                     Buffer.alloc(0), // TODO: add a proper blinding key
                     swap.timeoutBlockHeight
                 );
@@ -121,7 +121,7 @@ export class SwapOutRunner {
                     swap.timeoutBlockHeight,
                 );
                 const { network } = this.bitcoinConfig;
-                const { address: contractAddress } = payments.p2wsh({network, redeem: { output: swap.lockScript, network }});
+                const { address: contractAddress } = payments.p2wsh({ network, redeem: { output: swap.lockScript, network } });
                 assert(contractAddress != null);
                 swap.contractAddress = contractAddress;
                 await this.nbxplorer.trackAddress(contractAddress);
@@ -129,7 +129,7 @@ export class SwapOutRunner {
                 await this.lnd.sendCoinsOnChain(contractAddress, swap.outputAmount.mul(1e8).toNumber());
             }
             this.logger.debug(`Using timeoutBlockHeight=${swap.timeoutBlockHeight} (id=${swap.id})`);
-        } else if (status === 'CONTRACT_EXPIRED') {
+        } else if (status === SwapOutStatus.CONTRACT_EXPIRED) {
             assert(swap.lockTx != null);
             if (swap.chain === 'LIQUID') {
                 const refundTx = await this.buildLiquidRefundTx(swap);
@@ -159,18 +159,18 @@ export class SwapOutRunner {
         const currentBitcoinHeight = (await this.nbxplorer.getNetworkStatus()).chainHeight;
         const invoiceExpiry = await this.getCltvExpiry();
         assert(invoiceExpiry > currentBitcoinHeight, `invoiceExpiry=${invoiceExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
-        return currentLiquidHeight + ((invoiceExpiry-currentBitcoinHeight)*ratio);
+        return currentLiquidHeight + ((invoiceExpiry - currentBitcoinHeight) * ratio);
     }
 
     private async waitForLightningPaymentIntent(): Promise<void> {
         const { swap } = this;
-        let invoice: Invoice__Output|undefined;
-        while (swap.status === 'CREATED') { // it will stop if swap expires
+        let invoice: Invoice__Output | undefined;
+        while (swap.status === SwapOutStatus.CREATED) { // it will stop if swap expires
             invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
             if (invoice.state === 'ACCEPTED') {
-                swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
+                swap.status = SwapOutStatus.INVOICE_PAYMENT_INTENT_RECEIVED;
                 this.swap = await this.repository.save(this.swap);
-                this.onStatusChange('INVOICE_PAYMENT_INTENT_RECEIVED');
+                this.onStatusChange(SwapOutStatus.INVOICE_PAYMENT_INTENT_RECEIVED);
                 return;
             } else if (invoice.state === 'CANCELED') {
                 // the swap will expire
@@ -203,24 +203,24 @@ export class SwapOutRunner {
         const { swap } = this;
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
-        const expectedAmount = swap.chain === 'LIQUID' ? 
-            new Decimal((output as unknown as NBXplorerLiquidTransactionOutput).value.value).div(1e8) : 
+        const expectedAmount = swap.chain === 'LIQUID' ?
+            new Decimal((output as unknown as NBXplorerLiquidTransactionOutput).value.value).div(1e8) :
             new Decimal(output.value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.error(`Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`);
             return;
         }
-        if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
+        if (this.swap.status === SwapOutStatus.INVOICE_PAYMENT_INTENT_RECEIVED || this.swap.status === SwapOutStatus.CONTRACT_FUNDED_UNCONFIRMED) {
             if (event.data.transactionData.height != null) {
                 swap.lockTxHeight = event.data.transactionData.height;
             }
             swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
 
-            if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
-                swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
+            if (this.swap.status === SwapOutStatus.INVOICE_PAYMENT_INTENT_RECEIVED) {
+                swap.status = SwapOutStatus.CONTRACT_FUNDED_UNCONFIRMED;
                 this.swap = await this.repository.save(swap);
-                await this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
+                await this.onStatusChange(SwapOutStatus.CONTRACT_FUNDED_UNCONFIRMED);
             } else {
                 this.swap = await this.repository.save(swap);
             }
@@ -230,11 +230,11 @@ export class SwapOutRunner {
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         assert(swap.lockTx != null);
-        const lockTx = swap.chain === 'LIQUID' ? 
-            liquid.Transaction.fromBuffer(swap.lockTx) : 
+        const lockTx = swap.chain === 'LIQUID' ?
+            liquid.Transaction.fromBuffer(swap.lockTx) :
             Transaction.fromBuffer(swap.lockTx);
-        const unlockTx = swap.chain === 'LIQUID' ? 
-            liquid.Transaction.fromHex(event.data.transactionData.transaction) : 
+        const unlockTx = swap.chain === 'LIQUID' ?
+            liquid.Transaction.fromHex(event.data.transactionData.transaction) :
             Transaction.fromHex(event.data.transactionData.transaction);
 
         swap.unlockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
@@ -245,8 +245,8 @@ export class SwapOutRunner {
 
         const isSendingToRefundAddress = unlockTx.outs.find(o => {
             try {
-                const sweepAddress = swap.chain === 'LIQUID' ? 
-                    liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest) : 
+                const sweepAddress = swap.chain === 'LIQUID' ?
+                    liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest) :
                     address.fromOutputScript(o.script, this.bitcoinConfig.network);
                 return sweepAddress === swap.sweepAddress;
             } catch (e) {
@@ -255,10 +255,10 @@ export class SwapOutRunner {
         }) != null;
 
         if (isSendingToRefundAddress) {
-            if (this.swap.status === 'CONTRACT_EXPIRED') {
-                swap.status = 'CONTRACT_REFUNDED_UNCONFIRMED';
+            if (this.swap.status === SwapOutStatus.CONTRACT_EXPIRED) {
+                swap.status = SwapOutStatus.CONTRACT_REFUNDED_UNCONFIRMED;
                 this.swap = await this.repository.save(swap);
-                await this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
+                await this.onStatusChange(SwapOutStatus.CONTRACT_REFUNDED_UNCONFIRMED);
             }
         } else {
             const input = unlockTx.ins.find(i => Buffer.from(i.hash).equals(lockTx.getHash()));
@@ -268,10 +268,10 @@ export class SwapOutRunner {
                 swap.preImage = preimage;
                 this.swap = await this.repository.save(swap);
 
-                if (swap.status === 'CONTRACT_FUNDED') {
-                    swap.status = 'CONTRACT_CLAIMED_UNCONFIRMED';
+                if (swap.status === SwapOutStatus.CONTRACT_FUNDED) {
+                    swap.status = SwapOutStatus.CONTRACT_CLAIMED_UNCONFIRMED;
                     this.swap = await this.repository.save(swap);
-                    this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
+                    this.onStatusChange(SwapOutStatus.CONTRACT_CLAIMED_UNCONFIRMED);
                 }
             } else {
                 this.logger.warn(`Could not find preimage in claim tx ${event.data.transactionData.transactionHash} (id=${this.swap.id})`);
@@ -282,27 +282,27 @@ export class SwapOutRunner {
     // TODO refactor. This is very similar to SwapInRunner
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         const { swap } = this;
-        if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
-            swap.status = 'CONTRACT_EXPIRED';
+        if (swap.status === SwapOutStatus.CONTRACT_FUNDED && swap.timeoutBlockHeight <= event.data.height) {
+            swap.status = SwapOutStatus.CONTRACT_EXPIRED;
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('CONTRACT_EXPIRED');
-        } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
-            swap.status = 'CONTRACT_FUNDED';
+            await this.onStatusChange(SwapOutStatus.CONTRACT_EXPIRED);
+        } else if (swap.status === SwapOutStatus.CONTRACT_FUNDED_UNCONFIRMED && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
+            swap.status = SwapOutStatus.CONTRACT_FUNDED;
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('CONTRACT_FUNDED');
-        } else if (swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
-            swap.status = 'DONE';
+            await this.onStatusChange(SwapOutStatus.CONTRACT_FUNDED);
+        } else if (swap.status === SwapOutStatus.CONTRACT_REFUNDED_UNCONFIRMED && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
+            swap.status = SwapOutStatus.DONE;
             swap.outcome = 'REFUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
-        } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
+            await this.onStatusChange(SwapOutStatus.DONE);
+        } else if (swap.status === SwapOutStatus.CONTRACT_CLAIMED_UNCONFIRMED && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             assert(swap.preImage != null);
             this.logger.log(`Settling invoice (id=${this.swap.id})`);
             await this.lnd.settleInvoice(swap.preImage);
-            swap.status = 'DONE';
+            swap.status = SwapOutStatus.DONE;
             swap.outcome = 'SUCCESS';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
+            await this.onStatusChange(SwapOutStatus.DONE);
         }
     }
 

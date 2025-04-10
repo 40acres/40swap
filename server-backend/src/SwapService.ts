@@ -1,4 +1,4 @@
-import { getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import { getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest, SwapInStatus, SwapOutStatus } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -114,7 +114,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             counterpartyPubKey,
             inputAmount: getSwapInInputAmount(outputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             outputAmount,
-            status: 'CREATED',
+            status: SwapInStatus.CREATED,
             sweepAddress: await this.lnd.getNewAddress(),
             timeoutBlockHeight,
             lockTx: null,
@@ -162,7 +162,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             inputAmount,
             outputAmount: getSwapOutOutputAmount(inputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             lockScript: null,
-            status: 'CREATED',
+            status: SwapOutStatus.CREATED,
             preImageHash,
             invoice,
             timeoutBlockHeight: 0,
@@ -215,10 +215,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const swapInRepository = this.dataSource.getRepository(SwapIn);
         const swapOutRepository = this.dataSource.getRepository(SwapOut);
         const resumableSwapIns = await swapInRepository.findBy({
-            status: Not('DONE'),
+            status: Not(SwapInStatus.DONE),
         });
         const resumableSwapOuts = await swapOutRepository.findBy({
-            status: Not('DONE'),
+            status: Not(SwapOutStatus.DONE),
         });
         for (const swap of [...resumableSwapIns, ...resumableSwapOuts]) {
             const runner = swap instanceof SwapIn ? new SwapInRunner(

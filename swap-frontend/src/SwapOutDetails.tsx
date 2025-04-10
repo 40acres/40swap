@@ -12,6 +12,7 @@ import { Spinner } from './Spinner.js';
 import failureImage from './assets/failure-image.png';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
+import { SwapOutStatus } from '@40swap/shared';
 
 
 export const SwapOutDetails: Component = () => {
@@ -22,7 +23,7 @@ export const SwapOutDetails: Component = () => {
 
     const [remoteSwap, { refetch }] = createResource(swapId, id => swapOutService.getSwap(id));
     const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
-    createTimer(refetch, () => currentSwap()?.status !== 'DONE' ? 1000 : false, setInterval);
+    createTimer(refetch, () => currentSwap()?.status !== SwapOutStatus.DONE ? 1000 : false, setInterval);
 
     const lightningLink = (): string => `lightning:${currentSwap()?.invoice}`;
 
@@ -31,10 +32,10 @@ export const SwapOutDetails: Component = () => {
         if (swap == null || swap.claimRequestDate != null) {
             return;
         }
-        if (swap.status === 'CONTRACT_FUNDED') {
+        if (swap.status === SwapOutStatus.CONTRACT_FUNDED) {
             try {
                 await swapOutService.claim(swap);
-                await localSwapStorageService.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date()});
+                await localSwapStorageService.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
                 refetch();
             } catch (e) {
                 console.log('unhandled error', e);
@@ -51,15 +52,15 @@ export const SwapOutDetails: Component = () => {
     });
 
     return <>
-        <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}
+        <Show when={currentSwap()?.status === SwapOutStatus.DONE && currentSwap()?.outcome === 'SUCCESS'}
             fallback={<h3 class="fw-bold">Swap lightning to bitcoin</h3>}>
             <h3 class="text-center" style="text-transform: none">You have successfully swapped Lightning to Bitcoin!</h3>
         </Show>
         <div class="d-flex flex-column gap-3">
-            <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
+            <Show when={currentSwap()?.status === SwapOutStatus.DONE && currentSwap()?.outcome === 'SUCCESS'}>
                 <img src={successImage} class="align-self-center" />
             </Show>
-            <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
+            <Show when={currentSwap()?.status === SwapOutStatus.DONE && currentSwap()?.outcome === 'REFUNDED'}>
                 <img src={failureImage} class="align-self-center" />
             </Show>
             <Show when={currentSwap()}>{s => <>
@@ -70,31 +71,31 @@ export const SwapOutDetails: Component = () => {
                             <td>{s().swapId}</td>
                         </tr>
                         <Switch>
-                            <Match when={s().status === 'CREATED'}>
+                            <Match when={s().status === SwapOutStatus.CREATED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Waiting for your lightning payment</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'INVOICE_PAYMENT_INTENT_RECEIVED'}>
+                            <Match when={s().status === SwapOutStatus.INVOICE_PAYMENT_INTENT_RECEIVED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Received lightning payment. Publishing lock-up transaction</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_FUNDED'}>
+                            <Match when={s().status === SwapOutStatus.CONTRACT_FUNDED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Funds locked-up on-chain. Claiming funds to your receiving address</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                            <Match when={s().status === SwapOutStatus.CONTRACT_EXPIRED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>On-chain contract expired. Refunding to 40swap</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'DONE' && s().outcome === 'SUCCESS'}>
+                            <Match when={s().status === SwapOutStatus.DONE && s().outcome === 'SUCCESS'}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Success</td>
@@ -108,31 +109,31 @@ export const SwapOutDetails: Component = () => {
                                     <td>{currencyFormat(s().outputAmount)}</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'DONE' && s().outcome === 'REFUNDED'}>
+                            <Match when={s().status === SwapOutStatus.DONE && s().outcome === 'REFUNDED'}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Failed. The funds have been refunded to 40swap</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_FUNDED_UNCONFIRMED'}>
+                            <Match when={s().status === SwapOutStatus.CONTRACT_FUNDED_UNCONFIRMED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Funds locked on-chain, waiting for confirmation</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_REFUNDED_UNCONFIRMED'}>
+                            <Match when={s().status === SwapOutStatus.CONTRACT_REFUNDED_UNCONFIRMED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>40swap requested a refund, waiting for on-chain confirmation</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_CLAIMED_UNCONFIRMED'}>
+                            <Match when={s().status === SwapOutStatus.CONTRACT_CLAIMED_UNCONFIRMED}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>The on-chain funds have been sent to you, waiting for confirmation</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'DONE' && s().outcome === 'EXPIRED'}>
+                            <Match when={s().status === SwapOutStatus.DONE && s().outcome === 'EXPIRED'}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Expired</td>
@@ -144,22 +145,22 @@ export const SwapOutDetails: Component = () => {
 
                 <Switch fallback={
                     <div class="d-flex flex-column align-items-center pt-5 gap-4">
-                        <Spinner/>
+                        <Spinner />
                         <div class="text-muted">Completing the swap</div>
                     </div>
                 }>
-                    <Match when={s().status === 'CREATED'}>
+                    <Match when={s().status === SwapOutStatus.CREATED}>
                         <div class="d-flex justify-content-center">
-                            <QrCode data={lightningLink()} image={lightningLogo}/>
+                            <QrCode data={lightningLink()} image={lightningLogo} />
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
                             <a href={lightningLink()} class="btn btn-primary" role="button">Pay</a>
                             <Button onclick={() => navigator.clipboard.writeText(s().invoice)}>
-                                <Fa icon={faCopy}/> Copy invoice
+                                <Fa icon={faCopy} /> Copy invoice
                             </Button>
                         </div>
                     </Match>
-                    <Match when={s().status === 'DONE'}>
+                    <Match when={s().status === SwapOutStatus.DONE}>
                         <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack} /> Start new swap</A>
                     </Match>
                 </Switch>
