@@ -94,3 +94,7 @@ alice-lncli *cmd:
 # Run command within elements container
 elements-cli *cmd:
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest  {{cmd}}
+
+[working-directory: 'server-backend']
+test-e2e-backend: build-shared 
+    npm run build && npm run test
