@@ -140,6 +140,11 @@ export class LiquidService implements OnApplicationBootstrap  {
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
+    /**
+     * Gets unspent UTXOs with a minimum total amount in BTC/L-BTC format (satoshis/1e8).
+     * For example, 0.1 BTC would be passed as 0.1, not 10000000.
+     * Pass null to get all available UTXOs.
+     */
     async getConfirmedUtxosAndInputValueForAmount(amount: number): Promise<{ 
         utxos: RPCUtxo[], 
         totalInputValue: number,
