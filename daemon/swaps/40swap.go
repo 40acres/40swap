@@ -226,3 +226,39 @@ func (f *Client) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse,
 
 	return &swapInResponse, nil
 }
+
+func (f *Client) GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error) {
+	response, err := f.client.SwapInControllerGetRefundPsbt(ctx, swapId, &api.SwapInControllerGetRefundPsbtParams{
+		Address: address,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
+	}
+
+	var refundPSBTResponse RefundPSBTResponse
+	err = json.NewDecoder(response.Body).Decode(&refundPSBTResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &refundPSBTResponse, nil
+}
+
+func (f *Client) PostRefund(ctx context.Context, swapId, tx string) error {
+	response, err := f.client.SwapInControllerSendRefundTx(ctx, swapId, api.SwapInControllerSendRefundTxJSONRequestBody{
+		Tx: tx,
+	})
+	if err != nil {
+		return err
+	}
+
+	defer response.Body.Close()
+
+	return parseErr(response)
+}

@@ -67,7 +67,7 @@ func TestServer_SwapIn(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: true,
-			err:     errors.New("invoices without amount are not supported"),
+			err:     errors.New("zero amount invoices are not supported"),
 		},
 		{
 			name: "Invoice doesn't match amount in request",
@@ -80,7 +80,7 @@ func TestServer_SwapIn(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: true,
-			err:     errors.New("amountSats 100 does not match invoice amount 200000"),
+			err:     errors.New("request amount 100 does not match invoice amount 200000"),
 		},
 		{
 			name: "Invoice doesn't match network",
