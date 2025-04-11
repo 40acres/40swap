@@ -2,13 +2,12 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import { SwapInStatus } from '../../shared/src/api.types';
-import { SwapOutcome } from '@40swap/shared';
+import { SwapInStatus, SwapOutcome } from '../../shared/src/api.types';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
-import { ECPair, waitFor, waitForChainSync } from './utils';
+import { ECPair, waitFor, waitForChainSync, signLiquidPset } from './utils';
 
 jest.setTimeout(2 * 60 * 1000);
 
@@ -51,6 +50,46 @@ describe('40Swap backend', () => {
         expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
         const invoice = await lndUser.lookupInvoice(rHash as Buffer);
         expect(invoice.state).toEqual('SETTLED');
+    });
+
+    it('should complete a liquid swap out', async () => {
+        const randomBytes = crypto.randomBytes(32);
+        const preImage = Buffer.from(randomBytes);
+        const preImageHash = crypto.createHash('sha256').update(preImage).digest();
+        const claimKey = ECPair.makeRandom();
+        
+        let swap = await backend.createSwapOut({
+            chain: 'LIQUID',
+            inputAmount: 0.002,
+            claimPubKey: claimKey.publicKey.toString('hex'),
+            preImageHash: preImageHash.toString('hex'),
+        });
+        expect(swap.status).toEqual('CREATED');
+
+        lndUser.sendPayment(swap.invoice);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        
+        // // Wait for contract funding and confirmation
+        await elements.mine(5);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
+        
+        // Get a new address for claiming
+        const claimAddress = await elements.getNewAddress();
+        
+        // Get claim PSBT and sign it
+        const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
+        // Hasta aqui funciona :)
+        const signedTx = signLiquidPset(claimPsbt.psbt, preImage.toString('hex'), claimKey);
+        
+        // Broadcast claim transaction
+        await backend.claimSwap(swap.swapId, signedTx);
+        
+        // Wait for claim confirmation
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'DONE');
+        
+        swap = await backend.getSwapOut(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
     async function setUpComposeEnvironment(): Promise<void> {
@@ -111,7 +150,7 @@ describe('40Swap backend', () => {
             },
             elements: {
                 network: 'regtest',
-                rpcUrl: 'http://localhost:18884',
+                rpcUrl: 'http://elements:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
                 xpub,

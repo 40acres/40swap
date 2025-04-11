@@ -101,7 +101,7 @@ services:
     depends_on:
       - "bitcoind"
   nbxplorer:
-    image: nicolasdorier/nbxplorer:2.3.62
+    image: nicolasdorier/nbxplorer:2.5.17
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,8 +131,10 @@ services:
   elements:
     image: ghcr.io/vulpemventures/elements:23.2.4
     restart: unless-stopped
+    ports:
+      - 18884:18884
+      - 18886:18886
     depends_on:
-      bitcoind:
-        condition: service_started
+      - bitcoind
     volumes:
       - ../../../docker/liquid.conf:/home/elements/.elements/elements.conf

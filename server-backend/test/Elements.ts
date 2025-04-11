@@ -38,7 +38,7 @@ export class Elements {
         const xpub = descriptors.descriptors
             .find((d: { desc: string; internal: boolean }) => d.desc.startsWith('wpkh(') && !d.internal)
             ?.desc
-            .match(/\[([^/]+)\//)?.[1];
+            .match(/.*\]([^/]+)\/.*/)?.[1];
         
         if (!xpub) {
             throw new Error('Could not find xpub in descriptors');
@@ -51,12 +51,11 @@ export class Elements {
         await this.container.exec('elements-cli -chain=liquidregtest unloadwallet ""');
         
         // Remove original wallet files
-        await this.container.exec('rm -r -f /home/elements/.elements/liquidregtest/wallets/database');
-        await this.container.exec('rm -r -f /home/elements/.elements/liquidregtest/wallets/db.log');
-        await this.container.exec('rm -r -f /home/elements/.elements/liquidregtest/wallets/wallet.dat');
+        await this.container.exec('rm -r -f /home/elements/.elements/liquidregtest/wallets/*');
         
         // Create a new wallet
-        const res = await this.container.exec('elements-cli -chain=liquidregtest createwallet "" false false "" false true true false');
+        // eslint-disable-next-line quotes
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest createwallet  false false  false true true false`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
