@@ -7,10 +7,7 @@ import (
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
-	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/btcutil/psbt"
-	"github.com/btcsuite/btcd/txscript"
 	"github.com/lightningnetwork/lnd/lntypes"
 
 	log "github.com/sirupsen/logrus"
@@ -115,7 +112,7 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 	}
 
 	// check if the refund address returned in the psbt is our own
-	if !isValidRefundTx(pkt, m.network, swap.RefundAddress) {
+	if !bitcoin.PSBTHasValidOutputAddress(pkt, m.network, swap.RefundAddress) {
 		return "", fmt.Errorf("invalid refund tx")
 	}
 
@@ -147,19 +144,4 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 	}
 
 	return tx.TxID(), nil
-}
-
-func isValidRefundTx(psbt *psbt.Packet, network lightning.Network, address string) bool {
-	cfgnetwork := lightning.ToChainCfgNetwork(network)
-
-	outs := psbt.UnsignedTx.TxOut
-	if len(outs) != 1 {
-		return false
-	}
-	_, addrs, _, err := txscript.ExtractPkScriptAddrs(outs[0].PkScript, cfgnetwork)
-	if err != nil || len(addrs) != 1 {
-		return false
-	}
-
-	return addrs[0].EncodeAddress() == address
 }

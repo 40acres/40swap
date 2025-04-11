@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/btcutil/psbt"
@@ -201,4 +202,21 @@ func DeserializePrivateKey(privKey string) (*btcec.PrivateKey, error) {
 	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
 
 	return privateKey, nil
+}
+
+// PSBTHasValidOutputAddress checks if the PSBT is valid by comparing the
+// output address in the PSBT with the provided address.
+func PSBTHasValidOutputAddress(psbt *psbt.Packet, network lightning.Network, address string) bool {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+
+	outs := psbt.UnsignedTx.TxOut
+	if len(outs) != 1 {
+		return false
+	}
+	_, addrs, _, err := txscript.ExtractPkScriptAddrs(outs[0].PkScript, cfgnetwork)
+	if err != nil || len(addrs) != 1 {
+		return false
+	}
+
+	return addrs[0].EncodeAddress() == address
 }
