@@ -2,7 +2,7 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import { SwapInStatus, signContractSpend, SwapOutcome } from '@40swap/shared';
+import { signContractSpend, SwapOutcome, SwapInStatus } from '@40swap/shared';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
@@ -182,7 +182,7 @@ describe('40Swap backend', () => {
         });
 
         // Now request a refund
-        const refundPSBT = await backend.getRefundPsbt(swap.swapId, 'bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf');
+        const refundPSBT = await backend.getRefundPsbt(swap.swapId, "bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf");
 
         // Sign the refund transaction
         signContractSpend({
