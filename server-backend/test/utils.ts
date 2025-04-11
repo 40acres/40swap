@@ -14,8 +14,8 @@ export function sleep(ms = 1000): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function waitFor(fn: () => Promise<boolean>): Promise<void> {
-    for (let i = 0; i < 5; i++) {
+export async function waitFor(fn: () => Promise<boolean>, maxIterations = 6, delay = 10000): Promise<void> {
+    for (let i = 0; i < maxIterations; i++) {
         try {
             const res = await fn();
             if (res) {
@@ -24,7 +24,7 @@ export async function waitFor(fn: () => Promise<boolean>): Promise<void> {
         } catch (e) {
             console.error(e);
         }
-        await sleep(1000);
+        await sleep(delay);
     }
     throw new Error('timeout');
 }
