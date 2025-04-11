@@ -51,6 +51,7 @@ export const configSchema = z.object({
         minimumAmount: z.number().positive(),
         maximumAmount: z.number().positive(),
         lockBlockDelta: z.object({
+            minIn: z.number().int().positive().default(144),
             in: z.number().int().positive(),
             out: z.number().int().positive(),
         }),
