@@ -178,4 +178,16 @@ export class Lnd {
             });
         });
     }
+
+    async sendPayment(invoice: string): Promise<unknown> {
+        return new Promise((resolve, reject) => {
+            this.client.sendPaymentSync({ paymentRequest: invoice }, (err, value) => {
+                if (err != null || value == null) {
+                    reject(err);
+                } else {
+                    resolve(value);
+                }
+            }); 
+        });
+    }
 }

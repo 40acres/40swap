@@ -2,12 +2,12 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import { SwapInStatus } from '../../shared/src/api.types';
-import { SwapOutcome } from '@40swap/shared';
+import { SwapInStatus, SwapOutcome } from '../../shared/src/api.types';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
+import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
-import { ECPair, waitFor, waitForChainSync } from './utils';
+import { ECPair, waitFor, waitForChainSync, signLiquidPset } from './utils';
 
 jest.setTimeout(2 * 60 * 1000);
 
@@ -17,6 +17,7 @@ describe('40Swap backend', () => {
     let lndUser: Lnd;
     let lndAlice: Lnd;
     let bitcoind: Bitcoind;
+    let elements: Elements;
     let backend: BackendRestClient;
 
     beforeAll(async () => {
@@ -51,6 +52,71 @@ describe('40Swap backend', () => {
         expect(invoice.state).toEqual('SETTLED');
     });
 
+    it('should complete a liquid swap out', async () => {
+        const randomBytes = crypto.randomBytes(32);
+        const preImage = Buffer.from(randomBytes);
+        const preImageHash = crypto.createHash('sha256').update(preImage).digest();
+        const claimKey = ECPair.makeRandom();
+        
+        let swap = await backend.createSwapOut({
+            chain: 'LIQUID',
+            inputAmount: 0.002,
+            claimPubKey: claimKey.publicKey.toString('hex'),
+            preImageHash: preImageHash.toString('hex'),
+        });
+        expect(swap.status).toEqual('CREATED');
+
+        lndUser.sendPayment(swap.invoice);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        
+        await elements.mine(5);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
+        
+        const claimAddress = await elements.getNewAddress();
+        const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
+        const signedTx = signLiquidPset(claimPsbt.psbt, preImage.toString('hex'), claimKey);
+        await backend.claimSwap(swap.swapId, signedTx);
+        
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'DONE');
+        swap = await backend.getSwapOut(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+    });
+
+    it('should properly handle a liquid swap out expiration', async () => {
+        const preImageHash = crypto.createHash('sha256').update(crypto.randomBytes(32)).digest();
+        const claimKey = ECPair.makeRandom();
+        
+        // Create the swap
+        let swap = await backend.createSwapOut({
+            chain: 'LIQUID',
+            inputAmount: 0.002,
+            claimPubKey: claimKey.publicKey.toString('hex'),
+            preImageHash: preImageHash.toString('hex'),
+        });
+        expect(swap.status).toEqual('CREATED');
+
+        // Fund the invoice to start the swap
+        lndUser.sendPayment(swap.invoice);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        
+        // Wait for contract funding confirmation
+        await elements.mine(5);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
+        
+        // Get the current timeout block height
+        swap = await backend.getSwapOut(swap.swapId);
+        const timeoutBlockHeight = swap.timeoutBlockHeight;
+        
+        // Mine enough blocks to reach the timeout height
+        const currentHeight = await elements.getBlockHeight();
+        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+        
+        // Mine blocks to trigger expiration
+        await elements.mine(blocksToMine);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_EXPIRED');
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
@@ -59,10 +125,16 @@ describe('40Swap backend', () => {
             .withWaitStrategy('lnd-lsp-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('lnd-alice-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('lnd-user-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('elements-1', Wait.forLogMessage(/.*init message: Done loading.*/))
             .withEnvironment({ BACKEND_CONFIG_FILE: configFilePath });
-        compose = await composeDef.up(['lnd-lsp']);
+        compose = await composeDef.up(['lnd-lsp', 'elements']);
 
         lndLsp = await Lnd.fromContainer(compose.getContainer('lnd-lsp-1'));
+        elements = new Elements(compose.getContainer('elements-1'));
+        // Initialize Elements wallet and get xpub
+        await elements.startDescriptorWallet();
+        await elements.mine(101);
+        const xpub = await elements.getXpub();
 
         const config = {
             server: {
@@ -103,10 +175,10 @@ describe('40Swap backend', () => {
             },
             elements: {
                 network: 'regtest',
-                rpcUrl: 'http://localhost:18884',
+                rpcUrl: 'http://elements:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
-                xpub: 'tpubDDX4WuDaVMkmH3Bj6Z9nYRuW8cmx3U8HPZ1qFuWX5RGraZ6agYpDbSnMR7zAnJueKLyABJkVCKmZxxJ8eK6wvM7f52LA7ZtJjDpaP8Ws45R', // TODO: get actual xpub. It will be needed for testing liquid features
+                xpub,
             },
         };
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
