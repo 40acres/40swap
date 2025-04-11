@@ -224,7 +224,10 @@ func main() {
 								Usage:   "The address where the swap will be refunded to",
 								Aliases: []string{"r"},
 							},
-							&amountSats,
+							&cli.UintFlag{
+								Name:  "amt",
+								Usage: "Amount in sats to swap",
+							},
 							&grpcPort,
 							&bitcoin,
 						},
@@ -289,7 +292,12 @@ func main() {
 						Flags: []cli.Flag{
 							&grpcPort,
 							&amountSats,
-							&address,
+							&cli.StringFlag{
+								// This address is optional since in case that is not given,
+								// one address from the LND wallet will be used.
+								Name:  "address",
+								Usage: "Address to swap to",
+							},
 							&cli.FloatFlag{
 								Name:  "max-routing-fee-percent",
 								Usage: "The maximum routing fee in percentage for the lightning networ",
@@ -450,12 +458,6 @@ var grpcPort = cli.IntFlag{
 var amountSats = cli.UintFlag{
 	Name:     "amt",
 	Usage:    "Amount in sats to swap",
-	Required: true,
-}
-
-var address = cli.StringFlag{
-	Name:     "address",
-	Usage:    "Address to swap to",
 	Required: true,
 }
 

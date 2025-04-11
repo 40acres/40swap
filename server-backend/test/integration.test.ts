@@ -2,14 +2,18 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import { SwapInStatus, SwapOutcome } from '../../shared/src/api.types';
+import { SwapInStatus, signContractSpend, SwapOutcome } from '@40swap/shared';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
 import { ECPair, waitFor, waitForChainSync, signLiquidPset } from './utils';
+import { networks } from 'bitcoinjs-lib';
+import { jest } from '@jest/globals';
 
 jest.setTimeout(2 * 60 * 1000);
+
+const network = networks.regtest;
 
 describe('40Swap backend', () => {
     let compose: StartedDockerComposeEnvironment;
@@ -117,20 +121,102 @@ describe('40Swap backend', () => {
         await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_EXPIRED');
     });
 
+    it('should complete a swap in with custom lockBlockDeltaIn', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
+        let swap = await backend.createSwapIn({
+            chain: 'BITCOIN',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+            lockBlockDeltaIn: 500, // Custom CLTV expiry for testing
+        });
+        expect(swap.status).toEqual<SwapInStatus>('CREATED');
+
+        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+
+        swap = await backend.getSwapIn(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+        const invoice = await lndUser.lookupInvoice(rHash as Buffer);
+        expect(invoice.state).toEqual('SETTLED');
+    });
+
+    it('should fail if lockBlockDeltaIn is less than 144', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        await expect(
+            backend.createSwapIn({
+                chain: 'BITCOIN',
+                invoice: paymentRequest!,
+                refundPublicKey: refundKey.publicKey.toString('hex'),
+                lockBlockDeltaIn: 100, // Less than the minimum allowed
+            })
+        ).rejects.toThrow('lockBlockDeltaIn must be at least 144 blocks');
+    });
+
+    it('should refund after timeout block height', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        const swap = await backend.createSwapIn({
+            chain: 'BITCOIN',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+            lockBlockDeltaIn: 144, // Minimum allowed value
+        });
+
+        // Send the input amount to the contract address
+        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        // Simulate passing the timeout block height
+        await bitcoind.mine(145);
+
+        // Verify Contract_EXPIRED status
+        await waitFor(async () => {
+            const swapIn = await backend.getSwapIn(swap.swapId);
+            return swapIn.status === 'CONTRACT_EXPIRED';
+        });
+
+        // Now request a refund
+        const refundPSBT = await backend.getRefundPsbt(swap.swapId, 'bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf');
+
+        // Sign the refund transaction
+        signContractSpend({
+            psbt: refundPSBT,
+            network: network,
+            key: ECPair.fromPrivateKey(refundKey.privateKey!),
+            preImage: Buffer.alloc(0),
+        });
+
+        expect(refundPSBT.getFeeRate()).toBeLessThan(1000);
+        const tx = refundPSBT.extractTransaction();
+
+        await backend.publishRefundTx(swap.swapId, tx);
+        // Wait for the refund to be confirmed
+        await bitcoind.mine(6);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+        const swapIn = await backend.getSwapIn(swap.swapId);
+        expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
             .withBuild()
             .withWaitStrategy('40swap-backend-1', Wait.forHealthCheck())
-            .withWaitStrategy('lnd-lsp-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
-            .withWaitStrategy('lnd-alice-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
-            .withWaitStrategy('lnd-user-1', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
-            .withWaitStrategy('elements-1', Wait.forLogMessage(/.*init message: Done loading.*/))
+            .withWaitStrategy('40swap_lnd_lsp', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('40swap_lnd_alice', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('40swap_lnd_user', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
+            .withWaitStrategy('40swap_elements', Wait.forLogMessage(/.*init message: Done loading.*/))
             .withEnvironment({ BACKEND_CONFIG_FILE: configFilePath });
         compose = await composeDef.up(['lnd-lsp', 'elements']);
 
-        lndLsp = await Lnd.fromContainer(compose.getContainer('lnd-lsp-1'));
-        elements = new Elements(compose.getContainer('elements-1'));
+        lndLsp = await Lnd.fromContainer(compose.getContainer('40swap_lnd_lsp'));
+        elements = new Elements(compose.getContainer('40swap_elements'));
         // Initialize Elements wallet and get xpub
         await elements.startDescriptorWallet();
         await elements.mine(101);
@@ -152,7 +238,7 @@ describe('40Swap backend', () => {
                 requiredConfirmations: 3,
             },
             nbxplorer: {
-                baseUrl: 'http://nbxplorer:32838/v1/cryptos',
+                baseUrl: 'http://nbxplorer-test:32838/v1/cryptos',
                 fallbackFeeRate: 10,
             },
             mempoolBlockExplorer: {
@@ -175,7 +261,7 @@ describe('40Swap backend', () => {
             },
             elements: {
                 network: 'regtest',
-                rpcUrl: 'http://elements:18884',
+                rpcUrl: 'http://elements-test:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
                 xpub,
@@ -184,9 +270,9 @@ describe('40Swap backend', () => {
         fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
 
         compose = await composeDef.up();
-        lndUser = await Lnd.fromContainer(compose.getContainer('lnd-user-1'));
-        lndAlice = await Lnd.fromContainer(compose.getContainer('lnd-alice-1'));
-        bitcoind = new Bitcoind(compose.getContainer('bitcoind-1'));
+        lndUser = await Lnd.fromContainer(compose.getContainer('40swap_lnd_user'));
+        lndAlice = await Lnd.fromContainer(compose.getContainer('40swap_lnd_alice'));
+        bitcoind = new Bitcoind(compose.getContainer('40swap_bitcoind'));
         backend = new BackendRestClient(compose.getContainer('40swap-backend-1'));
     }
 
@@ -196,7 +282,7 @@ describe('40Swap backend', () => {
         await bitcoind.mine(10);
         await waitForChainSync(allLnds);
         for (const lnd of allLnds) {
-            for(let i = 0; i < 10; i++) {
+            for (let i = 0; i < 10; i++) {
                 await bitcoind.sendToAddress(lnd.address, 5);
             }
         }
