@@ -69,27 +69,52 @@ describe('40Swap backend', () => {
         lndUser.sendPayment(swap.invoice);
         await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
         
-        // // Wait for contract funding and confirmation
         await elements.mine(5);
         await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
         
-        // Get a new address for claiming
         const claimAddress = await elements.getNewAddress();
-        
-        // Get claim PSBT and sign it
         const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
-        // Hasta aqui funciona :)
         const signedTx = signLiquidPset(claimPsbt.psbt, preImage.toString('hex'), claimKey);
-        
-        // Broadcast claim transaction
         await backend.claimSwap(swap.swapId, signedTx);
         
-        // Wait for claim confirmation
         await elements.mine();
         await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'DONE');
-        
         swap = await backend.getSwapOut(swap.swapId);
         expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+    });
+
+    it('should properly handle a liquid swap out expiration', async () => {
+        const preImageHash = crypto.createHash('sha256').update(crypto.randomBytes(32)).digest();
+        const claimKey = ECPair.makeRandom();
+        
+        // Create the swap
+        let swap = await backend.createSwapOut({
+            chain: 'LIQUID',
+            inputAmount: 0.002,
+            claimPubKey: claimKey.publicKey.toString('hex'),
+            preImageHash: preImageHash.toString('hex'),
+        });
+        expect(swap.status).toEqual('CREATED');
+
+        // Fund the invoice to start the swap
+        lndUser.sendPayment(swap.invoice);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        
+        // Wait for contract funding confirmation
+        await elements.mine(5);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
+        
+        // Get the current timeout block height
+        swap = await backend.getSwapOut(swap.swapId);
+        const timeoutBlockHeight = swap.timeoutBlockHeight;
+        
+        // Mine enough blocks to reach the timeout height
+        const currentHeight = await elements.getBlockHeight();
+        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+        
+        // Mine blocks to trigger expiration
+        await elements.mine(blocksToMine);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_EXPIRED');
     });
 
     async function setUpComposeEnvironment(): Promise<void> {

@@ -60,4 +60,12 @@ export class Elements {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
     }
+
+    async getBlockHeight(): Promise<number> {
+        const res = await this.container.exec('elements-cli -chain=liquidregtest getblockcount');
+        if (res.exitCode !== 0) {
+            throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
+        }
+        return parseInt(res.stdout.trim(), 10);
+    }
 } 
