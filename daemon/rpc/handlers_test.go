@@ -19,7 +19,9 @@ func TestServer_SwapIn(t *testing.T) {
 	ctx := context.Background()
 	swapId := "ugJHXnF12dUG"
 	amt := uint64(200000)
+	alternativeAmount := uint64(100)
 	contractAddress := "bcrt1qey38yg6kjmtjxr28wrdrdhp22gu064xxj97006"
+	expiry := uint32(3 * 24 * 60 * 60)
 
 	ctrl := gomock.NewController(t)
 	t.Cleanup(ctrl.Finish)
@@ -35,6 +37,7 @@ func TestServer_SwapIn(t *testing.T) {
 	}
 
 	invoice := lightning.CreateMockInvoice(t, int64(amt))
+	amountlessInvoice := lightning.CreateMockInvoice(t, -1)
 
 	tests := []struct {
 		name    string
@@ -53,6 +56,31 @@ func TestServer_SwapIn(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 			err:     errors.New("either invoice or amountSats must be provided"),
+		},
+		{
+			name: "Invoice has no amount",
+			setup: func() *Server {
+				return &server
+			},
+			req: &SwapInRequest{
+				Invoice: &amountlessInvoice,
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("invoices without amount are not supported"),
+		},
+		{
+			name: "Invoice doesn't match amount in request",
+			setup: func() *Server {
+				return &server
+			},
+			req: &SwapInRequest{
+				Invoice:    &invoice,
+				AmountSats: &alternativeAmount,
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("amountSats 100 does not match invoice amount 200000"),
 		},
 		{
 			name: "Invoice doesn't match network",
@@ -150,6 +178,7 @@ func TestServer_SwapIn(t *testing.T) {
 			req: &SwapInRequest{
 				AmountSats: &amt,
 				RefundTo:   "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
+				Expiry:     &expiry,
 			},
 			want: &SwapInResponse{
 				SwapId:       swapId,

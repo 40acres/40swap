@@ -135,6 +135,43 @@ func (f *Client) GetSwapOut(ctx context.Context, swapId string) (*SwapOutRespons
 	return &swapOutResponse, nil
 }
 
+func (f *Client) GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error) {
+	params := api.SwapOutControllerGetClaimPsbtParams{
+		Address: address,
+	}
+	response, err := f.client.SwapOutControllerGetClaimPsbt(ctx, swapId, &params)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = parseErr(response)
+	if err != nil {
+		return nil, err
+	}
+
+	var getClaimPSBTResponse GetClaimPSBTResponse
+	err = json.NewDecoder(response.Body).Decode(&getClaimPSBTResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &getClaimPSBTResponse, nil
+}
+
+func (f *Client) PostClaim(ctx context.Context, swapId, tx string) error {
+	body := api.SwapOutControllerClaimSwapJSONRequestBody{
+		Tx: tx,
+	}
+	response, err := f.client.SwapOutControllerClaimSwap(ctx, swapId, body)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	return parseErr(response)
+}
+
 func (f *Client) CreateSwapIn(ctx context.Context, swapReq *CreateSwapInRequest) (*SwapInResponse, error) {
 	chain, err := chainToDtoChain(swapReq.Chain)
 	if err != nil {

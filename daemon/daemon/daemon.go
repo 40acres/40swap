@@ -17,7 +17,12 @@ import (
 
 const MONITORING_INTERVAL_SECONDS = 10
 
-func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository, swaps swaps.ClientInterface, network lightning.Network) error {
+type Repository interface {
+	database.SwapInRepository
+	database.SwapOutRepository
+}
+
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, network lightning.Network) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -47,6 +52,7 @@ func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository
 				repository: db,
 				swapClient: swaps,
 				now:        time.Now,
+				network:    network,
 			}
 			monitor.MonitorSwaps(ctx)
 
@@ -56,11 +62,10 @@ func Start(ctx context.Context, server *rpc.Server, db database.SwapInRepository
 }
 
 type SwapMonitor struct {
-	repository interface {
-		database.SwapInRepository
-	}
+	repository Repository
 	swapClient swaps.ClientInterface
 	now        func() time.Time
+	network    lightning.Network
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
@@ -71,10 +76,26 @@ func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
 		return
 	}
 
+	swapOuts, err := m.repository.GetPendingSwapOuts()
+	if err != nil {
+		log.Errorf("failed to get pending swap outs: %v", err)
+
+		return
+	}
+
 	for _, swapIn := range swapIns {
 		err := m.MonitorSwapIn(ctx, swapIn)
 		if err != nil {
 			log.Errorf("failed to monitor swap in: %v", err)
+
+			continue
+		}
+	}
+
+	for _, swapOut := range swapOuts {
+		err := m.MonitorSwapOut(ctx, swapOut)
+		if err != nil {
+			log.Errorf("failed to monitor swap out: %v", err)
 
 			continue
 		}

@@ -20,5 +20,6 @@ swap:
   maximumAmount: 0.01300000
   expiryDuration: PT30M
   lockBlockDelta:
+    minIn: 144
     in: 432
     out: 20
