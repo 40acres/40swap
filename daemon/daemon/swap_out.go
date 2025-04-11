@@ -87,7 +87,7 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 		return "", fmt.Errorf("failed to parse PSBT: %w", err)
 	}
 
-	privateKey, err := bitcoin.DeserializePrivateKey(swap.ClaimPrivateKey)
+	privateKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode claim private key: %w", err)
 	}

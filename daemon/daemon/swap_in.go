@@ -116,7 +116,7 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 		return "", fmt.Errorf("invalid refund tx")
 	}
 
-	privateKey, err := bitcoin.DeserializePrivateKey(swap.RefundPrivatekey)
+	privateKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode refund private key: %w", err)
 	}
