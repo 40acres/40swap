@@ -21,6 +21,20 @@
       ]
     },
     {
+      "name": "Launch swap recover",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/daemon/cmd/main.go",
+      "cwd": "${workspaceFolder}/daemon",
+      "args": [
+        "swap",
+        "recover",
+        "-refund-to",
+        "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx"
+      ]
+    },
+    {
       "name": "Launch daemon",
       "type": "go",
       "request": "launch",
