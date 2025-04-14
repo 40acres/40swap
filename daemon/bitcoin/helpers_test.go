@@ -81,6 +81,7 @@ func TestSignInput(t *testing.T) {
 			got, err := signInput(tt.args.packet, tt.args.inputIndex, tt.args.key, tt.args.sigHashType, tt.args.fetcher)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SignInput() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if tt.wantErr {
@@ -262,6 +263,7 @@ func Test_finalizePSBT(t *testing.T) {
 			err := finalizePSBT(tt.args.pkt)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FinalizePSBT() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if tt.wantErr {
@@ -382,7 +384,7 @@ func TestSignFinishExtractPSBT(t *testing.T) {
 			err = got.Serialize(gotBuffer)
 			require.NoError(t, err, "failed to serialize transaction")
 
-			if !reflect.DeepEqual(gotBuffer, wantBuffer) {
+			if !bytes.Equal(gotBuffer.Bytes(), wantBuffer.Bytes()) {
 				t.Errorf("ProcessPSBT() = %v, want %v", got, tt.want)
 			}
 		})

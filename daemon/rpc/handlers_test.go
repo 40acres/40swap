@@ -579,6 +579,7 @@ func TestServer_SwapOut(t *testing.T) {
 					OutputAmount:       decimal.NewFromInt(-1),
 					CreatedAt:          time.Now(),
 				}, nil)
+
 				return &server
 			},
 			args: args{
@@ -718,6 +719,7 @@ func TestServer_SwapOut(t *testing.T) {
 			got, err := server.SwapOut(tt.args.ctx, tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Server.SwapOut() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if tt.wantErr {

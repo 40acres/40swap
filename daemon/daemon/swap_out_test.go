@@ -173,11 +173,7 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 					ClaimPrivateKey:    validPrivateKey, // Valid private key
 				},
 			},
-			want: func() string {
-				// Compute the expected hash dynamically based on the input data.
-				// Replace this logic with the actual computation logic used in ClaimSwapOut.
-				return "612be979a36bd4683f16ada19768dbdcd590e2bba93dc0134c86b0b509ff09d3"
-			}(),
+			want:    "612be979a36bd4683f16ada19768dbdcd590e2bba93dc0134c86b0b509ff09d3",
 			wantErr: false,
 			err:     nil,
 		},
@@ -188,6 +184,7 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 			got, err := swapMonitor.ClaimSwapOut(tt.args.ctx, tt.args.swap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SwapMonitor.ClaimSwapOut() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if tt.wantErr {
@@ -235,6 +232,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 			setup: func() *SwapMonitor {
 				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(nil, swaps.ErrSwapNotFound)
 				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+
 				return &swapMonitor
 			},
 			args: args{
@@ -249,6 +247,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 			setup: func() *SwapMonitor {
 				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(nil, swaps.ErrSwapNotFound)
 				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(errors.New("error saving swap out"))
+
 				return &swapMonitor
 			},
 			args: args{
@@ -262,6 +261,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 			name: "get swap failed",
 			setup: func() *SwapMonitor {
 				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(nil, errors.New("error getting swap out"))
+
 				return &swapMonitor
 			},
 			args: args{
@@ -279,6 +279,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 					Status: models.StatusContractFunded,
 				}, nil)
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{}, errors.New("error claiming swap out"))
+
 				return &swapMonitor
 			},
 			args: args{
@@ -303,6 +304,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 				}, nil)
 				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
 				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(errors.New("error saving swap out"))
+
 				return &swapMonitor
 			},
 			args: args{
@@ -330,6 +332,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 				}, nil)
 				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
 				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+
 				return &swapMonitor
 			},
 			args: args{
