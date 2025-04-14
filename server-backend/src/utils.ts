@@ -1,5 +1,5 @@
 export function sleep(millis: number, abortSignal?: AbortSignal): Promise<void> {
-    const timeoutPromise = new Promise<void>(r => setTimeout(r, millis));
+    const timeoutPromise = new Promise<void>(r => setTimeout(r, process.env.TEST_MODE ? 1000 : millis));
     if (abortSignal != null) {
         return Promise.any([
             timeoutPromise,
