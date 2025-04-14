@@ -1,0 +1,12 @@
+{
+    "[json]": {
+        "editor.formatOnSave": false,
+        "editor.defaultFormatter": null
+    },
+    "[typescript]": {
+        "editor.formatOnSave": false,
+        "editor.defaultFormatter": null
+    },
+    "editor.formatOnSave": false,
+    "json.format.enable": false,
+}
