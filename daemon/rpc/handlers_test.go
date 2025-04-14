@@ -13,7 +13,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	grpc "google.golang.org/grpc"
 )
 
 func TestServer_SwapIn(t *testing.T) {
@@ -414,22 +413,13 @@ func TestServer_SwapOut(t *testing.T) {
 		Repository:      reposistory,
 		network:         2, // regtest
 	}
-	type fields struct {
-		UnimplementedSwapServiceServer UnimplementedSwapServiceServer
-		Port                           uint32
-		Repository                     Repository
-		grpcServer                     *grpc.Server
-		lightningClient                lightning.Client
-		swapClient                     swaps.ClientInterface
-		network                        Network
-	}
+
 	type args struct {
 		ctx context.Context
 		req *SwapOutRequest
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		setup   func() *Server
 		args    args
 		want    *SwapOutResponse
@@ -438,12 +428,6 @@ func TestServer_SwapOut(t *testing.T) {
 	}{
 		{
 			name: "fail get LND address",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				lightningClient.EXPECT().GenerateAddress(ctx).Return("", errors.New("failed to generate address"))
 
@@ -459,12 +443,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "fail get server configuration",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
 				swapClient.EXPECT().GetConfiguration(ctx).Return(nil, errors.New("failed to get configuration"))
@@ -481,12 +459,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "amt lower than min",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
@@ -508,12 +480,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "amt higher than max",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
@@ -535,12 +501,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "invalid address",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -562,12 +522,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "invalid address network",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -589,12 +543,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "failed to create swap out",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -617,12 +565,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "bad response from server (invalid amount)",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -652,12 +594,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "failed to save swap out",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -685,12 +621,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "fail to pay invoice",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -719,12 +649,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "valid request (lnd address)",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
@@ -757,12 +681,6 @@ func TestServer_SwapOut(t *testing.T) {
 		},
 		{
 			name: "valid request (provided address)",
-			fields: fields{
-				lightningClient: lightningClient,
-				swapClient:      swapClient,
-				Repository:      reposistory,
-				network:         2, // regtest
-			},
 			setup: func() *Server {
 				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
 					MinimumAmount: decimal.NewFromFloat(0.001),
