@@ -10,6 +10,7 @@ service SwapService {
   rpc SwapOut(SwapOutRequest) returns (SwapOutResponse); // Initiates a SwapOut operation.
   rpc GetSwapIn(GetSwapInRequest) returns (GetSwapInResponse); // Retrieves the status of a SwapIn.
   rpc GetSwapOut(GetSwapOutRequest) returns (GetSwapOutResponse); // Retrieves the status of a SwapOut.
+  rpc RecoverReusedSwapAddress(RecoverReusedSwapAddressRequest) returns (RecoverReusedSwapAddressResponse); // Recovers a reused swap address.
 }
 
 // Enum definition for supported blockchain chains.
@@ -100,3 +101,10 @@ message GetSwapOutResponse {
   Status status = 6; // Current status of the swap.
   google.protobuf.Timestamp created_at = 7; // Timestamp when the swap was created.
 }
+
+message RecoverReusedSwapAddressRequest {
+  string outpoint = 1; // Outpoint of the transaction to refund
+  optional string refund_to = 2; // Address to refund to
+}
+
+message RecoverReusedSwapAddressResponse {}
