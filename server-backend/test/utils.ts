@@ -26,5 +26,5 @@ export async function waitFor(fn: () => Promise<boolean>): Promise<void> {
         }
         await sleep(1000);
     }
-    throw new Error('timeout');
+    throw new Error(`timeout while waiting for condition: ${fn.toString()}`);
 }
