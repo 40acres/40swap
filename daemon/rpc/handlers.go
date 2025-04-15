@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -326,4 +328,60 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 	}
 
 	return res, nil
+}
+
+func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReusedSwapAddressRequest) (*RecoverReusedSwapAddressResponse, error) {
+	swap, err := s.Repository.GetSwapInByID("evgNchjYtzuJ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pending swaps: %w", err)
+	}
+
+	logger := log.WithFields(log.Fields{
+		"swap_id": swap.SwapID,
+	})
+
+	logger.Infof("Claiming swap in refund: %s", swap.SwapID)
+	res, err := s.swapClient.GetRefundPSBT(ctx, swap.SwapID, *req.RefundTo, &req.Outpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get refund psbt: %w", err)
+	}
+
+	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode psbt: %w", err)
+	}
+
+	// check if the refund address returned in the psbt is our own
+	if !bitcoin.PSBTHasValidOutputAddress(pkt, ToLightningNetworkType(s.network), *req.RefundTo) {
+		return nil, fmt.Errorf("invalid refund tx")
+	}
+
+	privateKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode refund private key: %w", err)
+	}
+
+	// Process the PSBT
+	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign PSBT: %w", err)
+	}
+
+	if fee, err := pkt.GetTxFee(); err != nil || fee > 1000 {
+		return nil, fmt.Errorf(`fee rate too high ${psbt.getFeeRate()}`)
+	}
+
+	serializedTx, err := bitcoin.SerializeTx(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	// Send transaction back to the swap client
+	logger.Debug("Sending transaction back to swap client")
+	err = s.swapClient.PostRefund(ctx, swap.SwapID, serializedTx, &req.Outpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RecoverReusedSwapAddressResponse{}, nil
 }

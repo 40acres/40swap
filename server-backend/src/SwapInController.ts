@@ -21,6 +21,7 @@ import {
     swapInRequestSchema,
     txRequestSchema,
 } from '@40swap/shared';
+import { isValidOutpoint } from './utils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -50,10 +51,11 @@ export class SwapInController {
 
     @Get('/:id/refund-psbt')
     @ApiOkResponse({description: 'Get a refund PSBT', type: PsbtResponseDto})
-    async getRefundPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
+    async getRefundPsbt(@Param('id') id: string, @Query('address') outputAddress?: string, @Query('outpoint') outpoint?: string): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
         }
+
         try {
             address.toOutputScript(outputAddress, this.bitcoinConfig.network);
         } catch (e) {
@@ -64,27 +66,47 @@ export class SwapInController {
             throw new NotFoundException('swap not found');
         }
         assert(swap.lockTx != null);
-        const lockTx = Transaction.fromBuffer(swap.lockTx);
+        let lockTx = Transaction.fromBuffer(swap.lockTx);
+
+        // We are looking for a specific outpoint to recover, not the lock tx for the swap
+        if (outpoint != null) {
+            lockTx = await this.getTxForOutpoint(outpoint);
+        }
+
         const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
         return { psbt: refundPsbt.toBase64() };
     }
 
     @Post('/:id/refund-tx')
     @ApiCreatedResponse({description: 'Send a refund tx', type: undefined})
-    async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto): Promise<void> {
+    async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto, @Body('outpoint') Outpoint?: string): Promise<void> {
         const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
         assert(swap.lockTx != null);
+        let lockTx = Transaction.fromBuffer(swap.lockTx);
+
+        // We are looking for a specific outpoint to recover, not the lock tx for the swap
+        if (Outpoint != null) {
+            lockTx = await this.getTxForOutpoint(Outpoint);
+        }
+        
+        const refundTx = Transaction.fromHex(txRequest.tx);
+        if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+            throw new BadRequestException('invalid refund tx');
+        }
+
         try {
-            const lockTx = Transaction.fromBuffer(swap.lockTx);
-            const refundTx = Transaction.fromHex(txRequest.tx);
-            if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
-                throw new BadRequestException('invalid refund tx');
+            const blockHeight = await this.bitcoinService.getBlockHeight();
+            if (refundTx.locktime > blockHeight) {
+                throw new BadRequestException(`"can't publish a refund until block height ${refundTx.locktime}, current height is ${blockHeight}"`);
             }
             await this.nbxplorer.broadcastTx(refundTx);
         } catch (e) {
+            if (e instanceof BadRequestException) {
+                throw e;
+            }
             throw new BadRequestException('invalid bitcoin tx');
         }
     }
@@ -139,5 +161,19 @@ export class SwapInController {
                 return psbt;
             }
         );
+    }
+
+    private async getTxForOutpoint(outpoint: string): Promise<Transaction> {
+        const [isValid, txid, _] = isValidOutpoint(outpoint);
+        if (!isValid) {
+            throw new BadRequestException('invalid outpoint');
+        }
+
+        const tx = await this.nbxplorer.getTx(txid);
+        if (tx == null) {
+            throw new BadRequestException('tx not found');
+        }
+
+        return Transaction.fromHex(tx.transaction);
     }
 }

@@ -103,6 +103,12 @@ type PsbtResponseDto struct {
 	Psbt string `json:"psbt"`
 }
 
+// RefundTxRequestDto defines model for RefundTxRequestDto.
+type RefundTxRequestDto struct {
+	Outpoint *string `json:"outpoint,omitempty"`
+	Tx       string  `json:"tx"`
+}
+
 // SwapInRequestDto defines model for SwapInRequestDto.
 type SwapInRequestDto struct {
 	Chain           SwapInRequestDtoChain `json:"chain"`
@@ -131,7 +137,8 @@ type TxRequestDto struct {
 
 // SwapInControllerGetRefundPsbtParams defines parameters for SwapInControllerGetRefundPsbt.
 type SwapInControllerGetRefundPsbtParams struct {
-	Address string `form:"address" json:"address"`
+	Address  string  `form:"address" json:"address"`
+	Outpoint *string `form:"outpoint,omitempty" json:"outpoint,omitempty"`
 }
 
 // SwapOutControllerGetClaimPsbtParams defines parameters for SwapOutControllerGetClaimPsbt.
@@ -143,7 +150,7 @@ type SwapOutControllerGetClaimPsbtParams struct {
 type SwapInControllerCreateSwapJSONRequestBody = SwapInRequestDto
 
 // SwapInControllerSendRefundTxJSONRequestBody defines body for SwapInControllerSendRefundTx for application/json ContentType.
-type SwapInControllerSendRefundTxJSONRequestBody = TxRequestDto
+type SwapInControllerSendRefundTxJSONRequestBody = RefundTxRequestDto
 
 // SwapOutControllerCreateSwapJSONRequestBody defines body for SwapOutControllerCreateSwap for application/json ContentType.
 type SwapOutControllerCreateSwapJSONRequestBody = SwapOutRequestDto
@@ -556,6 +563,22 @@ func NewSwapInControllerGetRefundPsbtRequest(server string, id string, params *S
 					queryValues.Add(k, v2)
 				}
 			}
+		}
+
+		if params.Outpoint != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "outpoint", runtime.ParamLocationQuery, *params.Outpoint); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
 		}
 
 		queryURL.RawQuery = queryValues.Encode()

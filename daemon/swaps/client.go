@@ -22,8 +22,8 @@ type ClientInterface interface {
 	PostClaim(ctx context.Context, swapId, tx string) error
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
 	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
-	GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error)
-	PostRefund(ctx context.Context, swapId, tx string) error
+	GetRefundPSBT(ctx context.Context, swapId, address string, outpoint *string) (*RefundPSBTResponse, error)
+	PostRefund(ctx context.Context, swapId, tx string, outpoint *string) error
 }
 
 type ConfigurationResponse struct {

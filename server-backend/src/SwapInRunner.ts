@@ -136,6 +136,10 @@ export class SwapInRunner {
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
         const receivedAmount = new Decimal(output.value).div(1e8);
+        if (this.swap.status === 'DONE') {
+            this.logger.warn(`Swap already done (id=${this.swap.id}) is receiving funds, please use manual recovery to get your funds`);
+            return;
+        }
         if (!receivedAmount.equals(swap.inputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.error(`Amount mismatch. Failed swap. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
