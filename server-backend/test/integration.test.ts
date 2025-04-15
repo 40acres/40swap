@@ -182,7 +182,7 @@ describe('40Swap backend', () => {
         });
 
         // Now request a refund
-        const refundPSBT = await backend.getRefundPsbt(swap.swapId, "bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf");
+        const refundPSBT = await backend.getRefundPsbt(swap.swapId, 'bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf');
 
         // Sign the refund transaction
         signContractSpend({
@@ -207,7 +207,7 @@ describe('40Swap backend', () => {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
             .withBuild()
-            .withWaitStrategy('40swap-backend-1', Wait.forHealthCheck())
+            .withWaitStrategy('40swap_backend', Wait.forHealthCheck())
             .withWaitStrategy('40swap_lnd_lsp', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('40swap_lnd_alice', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
             .withWaitStrategy('40swap_lnd_user', Wait.forLogMessage(/.*Waiting for chain backend to finish sync.*/))
@@ -250,6 +250,7 @@ describe('40Swap backend', () => {
                 maximumAmount: 0.01300000,
                 expiryDuration: 'PT30M',
                 lockBlockDelta: {
+                    minIn: 144,
                     in: 432,
                     out: 20,
                 },
@@ -273,7 +274,7 @@ describe('40Swap backend', () => {
         lndUser = await Lnd.fromContainer(compose.getContainer('40swap_lnd_user'));
         lndAlice = await Lnd.fromContainer(compose.getContainer('40swap_lnd_alice'));
         bitcoind = new Bitcoind(compose.getContainer('40swap_bitcoind'));
-        backend = new BackendRestClient(compose.getContainer('40swap-backend-1'));
+        backend = new BackendRestClient(compose.getContainer('40swap_backend'));
     }
 
     async function setUpBlockchains(): Promise<void> {
