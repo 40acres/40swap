@@ -165,7 +165,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     ): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
         const totalAmount = amount + commision;
-        const amountInFloat = new Decimal(totalAmount / 1e8);
+        const amountInFloat = new Decimal(totalAmount).div(1e8);
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
 
         // Create a new pset
