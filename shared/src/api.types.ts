@@ -50,6 +50,12 @@ export const swapInRequestSchema = z.object({
     chain: chainSchema,
     invoice: z.string(),
     refundPublicKey: z.string(),
+    /**
+     * Optional parameter to specify a custom CLTV expiry (in blocks) for the swap.
+     * If omitted, the default value from the server configuration is used.
+     * The minimum value allowed is 144 blocks.
+     */
+    lockBlockDeltaIn: z.number().optional(),
 });
 export type SwapInRequest = z.infer<typeof swapInRequestSchema>;
 
