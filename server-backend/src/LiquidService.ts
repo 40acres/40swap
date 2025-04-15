@@ -118,7 +118,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+                throw new Error(`HTTP error! Status: ${response.status}, ${await response.text()}`);
             }
             
             const data = await response.json() as { result: unknown };

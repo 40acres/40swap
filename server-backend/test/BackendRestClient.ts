@@ -1,10 +1,18 @@
 import { StartedGenericContainer } from 'testcontainers/build/generic-container/started-generic-container.js';
-import { GetSwapInResponse, getSwapInResponseSchema, SwapInRequest, TxRequest, FrontendConfiguration, frontendConfigurationSchema } from '@40swap/shared';
+import { 
+    GetSwapInResponse, 
+    getSwapInResponseSchema, 
+    SwapInRequest, 
+    GetSwapOutResponse, 
+    getSwapOutResponseSchema, 
+    SwapOutRequest, 
+    PsbtResponse, 
+    psbtResponseSchema,
+    TxRequest, FrontendConfiguration, frontendConfigurationSchema 
+} from '@40swap/shared';
 import { Psbt, Transaction } from 'bitcoinjs-lib';
-import { z } from 'zod';
-export const psbtResponseSchema = z.object({
-    psbt: z.string(),
-});
+
+
 export class BackendRestClient {
     private baseUrl: string;
     private config: FrontendConfiguration;
@@ -44,7 +52,21 @@ export class BackendRestClient {
         return getSwapInResponseSchema.parse(await resp.json());
     }
 
-    async requestSwapInRefund(id: string): Promise<void> {
+    async createSwapOut(request: SwapOutRequest): Promise<GetSwapOutResponse> {
+        const resp = await fetch(`${this.baseUrl}/api/swap/out`, {
+            method: 'POST',
+            body: JSON.stringify(request),
+            headers: {
+                'content-type': 'application/json',
+            },
+        });
+        if (resp.status >= 300) {
+            throw new Error(`error creating swap-out. ${await resp.text()}`);
+        }
+        return getSwapOutResponseSchema.parse(await resp.json());
+    }
+
+    async requestSwapInRefund(id: string): Promise<GetSwapOutResponse> {
         const resp = await fetch(`${this.baseUrl}/api/swap/in/${id}/refund`, {
             method: 'POST',
             headers: {
@@ -52,7 +74,41 @@ export class BackendRestClient {
             },
         });
         if (resp.status >= 300) {
-            throw new Error(`error requesting refund for swap-in. ${await resp.text()}`);
+            throw new Error(`error creating swap-out. ${await resp.text()}`);
+        }
+        return getSwapOutResponseSchema.parse(await resp.json());
+    }
+
+    async getSwapOut(id: string): Promise<GetSwapOutResponse> {
+        const resp = await fetch(`${this.baseUrl}/api/swap/out/${id}`);
+        if (resp.status >= 300) {
+            throw new Error(`error retrieving swap. ${await resp.text()}`);
+        }
+        return getSwapOutResponseSchema.parse(await resp.json());
+    }
+
+    async getClaimPsbt(id: string, address: string): Promise<PsbtResponse> {
+        const resp = await fetch(`${this.baseUrl}/api/swap/out/${id}/claim-psbt?address=${address}`);
+        if (resp.status >= 300) {
+            throw new Error(`error getting claim psbt. ${await resp.text()}`);
+        }
+        const json = await resp.json();
+        console.log('json', json);
+        return psbtResponseSchema.parse(json);
+    }
+
+    async claimSwap(id: string, tx: string): Promise<void> {
+        const resp = await fetch(`${this.baseUrl}/api/swap/out/${id}/claim`, {
+            method: 'POST',
+            body: JSON.stringify({ tx }),
+            headers: {
+                'accept': '*/*',
+                'content-type': 'application/json',
+            },
+        });
+        console.log('resp', resp);
+        if (resp.status >= 300) {
+            throw new Error(`error claiming swap. ${await resp.text()}`);
         }
     }
 
