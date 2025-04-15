@@ -9,6 +9,7 @@ import * as liquid from 'liquidjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import assert from 'node:assert';
 import BIP32Factory from 'bip32';
+import Decimal from 'decimal.js';
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -164,7 +165,8 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     ): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
         const totalAmount = amount + commision;
-        const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount / 1e8);
+        const amountInFloat = new Decimal(totalAmount / 1e8);
+        const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
 
         // Create a new pset
         const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
