@@ -30,7 +30,6 @@ export async function waitFor(fn: () => Promise<boolean>): Promise<void> {
     throw new Error(`timeout while waiting for condition: ${fn.toString()}`);
 }
 
-
 export function signLiquidPset(psbt: string, preImage: string, key: ECPairInterface): string {
     const pset = liquid.Pset.fromBase64(psbt);
     const inputIndex = 0;
