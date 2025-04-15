@@ -9,6 +9,7 @@ import * as liquid from 'liquidjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import assert from 'node:assert';
 import BIP32Factory from 'bip32';
+import Decimal from 'decimal.js';
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -50,6 +51,7 @@ export abstract class LiquidPSETBuilder {
 
     public readonly lockSequence = 0xffffffff;
     public readonly refundSequence = 0xfffffffe;
+    public readonly claimSequence = 0;
 
     constructor(
         protected nbxplorer: NbxplorerService,
@@ -115,6 +117,42 @@ export abstract class LiquidPSETBuilder {
             return {finalScriptWitness};
         });
     }
+
+    getContractVoutInfo(
+        spendingTx: liquid.Transaction, contractAddress: string, network: liquid.networks.Network
+    ): {
+        contractOutputIndex: number;
+        outputValue: number;
+        witnessUtxo: liquid.TxOutput;
+    } {
+        let outputValue = 0;
+        let contractOutputIndex = -1;
+        let witnessUtxo: liquid.TxOutput | null = null;
+        
+        for (let i = 0; i < spendingTx.outs.length; i++) {
+            try {
+                const outputScript = spendingTx.outs[i].script;
+                const outputAddress = liquid.address.fromOutputScript(outputScript, network);
+                if (outputAddress === contractAddress) {
+                    contractOutputIndex = i;
+                    outputValue = Buffer.isBuffer(spendingTx.outs[i].value) 
+                        ? Number(Buffer.from(spendingTx.outs[i].value).reverse().readBigUInt64LE(0))
+                        : Number(spendingTx.outs[i].value);
+                    witnessUtxo = spendingTx.outs[i];
+                    break;
+                }
+            } catch (e) {
+                throw new Error(`Error parsing output script: ${e}`);
+            }
+        }
+        assert(contractOutputIndex !== -1, 'Contract output not found in spending transaction');
+        assert(witnessUtxo != null, 'Witness utxo not found in spending transaction');
+        return {
+            contractOutputIndex,
+            outputValue,
+            witnessUtxo,
+        };
+    }
 }
 
 export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
@@ -127,7 +165,8 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     ): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
         const totalAmount = amount + commision;
-        const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(totalAmount);
+        const amountInFloat = new Decimal(totalAmount).div(1e8);
+        const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
 
         // Create a new pset
         const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
@@ -200,6 +239,39 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     }
 }
 
+export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
+    async getPset(swap: SwapOut, spendingTx: liquid.Transaction, destinationAddress: string,): Promise<liquid.Pset> {
+        // Find the contract vout info
+        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(
+            spendingTx, swap.contractAddress!, this.network
+        );
+        
+        // Create a new pset
+        const pset = liquid.Creator.newPset();
+        const updater = new liquid.Updater(pset);
+        
+        // Add input - use contractOutputIndex for the vout
+        const psetInputIndex = 0;
+        this.addInput(pset, spendingTx.getId(), contractOutputIndex, this.claimSequence);
+        updater.addInSighashType(psetInputIndex, liquid.Transaction.SIGHASH_ALL);
+        updater.addInWitnessUtxo(psetInputIndex, witnessUtxo);
+        updater.addInWitnessScript(psetInputIndex, swap.lockScript!);
+        
+        // Calculate output amount and fee
+        const feeAmount = await this.getCommissionAmount();
+        const outputAmount = outputValue - feeAmount;
+        
+        // Add output
+        const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
+        this.addOutput(updater, outputAmount, outputScript);
+        
+        // Add fee output - required for Liquid
+        this.addOutput(updater, feeAmount);
+
+        return pset;
+    }
+}
+
 export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
 
     async getPset(swap: SwapOut, spendingTx: liquid.Transaction): Promise<liquid.Pset> {
@@ -259,41 +331,5 @@ export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
         
         // Add fee output - required for Liquid
         this.addOutput(updater, feeAmount);
-    }
-
-    getContractVoutInfo(
-        spendingTx: liquid.Transaction, contractAddress: string, network: liquid.networks.Network
-    ): {
-        contractOutputIndex: number;
-        outputValue: number;
-        witnessUtxo: liquid.TxOutput;
-    } {
-        let outputValue = 0;
-        let contractOutputIndex = -1;
-        let witnessUtxo: liquid.TxOutput | null = null;
-        
-        for (let i = 0; i < spendingTx.outs.length; i++) {
-            try {
-                const outputScript = spendingTx.outs[i].script;
-                const outputAddress = liquid.address.fromOutputScript(outputScript, network);
-                if (outputAddress === contractAddress) {
-                    contractOutputIndex = i;
-                    outputValue = Buffer.isBuffer(spendingTx.outs[i].value) 
-                        ? Number(Buffer.from(spendingTx.outs[i].value).reverse().readBigUInt64LE(0))
-                        : Number(spendingTx.outs[i].value);
-                    witnessUtxo = spendingTx.outs[i];
-                    break;
-                }
-            } catch (e) {
-                throw new Error(`Error parsing output script: ${e}`);
-            }
-        }
-        assert(contractOutputIndex !== -1, 'Contract output not found in spending transaction');
-        assert(witnessUtxo != null, 'Witness utxo not found in spending transaction');
-        return {
-            contractOutputIndex,
-            outputValue,
-            witnessUtxo,
-        };
     }
 }

@@ -22,6 +22,8 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetwork } from './LiquidUtils.js';
+
+
 const ECPair = ECPairFactory(ecc);
 
 @Injectable()

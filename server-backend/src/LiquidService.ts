@@ -2,6 +2,7 @@
 import { FourtySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
+import Decimal from 'decimal.js';
 import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
 
@@ -128,7 +129,13 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async getUnspentUtxos(amount: number | null = null): Promise<RPCUtxo[]> {
+    /**
+     * Gets unspent UTXOs with a minimum total amount in BTC/L-BTC format (satoshis/1e8).
+     * For example, 0.1 BTC would be passed as 0.1, not 10000000.
+     * @param amount Total amount in BTC/L-BTC format (satoshis/1e8). Pass null to get all available UTXOs.
+     * @returns An array of unspent UTXOs.
+     */
+    async getUnspentUtxos(amount: Decimal | null = null): Promise<RPCUtxo[]> {
         // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
         // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
         let utxoResponse: unknown;
@@ -140,7 +147,12 @@ export class LiquidService implements OnApplicationBootstrap  {
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
-    async getConfirmedUtxosAndInputValueForAmount(amount: number): Promise<{ 
+    /**
+     * Gets confirmed UTXOs with a minimum total amount.
+     * @param amount Total amount in BTC/L-BTC format (satoshis/1e8).
+     * @returns An object with the unspent UTXOs and the total input value (total sum of all UTXOs values).
+     */
+    async getConfirmedUtxosAndInputValueForAmount(amount: Decimal): Promise<{ 
         utxos: RPCUtxo[], 
         totalInputValue: number,
     }> {
@@ -150,7 +162,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             throw new Error('No confirmed UTXOs found');
         }
         totalInputValue = confirmedUtxos.reduce((sum, utxo) => sum + utxo.amount * 1e8, 0);
-        if (totalInputValue < amount) {
+        if (new Decimal(totalInputValue).lt(amount)) {
             throw new Error(`Insufficient funds, required ${amount} but only ${totalInputValue} available`);
         }
         return { utxos: confirmedUtxos, totalInputValue };
