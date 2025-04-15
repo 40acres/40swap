@@ -238,7 +238,7 @@ describe('40Swap backend', () => {
                 requiredConfirmations: 3,
             },
             nbxplorer: {
-                baseUrl: 'http://nbxplorer-test:32838/v1/cryptos',
+                baseUrl: 'http://nbxplorer:32838/v1/cryptos',
                 fallbackFeeRate: 10,
             },
             mempoolBlockExplorer: {
@@ -262,7 +262,7 @@ describe('40Swap backend', () => {
             },
             elements: {
                 network: 'regtest',
-                rpcUrl: 'http://elements-test:18884',
+                rpcUrl: 'http://elements:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
                 xpub,

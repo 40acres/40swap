@@ -55,6 +55,7 @@ export class BackendRestClient {
     async createSwapOut(request: SwapOutRequest): Promise<GetSwapOutResponse> {
         const resp = await fetch(`${this.baseUrl}/api/swap/out`, {
             method: 'POST',
+            body: JSON.stringify(request),
             headers: {
                 'content-type': 'application/json',
             },
