@@ -15,10 +15,6 @@ import (
 )
 
 func signInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHashType txscript.SigHashType, fetcher txscript.PrevOutputFetcher) ([]byte, error) {
-	if inputIndex < 0 || inputIndex >= len(packet.Inputs) {
-		return nil, fmt.Errorf("invalid input index: %d", inputIndex)
-	}
-
 	input := &packet.Inputs[inputIndex]
 
 	sigHashes := txscript.NewTxSigHashes(packet.UnsignedTx, fetcher)
@@ -135,6 +131,10 @@ func finalizePSBT(pkt *psbt.Packet) error {
 }
 
 func SignFinishExtractPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateKey, preimage *lntypes.Preimage, inputIndex int) (*wire.MsgTx, error) {
+	if inputIndex < 0 || inputIndex >= len(pkt.Inputs) {
+		return nil, fmt.Errorf("invalid input index: %d", inputIndex)
+	}
+
 	input := &pkt.Inputs[inputIndex]
 
 	fetcher := txscript.NewCannedPrevOutputFetcher(
