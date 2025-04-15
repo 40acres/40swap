@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SwapService_SwapIn_FullMethodName     = "/SwapService/SwapIn"
-	SwapService_SwapOut_FullMethodName    = "/SwapService/SwapOut"
-	SwapService_GetSwapIn_FullMethodName  = "/SwapService/GetSwapIn"
-	SwapService_GetSwapOut_FullMethodName = "/SwapService/GetSwapOut"
+	SwapService_SwapIn_FullMethodName                   = "/SwapService/SwapIn"
+	SwapService_SwapOut_FullMethodName                  = "/SwapService/SwapOut"
+	SwapService_GetSwapIn_FullMethodName                = "/SwapService/GetSwapIn"
+	SwapService_GetSwapOut_FullMethodName               = "/SwapService/GetSwapOut"
+	SwapService_RecoverReusedSwapAddress_FullMethodName = "/SwapService/RecoverReusedSwapAddress"
 )
 
 // SwapServiceClient is the client API for SwapService service.
@@ -34,6 +35,7 @@ type SwapServiceClient interface {
 	SwapOut(ctx context.Context, in *SwapOutRequest, opts ...grpc.CallOption) (*SwapOutResponse, error)
 	GetSwapIn(ctx context.Context, in *GetSwapInRequest, opts ...grpc.CallOption) (*GetSwapInResponse, error)
 	GetSwapOut(ctx context.Context, in *GetSwapOutRequest, opts ...grpc.CallOption) (*GetSwapOutResponse, error)
+	RecoverReusedSwapAddress(ctx context.Context, in *RecoverReusedSwapAddressRequest, opts ...grpc.CallOption) (*RecoverReusedSwapAddressResponse, error)
 }
 
 type swapServiceClient struct {
@@ -84,6 +86,16 @@ func (c *swapServiceClient) GetSwapOut(ctx context.Context, in *GetSwapOutReques
 	return out, nil
 }
 
+func (c *swapServiceClient) RecoverReusedSwapAddress(ctx context.Context, in *RecoverReusedSwapAddressRequest, opts ...grpc.CallOption) (*RecoverReusedSwapAddressResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecoverReusedSwapAddressResponse)
+	err := c.cc.Invoke(ctx, SwapService_RecoverReusedSwapAddress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SwapServiceServer is the server API for SwapService service.
 // All implementations must embed UnimplementedSwapServiceServer
 // for forward compatibility.
@@ -93,6 +105,7 @@ type SwapServiceServer interface {
 	SwapOut(context.Context, *SwapOutRequest) (*SwapOutResponse, error)
 	GetSwapIn(context.Context, *GetSwapInRequest) (*GetSwapInResponse, error)
 	GetSwapOut(context.Context, *GetSwapOutRequest) (*GetSwapOutResponse, error)
+	RecoverReusedSwapAddress(context.Context, *RecoverReusedSwapAddressRequest) (*RecoverReusedSwapAddressResponse, error)
 	mustEmbedUnimplementedSwapServiceServer()
 }
 
@@ -114,6 +127,9 @@ func (UnimplementedSwapServiceServer) GetSwapIn(context.Context, *GetSwapInReque
 }
 func (UnimplementedSwapServiceServer) GetSwapOut(context.Context, *GetSwapOutRequest) (*GetSwapOutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSwapOut not implemented")
+}
+func (UnimplementedSwapServiceServer) RecoverReusedSwapAddress(context.Context, *RecoverReusedSwapAddressRequest) (*RecoverReusedSwapAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecoverReusedSwapAddress not implemented")
 }
 func (UnimplementedSwapServiceServer) mustEmbedUnimplementedSwapServiceServer() {}
 func (UnimplementedSwapServiceServer) testEmbeddedByValue()                     {}
@@ -208,6 +224,24 @@ func _SwapService_GetSwapOut_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SwapService_RecoverReusedSwapAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecoverReusedSwapAddressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SwapServiceServer).RecoverReusedSwapAddress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SwapService_RecoverReusedSwapAddress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SwapServiceServer).RecoverReusedSwapAddress(ctx, req.(*RecoverReusedSwapAddressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SwapService_ServiceDesc is the grpc.ServiceDesc for SwapService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -230,6 +264,10 @@ var SwapService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSwapOut",
 			Handler:    _SwapService_GetSwapOut_Handler,
+		},
+		{
+			MethodName: "RecoverReusedSwapAddress",
+			Handler:    _SwapService_RecoverReusedSwapAddress_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

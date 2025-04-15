@@ -49,6 +49,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "outpoint",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -84,7 +92,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TxRequestDto"
+                "$ref": "#/components/schemas/RefundTxRequestDto"
               }
             }
           }
@@ -366,6 +374,22 @@
           }
         },
         "required": ["psbt"]
+      },
+      "RefundTxRequestDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TxRequestDto"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outpoint": {
+                "type": "string"
+              }
+            },
+            "required": ["tx"]
+          }
+        ]
       },
       "TxRequestDto": {
         "type": "object",

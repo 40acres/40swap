@@ -101,18 +101,18 @@ func (mr *MockClientInterfaceMockRecorder) GetConfiguration(ctx any) *gomock.Cal
 }
 
 // GetRefundPSBT mocks base method.
-func (m *MockClientInterface) GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error) {
+func (m *MockClientInterface) GetRefundPSBT(ctx context.Context, swapId, address string, outpoint *string) (*RefundPSBTResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRefundPSBT", ctx, swapId, address)
+	ret := m.ctrl.Call(m, "GetRefundPSBT", ctx, swapId, address, outpoint)
 	ret0, _ := ret[0].(*RefundPSBTResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRefundPSBT indicates an expected call of GetRefundPSBT.
-func (mr *MockClientInterfaceMockRecorder) GetRefundPSBT(ctx, swapId, address any) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) GetRefundPSBT(ctx, swapId, address, outpoint any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRefundPSBT", reflect.TypeOf((*MockClientInterface)(nil).GetRefundPSBT), ctx, swapId, address)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRefundPSBT", reflect.TypeOf((*MockClientInterface)(nil).GetRefundPSBT), ctx, swapId, address, outpoint)
 }
 
 // GetSwapIn mocks base method.

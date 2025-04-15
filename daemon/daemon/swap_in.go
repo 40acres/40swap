@@ -55,6 +55,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		case models.OutcomeRefunded:
 			outcome := models.OutcomeRefunded
 			currentSwap.Outcome = &outcome
+			// TODO: Save preimage
 			logger.Debug("failed. The funds have been refunded")
 		case models.OutcomeExpired:
 			outcome := models.OutcomeExpired
@@ -101,7 +102,7 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 	})
 
 	logger.Infof("Claiming swap in refund: %s", swap.SwapID)
-	res, err := m.swapClient.GetRefundPSBT(ctx, swap.SwapID, swap.RefundAddress)
+	res, err := m.swapClient.GetRefundPSBT(ctx, swap.SwapID, swap.RefundAddress, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get refund psbt: %w", err)
 	}
@@ -138,7 +139,7 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 
 	// Send transaction back to the swap client
 	logger.Debug("Sending transaction back to swap client")
-	err = m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx)
+	err = m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx, nil)
 	if err != nil {
 		return "", err
 	}

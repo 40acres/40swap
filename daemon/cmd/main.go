@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	bitcoinutils "github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning/lnd"
@@ -394,6 +395,56 @@ func main() {
 								}
 							default:
 								return fmt.Errorf("invalid swap type: %s", swapType)
+							}
+
+							fmt.Printf("%s\n", resp)
+
+							return nil
+						},
+					},
+					{
+						Name:  "recover",
+						Usage: "Recover a swap that was paid more than once", // TODO move
+						Flags: []cli.Flag{
+							&grpcPort,
+							&cli.StringFlag{
+								Name:     "outpoint",
+								Usage:    "The outpoint of the swap to recover, in the format txid:index",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "refund-to",
+								Usage:    "The address where the recovery will be refunded to",
+								Required: true,
+							},
+						},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							isValid := bitcoinutils.IsValidOutpoint(cmd.String("outpoint"))
+							if !isValid {
+								return fmt.Errorf("invalid outpoint: %s", cmd.String("outpoint"))
+							}
+
+							refundAddress := cmd.String("refund-to")
+							recoveryRequest := rpc.RecoverReusedSwapAddressRequest{
+								Outpoint: cmd.String("outpoint"),
+								RefundTo: &refundAddress,
+							}
+
+							swap, err := client.RecoverReusedSwapAddress(ctx, &recoveryRequest)
+							if err != nil {
+								return err
+							}
+							// Marshal response into json
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
 							}
 
 							fmt.Printf("%s\n", resp)

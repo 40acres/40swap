@@ -24,3 +24,21 @@ export function base58Id(length = 12): string {
     }
     return id.toString('utf-8');
 }
+
+export function isValidOutpoint(outpoint: string): [boolean, string, number] {
+    const parts = outpoint.split(':')
+    if (parts.length !== 2) {
+      return [false, "", -1];
+    }
+
+    const [txid, vout] = parts;
+  
+    // txid should be a 64-character hex string
+    const isValidTxid = /^[0-9a-fA-F]{64}$/.test(txid);
+    const intVOut = Number.parseInt(vout);
+    
+    // vout should be a non-negative integer
+    const isValidVout = !Number.isNaN(intVOut) && intVOut >= 0;
+  
+    return [isValidTxid && isValidVout, txid, intVOut];
+ }

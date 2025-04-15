@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -219,4 +222,28 @@ func PSBTHasValidOutputAddress(psbt *psbt.Packet, network lightning.Network, add
 	}
 
 	return addrs[0].EncodeAddress() == address
+}
+
+func IsValidOutpoint(outpoint string) bool {
+	parts := strings.Split(outpoint, ":")
+	if len(parts) != 2 {
+		return false
+	}
+
+	txid := parts[0]
+	vout := parts[1]
+
+	// txid should be a 64-character hex string
+	isValidTxid, err := regexp.MatchString("^[0-9a-fA-F]{64}$", txid)
+	if err != nil || !isValidTxid {
+		return false
+	}
+
+	intVOut, err := strconv.ParseInt(vout, 10, 32)
+	if err != nil {
+		return false
+	}
+
+	// vout should be a non-negative integer
+	return intVOut >= 0
 }

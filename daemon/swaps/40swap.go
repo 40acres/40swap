@@ -227,9 +227,10 @@ func (f *Client) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse,
 	return &swapInResponse, nil
 }
 
-func (f *Client) GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error) {
+func (f *Client) GetRefundPSBT(ctx context.Context, swapId, address string, outpoint *string) (*RefundPSBTResponse, error) {
 	response, err := f.client.SwapInControllerGetRefundPsbt(ctx, swapId, &api.SwapInControllerGetRefundPsbtParams{
-		Address: address,
+		Address:  address,
+		Outpoint: outpoint,
 	})
 	if err != nil {
 		return nil, err
@@ -250,9 +251,10 @@ func (f *Client) GetRefundPSBT(ctx context.Context, swapId, address string) (*Re
 	return &refundPSBTResponse, nil
 }
 
-func (f *Client) PostRefund(ctx context.Context, swapId, tx string) error {
+func (f *Client) PostRefund(ctx context.Context, swapId, tx string, outpoint *string) error {
 	response, err := f.client.SwapInControllerSendRefundTx(ctx, swapId, api.SwapInControllerSendRefundTxJSONRequestBody{
-		Tx: tx,
+		Tx:       tx,
+		Outpoint: outpoint,
 	})
 	if err != nil {
 		return err
