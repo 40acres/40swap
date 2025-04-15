@@ -1,6 +1,6 @@
 export function sleep(millis: number, abortSignal?: AbortSignal): Promise<void> {
     const safeTestingTime = Math.min(1000, millis); // This allow us to correctly execute integration tests
-    // We need to make sure that the timeout is at least 1 second, otherwise the test will fail
+    // We need to make sure that the timeout is at most 1 second, otherwise the integration tests will fail.
     // This is because integration tests runs an image of the server so we cant control time neither mock it
     // More info here: https://github.com/40acres/40swap/pull/96
     const timeoutPromise = new Promise<void>(r => setTimeout(r, process.env.IS_TESTING ? safeTestingTime : millis));
