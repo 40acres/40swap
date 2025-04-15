@@ -17,7 +17,7 @@ services:
       nbxplorer:
         condition: service_started
     environment:
-      - TEST_MODE=true
+      - IS_TESTING=true
     healthcheck:
       test: curl --fail http://localhost:8081/api/health || exit 1
       interval: 3s
