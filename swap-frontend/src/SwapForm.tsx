@@ -197,19 +197,12 @@ export const SwapForm: Component = () => {
             return;
         }
         try {
-            let swap;
-            switch (swapType()) {
-            case 'in':
-                swap = await swapInService.createSwap(form.payload);
+            if (swapType() === 'in') {
+                const swap = await swapInService.createSwap(form.payload);
                 navigate(`/swap/in/${swap.swapId}`);
-                break;
-            case 'out':
-                swap = await swapOutService.createSwap(form.payload, inputAmount());
+            } else if (swapType() === 'out') {
+                const swap = await swapOutService.createSwap(form.payload, inputAmount());
                 navigate(`/swap/out/${swap.swapId}`);
-                break;
-            default:
-                // TODO
-                break;
             }
         } catch (e) {
             toast.error('Unknown error');
