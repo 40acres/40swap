@@ -7,7 +7,7 @@ import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
 import { address, payments, Transaction } from 'bitcoinjs-lib';
 import { buildContractSpendBasePsbt, buildTransactionWithFee, reverseSwapScript } from './bitcoin-utils.js';
-import { signContractSpend, SwapOutStatus, getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { signContractSpend, SwapOutStatus } from '@40swap/shared';
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import { ECPairFactory } from 'ecpair';
@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { getLiquidNetwork, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -334,7 +334,7 @@ export class SwapOutRunner {
     }
 
     async buildLiquidRefundTx(swap: SwapOut): Promise<liquid.Transaction> {
-        const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+        const network = getLiquidNetwork(this.bitcoinConfig.network);
         const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
         const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!));
         const psetTx = liquid.Extractor.extract(pset);

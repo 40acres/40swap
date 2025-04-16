@@ -1,7 +1,7 @@
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -19,9 +19,8 @@ import {
     signContractSpend,
     swapOutRequestSchema,
     txRequestSchema,
-    getLiquidNetworkFromBitcoinNetwork,
 } from '@40swap/shared';
-import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { getLiquidNetwork, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 import { LiquidService } from './LiquidService.js';
 const ECPair = ECPairFactory(ecc);
 
@@ -105,7 +104,7 @@ export class SwapOutController {
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
-        assert(swap.lockTx != null, 'Swap does not have lock tx');
+        assert(swap.lockTx != null, "Swap does not have lock tx");
         if (swap.chain === 'BITCOIN') {
             try {
                 address.toOutputScript(outputAddress, this.bitcoinConfig.network);
@@ -120,7 +119,7 @@ export class SwapOutController {
         if (swap.chain === 'LIQUID') {
             assert(swap.status === 'CONTRACT_FUNDED', 'swap is not ready');
             try {
-                liquid.address.toOutputScript(outputAddress, getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network));
+                liquid.address.toOutputScript(outputAddress, getLiquidNetwork(this.bitcoinConfig.network));
             } catch (e) {
                 throw new BadRequestException(`invalid address ${outputAddress}`);
             }
@@ -159,7 +158,7 @@ export class SwapOutController {
     }
 
     async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {
-        const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+        const liquidNetwork = getLiquidNetwork(this.bitcoinConfig.network);
         const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, {
             xpub: this.liquidService.xpub,
             rpcUrl: this.liquidService.configurationDetails.rpcUrl,

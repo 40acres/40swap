@@ -2,7 +2,7 @@ import Fa from 'solid-fa';
 import Decimal from 'decimal.js';
 import flipImg from '/assets/flip.png';
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
-import { FrontendConfiguration, getSwapInInputAmount, getSwapOutOutputAmount, getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { FrontendConfiguration, getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
 import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetType, currencyFormat, SwapType } from './utils.js';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
@@ -161,7 +161,7 @@ export const SwapForm: Component = () => {
 
     function validateLiquidAddress(address: string, conf: FrontendConfiguration): void {
         try {
-            toOutputScriptLiquid(address, getLiquidNetworkFromBitcoinNetwork(conf.bitcoinNetwork));
+            toOutputScriptLiquid(address, conf.liquidNetwork);
             setFormErrors('payload', false);
         } catch (e) {
             setFormErrors('payload', true);
