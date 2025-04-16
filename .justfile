@@ -94,7 +94,6 @@ alice-lncli *cmd:
 # Run command within elements container
 elements-cli *cmd:
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest  {{cmd}}
-
 # Run backend IgTests
 [working-directory: 'server-backend']
 test-igtest-backend: build-shared 

@@ -1,60 +1,62 @@
-import Fa from 'solid-fa';
-import Decimal from 'decimal.js';
-import flipImg from '/assets/flip.png';
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
-import { FrontendConfiguration, getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
-import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
-import { AssetType, currencyFormat, SwapType } from './utils.js';
-import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
-import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
-import { applicationContext } from './ApplicationContext.js';
-import { AssetSelector } from './components/AssetSelector';
-import { ActionButton } from './ActionButton.js';
-import { useNavigate } from '@solidjs/router';
-import { createStore } from 'solid-js/store';
 import { Form } from 'solid-bootstrap';
-import { toast } from 'solid-toast';
+import bitcoinLogo from '/assets/bitcoin-logo.svg';
+import lightningLogo from '/assets/lightning-logo.svg';
+import flipImg from '/assets/flip.png';
+import { Asset, currencyFormat, SwapType } from './utils.js';
+import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';
+import { applicationContext } from './ApplicationContext.js';
+import { useNavigate } from '@solidjs/router';
+import Decimal from 'decimal.js';
+import { address } from 'bitcoinjs-lib';
+import { ActionButton } from './ActionButton.js';
+import { toast } from 'solid-toast';
+import { getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import Fa from 'solid-fa';
+import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
-export type SwappableAsset = {
-    asset: AssetType
-}
+const AssetDetails = {
+    'ON_CHAIN_BITCOIN': {
+        displayName: 'BTC',
+        icon: bitcoinLogo,
+    },
+    'LIGHTNING_BITCOIN':  {
+        displayName: 'Lightning',
+        icon: lightningLogo,
+    },
+};
 
 type FormData = {
     inputAmount: number,
-    from: SwappableAsset,
-    to: SwappableAsset,
-    payload: string,
+    lightningInvoice: string,
+    bitcoinAddress: string,
 };
 
 export const SwapForm: Component = () => {
     const { swapInService, swapOutService } = applicationContext;
     const navigate = useNavigate();
-    const [config] = createResource(() => applicationContext.config);
-    const [destinationAsset, setDestinationAsset] = createSignal<AssetType>(AssetType.ON_CHAIN_BITCOIN);
     const [swapType, setSwapType] = createSignal<SwapType>('in');
-    const [errorMessage, setErrorMessage] = createSignal('');
-    const [validated, setValidated] = createSignal(false);
-
     const [form, setForm] = createStore<FormData>({
-        from: { asset: AssetType.ON_CHAIN_BITCOIN},
-        to: { asset: AssetType.LIGHTNING_BITCOIN},
-        payload: '',
+        lightningInvoice: '',
+        bitcoinAddress: '',
         inputAmount: 0,
     });
     const [formErrors, setFormErrors] = createStore<{ [key in keyof FormData]: boolean } & { outputAmount: boolean }>({
+        lightningInvoice: false,
+        bitcoinAddress: false,
         inputAmount: false,
-        from: false,
-        to: false,
         outputAmount: false,
-        payload: false,
     });
+    const [errorMessage, setErrorMessage] = createSignal('');
+    const [config] = createResource(() => applicationContext.config);
+    const [validated, setValidated] = createSignal(false);
 
     function outputAmount(): number {
         if (swapType() === 'in') {
-            if (form.payload !== '') {
+            if (form.lightningInvoice !== '') {
                 try {
-                    const invoice = decode(form.payload);
+                    const invoice = decode(form.lightningInvoice);
                     if (invoice.satoshis != null) {
                         return new Decimal(invoice.satoshis).div(1e8).toDecimalPlaces(8).toNumber();
                     }
@@ -63,15 +65,12 @@ export const SwapForm: Component = () => {
                 }
             }
             return 0;
-        } else if (swapType() === 'out') {
+        } else {
             const conf = config();
             if (conf == null) {
                 return 0;
             }
             return getSwapOutOutputAmount(new Decimal(inputAmount()), new Decimal(conf.feePercentage)).toNumber();
-        } else {
-            // TODO
-            return 0;
         }
     }
 
@@ -82,11 +81,8 @@ export const SwapForm: Component = () => {
                 return 0;
             }
             return getSwapInInputAmount(new Decimal(outputAmount()), new Decimal(conf.feePercentage)).toNumber();
-        } else if (swapType() === 'out') {
-            return form.inputAmount;
         } else {
-            // TODO
-            return 0;
+            return form.inputAmount;
         }
     }
 
@@ -95,20 +91,25 @@ export const SwapForm: Component = () => {
     }
 
     function flipSwapType(): void {
-        setForm({
-            from: form.to,
-            to: form.from,
-            inputAmount: 0,
-        });
+        if (swapType() === 'in') {
+            setSwapType('out');
+        } else {
+            setSwapType('in');
+        }
     }
 
-    function changeAsset(from: AssetType, to: AssetType): void {
-        setForm({
-            from: { asset: from},
-            to: { asset: to},
-            inputAmount: 0,
-            payload: '',
-        });
+    function getInputAsset(): Asset {
+        if (swapType() === 'out') {
+            return 'LIGHTNING_BITCOIN';
+        }
+        return 'ON_CHAIN_BITCOIN';
+    }
+
+    function getOutputAsset(): Asset {
+        if (swapType() === 'in') {
+            return 'LIGHTNING_BITCOIN';
+        }
+        return 'ON_CHAIN_BITCOIN';
     }
 
     function isValid(field: keyof FormData | 'outputAmount'): boolean {
@@ -121,116 +122,42 @@ export const SwapForm: Component = () => {
         return validated() && formErrors[field];
     }
 
-    function validateInputAmount(conf: FrontendConfiguration): void {
-        const isInvalidInputAmount = inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount;
-        setFormErrors('inputAmount', isInvalidInputAmount);
-        if (isInvalidInputAmount) {
-            setErrorMessage('Invalid amount');
-        }
-        setFormErrors('inputAmount', false);
-    }
-
-    function validateOutputAmount(conf: FrontendConfiguration): void {
-        const isInvalidOutputAmount = outputAmount() < conf.minimumAmount || outputAmount() > conf.maximumAmount;
-        setFormErrors('outputAmount', isInvalidOutputAmount);
-        if (isInvalidOutputAmount) {
-            setErrorMessage('Invalid amount');
-        }
-        setFormErrors('outputAmount', false);
-    }
-
-    function validateLightningInvoice(invoice: string): void {
-        try {
-            decode(invoice);
-            setFormErrors('payload', false);
-        } catch (e) {
-            setFormErrors('payload', true);
-            setErrorMessage('Invalid invoice');
-        }
-    }
-
-    function validateBitcoinAddress(btcAddress: string, conf: FrontendConfiguration): void {
-        try {
-            toOutputScript(btcAddress, conf.bitcoinNetwork);
-            setFormErrors('payload', false);
-        } catch (error) {
-            setFormErrors('payload', true);
-            setErrorMessage('Invalid bitcoin address');
-        }
-    }
-
-    function validateLiquidAddress(address: string, conf: FrontendConfiguration): void {
-        try {
-            toOutputScriptLiquid(address, conf.liquidNetwork);
-            setFormErrors('payload', false);
-        } catch (e) {
-            setFormErrors('payload', true);
-            setErrorMessage('Invalid liquid address');
-        }
-    }
-    
     async function validate(): Promise<void> {
         const conf = config();
         if (conf == null) {
             return;
         }
         setErrorMessage('');
-        if (swapType() === 'in') {
-            validateOutputAmount(conf);
-            validateLightningInvoice(form.payload);
-        } else if (swapType() === 'out') {
-            validateInputAmount(conf);
-            validateBitcoinAddress(form.payload, conf);
-        } else if (swapType() === 'chain') {
-            switch (form.to.asset) {
-            case AssetType.ON_CHAIN_BITCOIN:
-                validateInputAmount(conf);
-                validateBitcoinAddress(form.payload, conf);
-                break;
-            case AssetType.LIGHTNING_BITCOIN:
-                validateOutputAmount(conf);
-                validateLightningInvoice(form.payload);
-                break;
-            case AssetType.ON_CHAIN_LIQUID:
-                // TODO: more validation for liquid
-                validateLiquidAddress(form.payload, conf);
-                break;
+        if(swapType() === 'in') {
+            const isInvalidOutputAmount = outputAmount() < conf.minimumAmount || outputAmount() > conf.maximumAmount;
+            setFormErrors('outputAmount', isInvalidOutputAmount);
+            if (isInvalidOutputAmount) {
+                setErrorMessage('Invalid amount');
+            }
+            setFormErrors('inputAmount', false);
+            try {
+                decode(form.lightningInvoice);
+                setFormErrors('lightningInvoice', false);
+            } catch (e) {
+                setFormErrors('lightningInvoice', true);
+                setErrorMessage('Invalid invoice');
+            }
+        } else {
+            const isInvalidInputAmount = inputAmount() < conf.minimumAmount || inputAmount() > conf.maximumAmount;
+            setFormErrors('inputAmount', isInvalidInputAmount);
+            if (isInvalidInputAmount) {
+                setErrorMessage('Invalid amount');
+            }
+            setFormErrors('outputAmount', false);
+            try {
+                address.toOutputScript(form.bitcoinAddress, conf.bitcoinNetwork);
+                setFormErrors('bitcoinAddress', false);
+            } catch (e) {
+                setFormErrors('bitcoinAddress', true);
+                setErrorMessage('Invalid bitcoin address');
             }
         }
         setValidated(true);
-    }
-
-    function hasErrors(): boolean {
-        return formErrors.from || formErrors.to || formErrors.inputAmount || formErrors.outputAmount;
-    }
-
-    function isSendable(): boolean {
-        return !hasErrors() && form.payload !== '';
-    }
-
-    async function createSwap(): Promise<void> {
-        await validate();
-        if (hasErrors()) {
-            return;
-        }
-        try {
-            let swap;
-            switch (swapType()) {
-            case 'in':
-                swap = await swapInService.createSwap(form.payload);
-                navigate(`/swap/in/${swap.swapId}`);
-                break;
-            case 'out':
-                swap = await swapOutService.createSwap(form.payload, inputAmount());
-                navigate(`/swap/out/${swap.swapId}`);
-                break;
-            default:
-                // TODO
-                break;
-            }
-        } catch (e) {
-            toast.error('Unknown error');
-        }
     }
 
     createEffect(() => {
@@ -239,43 +166,48 @@ export const SwapForm: Component = () => {
         }
     });
 
-    createEffect(() => {
-        const fromAsset = form.from.asset;
-        const toAsset = form.to.asset;
-        if (fromAsset === AssetType.LIGHTNING_BITCOIN && toAsset === AssetType.ON_CHAIN_BITCOIN) {
-            setSwapType('out');
-        } else if (fromAsset === AssetType.ON_CHAIN_BITCOIN && toAsset === AssetType.LIGHTNING_BITCOIN) {
-            setSwapType('in');
-        } else {
-            setSwapType('chain');
-        }
-    }, [form.from.asset, form.to.asset]);
+    function hasErrors(): boolean {
+        return formErrors.lightningInvoice || formErrors.bitcoinAddress || formErrors.inputAmount || formErrors.outputAmount;
+    }
 
-    createEffect(() => {
-        const toAsset = form.to.asset;
-        setDestinationAsset(toAsset);
-    }, [form.to.asset]);
+    function isSendable(): boolean {
+        if (swapType() === 'in') {
+            return form.lightningInvoice !== '';
+        } else {
+            return form.bitcoinAddress !== '';
+        }
+    }
+
+    async function createSwap(): Promise<void> {
+        await validate();
+        if (hasErrors()) {
+            return;
+        }
+        try {
+            if (swapType() === 'in') {
+                const swap = await swapInService.createSwap(form.lightningInvoice);
+                navigate(`/swap/in/${swap.swapId}`);
+            } else if (swapType() === 'out') {
+                const swap = await swapOutService.createSwap(form.bitcoinAddress, inputAmount());
+                navigate(`/swap/out/${swap.swapId}`);
+            }
+        } catch (e) {
+            toast.error('Unknown error');
+        }
+    }
 
     return <>
         <h3 class="fw-bold">Create a Swap</h3>
         <div class="d-flex flex-column gap-3">
             <div class="d-flex gap-2">
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
-                    <div class="fw-medium">
-                        <AssetSelector 
-                            selectedAsset={form.from.asset}
-                            excludeAssets={[form.to.asset, form.from.asset]}
-                            onAssetSelect={(asset) => changeAsset(asset, form.to.asset)}
-                        />
+                    <div class="fw-medium text-nowrap">
+                        <img src={AssetDetails[getInputAsset()].icon} /><span class="ps-1 text-uppercase">{AssetDetails[getInputAsset()].displayName}</span>
                     </div>
                     <hr />
                     <div class="fs-6">You send</div>
                     <div>
-                        <input 
-                            class="form-control form-control-lg inline-input" 
-                            step={0.001} 
-                            max={2} 
-                            type="number"
+                        <input class="form-control form-control-lg inline-input" step={0.001} max={2} type="number"
                             value={inputAmount()}
                             onChange={e => setForm('inputAmount', Number(e.target.value))}
                             onKeyUp={e => setForm('inputAmount', Number(e.currentTarget.value))}
@@ -285,18 +217,14 @@ export const SwapForm: Component = () => {
                         />
                     </div>
                 </div>
-                <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipSwapType}>
-                    <img src={flipImg} draggable={false}/>
+                <div style="margin: auto -28px; z-index: 0" onClick={flipSwapType}>
+                    <img src={flipImg} />
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
-                    <div class="fw-medium">
-                        <AssetSelector 
-                            selectedAsset={form.to.asset}
-                            excludeAssets={[form.from.asset, form.to.asset]}
-                            onAssetSelect={(asset) => changeAsset(form.from.asset, asset)}
-                        />
+                    <div class="fw-medium text-nowrap">
+                        <img src={AssetDetails[getOutputAsset()].icon}/><span class="ps-1 text-uppercase">{AssetDetails[getOutputAsset()].displayName}</span>
                     </div>
-                    <hr />
+                    <hr/>
                     <div class="fs-6">You get</div>
                     <div>
                         <input class="form-control form-control-lg inline-input" value={outputAmount()} disabled
@@ -305,49 +233,29 @@ export const SwapForm: Component = () => {
                     </div>
                 </div>
             </div>
-            <Show when={destinationAsset() === AssetType.LIGHTNING_BITCOIN}>
-                <Form.Control 
-                    as="textarea" 
-                    rows={5} 
-                    placeholder="Paste a lightning invoice" id="invoice-input"
-                    value={form.payload}
-                    onChange={e => setForm('payload', e.target.value)}
-                    onKeyUp={e => setForm('payload', e.currentTarget.value)}
-                    isValid={isValid('payload')} isInvalid={isInvalid('payload')}
+            <Show when={swapType() === 'in'}>
+                <Form.Control as="textarea" rows={5} placeholder="Paste a lightning invoice" id="invoice-input"
+                    value={form.lightningInvoice}
+                    onChange={e => setForm('lightningInvoice', e.target.value)}
+                    onKeyUp={e => setForm('lightningInvoice', e.currentTarget.value)}
+                    isValid={isValid('lightningInvoice')} isInvalid={isInvalid('lightningInvoice')}
                 />
             </Show>
-            <Show when={destinationAsset() === AssetType.ON_CHAIN_BITCOIN}>
-                <Form.Control 
-                    type="text" 
-                    placeholder="Enter bitcoin address"
-                    value={form.payload}
-                    onChange={e => setForm('payload', e.target.value)}
-                    onKeyUp={e => setForm('payload', e.currentTarget.value)}
-                    isValid={isValid('payload')} isInvalid={isInvalid('payload')}
-                />
-            </Show>
-            <Show when={destinationAsset() === AssetType.ON_CHAIN_LIQUID}>
-                <Form.Control 
-                    type="text" 
-                    placeholder="Enter liquid address"
-                    value={form.payload}
-                    onChange={e => setForm('payload', e.target.value)}
-                    onKeyUp={e => setForm('payload', e.currentTarget.value)}
-                    isValid={isValid('payload')} isInvalid={isInvalid('payload')}
+            <Show when={swapType() === 'out'}>
+                <Form.Control type="text" placeholder="Enter bitcoin address"
+                    value={form.bitcoinAddress}
+                    onChange={e => setForm('bitcoinAddress', e.target.value)}
+                    onKeyUp={e => setForm('bitcoinAddress', e.currentTarget.value)}
+                    isValid={isValid('bitcoinAddress')} isInvalid={isInvalid('bitcoinAddress')}
                 />
             </Show>
             <div class="text-muted text-end small">Fee ({config()?.feePercentage}%): {currencyFormat(fee())}</div>
-            <ActionButton action={createSwap} disabled={!isSendable()}>Create swap</ActionButton>
+            <ActionButton action={createSwap} disabled={!isSendable() || hasErrors()}>Create swap</ActionButton>
             <div class="text-muted text-center small border border-primary rounded-3 p-2">
-                <Fa icon={faInfoCircle} /> 
-                Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)}
-                &nbsp; | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
+                <Fa icon={faInfoCircle} /> Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)} | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
             </div>
             <Show when={errorMessage() !== ''}>
-                <div 
-                    class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" 
-                    style="border-style: dashed !important"
-                >
+                <div class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" style="border-style: dashed !important">
                     <Fa icon={faInfoCircle} /> {errorMessage()}
                 </div>
             </Show>
