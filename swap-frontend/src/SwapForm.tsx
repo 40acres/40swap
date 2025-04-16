@@ -217,7 +217,7 @@ export const SwapForm: Component = () => {
 
     createEffect(() => {
         const toAsset = form.to.asset;
-        if (toAsset === AssetType.ON_CHAIN_BITCOIN) {
+        if (toAsset === AssetType.ON_CHAIN_BITCOIN || toAsset === AssetType.ON_CHAIN_LIQUID) {
             setSwapType('out');
         } else if (toAsset === AssetType.LIGHTNING_BITCOIN) {
             setSwapType('in');
