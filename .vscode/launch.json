@@ -47,12 +47,6 @@
       "processId": "cmd"
     },
     {
-      "name": "Frontend",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "cd swap-frontend && npm run start:dev"
-    },
-    {
       "name": "Backend",
       "type": "node-terminal",
       "request": "launch",
