@@ -12,7 +12,6 @@ import Decimal from 'decimal.js';
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
 
-
 export function getLiquidNumber(amount: number): number {
     return liquid.ElementsValue.fromNumber(amount).number;
 }
