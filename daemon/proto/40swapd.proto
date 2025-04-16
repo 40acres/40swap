@@ -65,7 +65,8 @@ message SwapOutRequest {
 }
 
 message SwapOutResponse {
-
+  string swap_id = 1; // Unique identifier for the swap.
+  uint64 amount_sats = 2; // Amount in satoshis.
 }
 
 // Message definitions for querying SwapIn status.
