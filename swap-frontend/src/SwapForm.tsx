@@ -63,15 +63,12 @@ export const SwapForm: Component = () => {
                 }
             }
             return 0;
-        } else if (swapType() === 'out') {
+        } else {
             const conf = config();
             if (conf == null) {
                 return 0;
             }
             return getSwapOutOutputAmount(new Decimal(inputAmount()), new Decimal(conf.feePercentage)).toNumber();
-        } else {
-            // TODO
-            return 0;
         }
     }
 
@@ -82,11 +79,8 @@ export const SwapForm: Component = () => {
                 return 0;
             }
             return getSwapInInputAmount(new Decimal(outputAmount()), new Decimal(conf.feePercentage)).toNumber();
-        } else if (swapType() === 'out') {
-            return form.inputAmount;
         } else {
-            // TODO
-            return 0;
+            return form.inputAmount;
         }
     }
 
@@ -95,11 +89,11 @@ export const SwapForm: Component = () => {
     }
 
     function flipSwapType(): void {
-        setForm({
-            from: form.to,
-            to: form.from,
-            inputAmount: 0,
-        });
+        if (swapType() === 'in') {
+            setSwapType('out');
+        } else {
+            setSwapType('in');
+        }
     }
 
     function changeAsset(from: AssetType, to: AssetType): void {
@@ -178,23 +172,12 @@ export const SwapForm: Component = () => {
         if (swapType() === 'in') {
             validateOutputAmount(conf);
             validateLightningInvoice(form.payload);
-        } else if (swapType() === 'out') {
+        } else {
             validateInputAmount(conf);
-            validateBitcoinAddress(form.payload, conf);
-        } else if (swapType() === 'chain') {
-            switch (form.to.asset) {
-            case AssetType.ON_CHAIN_BITCOIN:
-                validateInputAmount(conf);
-                validateBitcoinAddress(form.payload, conf);
-                break;
-            case AssetType.LIGHTNING_BITCOIN:
-                validateOutputAmount(conf);
-                validateLightningInvoice(form.payload);
-                break;
-            case AssetType.ON_CHAIN_LIQUID:
-                // TODO: more validation for liquid
+            if (form.to.asset === AssetType.ON_CHAIN_LIQUID) {
                 validateLiquidAddress(form.payload, conf);
-                break;
+            } else if (form.to.asset === AssetType.ON_CHAIN_BITCOIN) {
+                validateBitcoinAddress(form.payload, conf);
             }
         }
         setValidated(true);
@@ -240,14 +223,11 @@ export const SwapForm: Component = () => {
     });
 
     createEffect(() => {
-        const fromAsset = form.from.asset;
         const toAsset = form.to.asset;
-        if (fromAsset === AssetType.LIGHTNING_BITCOIN && toAsset === AssetType.ON_CHAIN_BITCOIN) {
+        if (toAsset === AssetType.ON_CHAIN_BITCOIN) {
             setSwapType('out');
-        } else if (fromAsset === AssetType.ON_CHAIN_BITCOIN && toAsset === AssetType.LIGHTNING_BITCOIN) {
+        } else if (toAsset === AssetType.LIGHTNING_BITCOIN) {
             setSwapType('in');
-        } else {
-            setSwapType('chain');
         }
     }, [form.from.asset, form.to.asset]);
 

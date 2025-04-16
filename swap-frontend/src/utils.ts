@@ -1,4 +1,4 @@
-export type SwapType = 'in' | 'out' | 'chain';
+export type SwapType = 'in' | 'out';
 export enum AssetType {
     ON_CHAIN_BITCOIN,
     LIGHTNING_BITCOIN,
