@@ -1,20 +1,20 @@
-import Fa from 'solid-fa';
-import Decimal from 'decimal.js';
-import flipImg from '/assets/flip.png';
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
-import { FrontendConfiguration, getSwapInInputAmount, getSwapOutOutputAmount, getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
-import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
+import { Form } from 'solid-bootstrap';
+import flipImg from '/assets/flip.png';
 import { AssetType, currencyFormat, SwapType } from './utils.js';
+import { createStore } from 'solid-js/store';
+import { decode } from 'bolt11';
+import { applicationContext } from './ApplicationContext.js';
+import { useNavigate } from '@solidjs/router';
+import Decimal from 'decimal.js';
+import { ActionButton } from './ActionButton.js';
+import { toast } from 'solid-toast';
+import { FrontendConfiguration, getLiquidNetworkFromBitcoinNetwork, getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import Fa from 'solid-fa';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
-import { applicationContext } from './ApplicationContext.js';
-import { AssetSelector } from './components/AssetSelector';
-import { ActionButton } from './ActionButton.js';
-import { useNavigate } from '@solidjs/router';
-import { createStore } from 'solid-js/store';
-import { Form } from 'solid-bootstrap';
-import { toast } from 'solid-toast';
-import { decode } from 'bolt11';
+import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
+import { AssetSelector } from './components/AssetSelector.jsx';
 
 export type SwappableAsset = {
     asset: AssetType
