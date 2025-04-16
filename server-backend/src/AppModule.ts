@@ -17,6 +17,9 @@ import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js
 import { ConfigurationController } from './ConfigurationController.js';
 import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 import { SwapService } from './SwapService.js';
+import { TerminusModule } from '@nestjs/terminus';
+import { LiquidService } from './LiquidService.js';
+import { HealthController } from './HealthController.js';
 
 @Module({
     imports: [
@@ -43,11 +46,13 @@ import { SwapService } from './SwapService.js';
             load: [configuration],
         }),
         EventEmitterModule.forRoot(),
+        TerminusModule,
     ],
     controllers: [
         SwapInController,
         SwapOutController,
         ConfigurationController,
+        HealthController,
     ],
     providers: [
         NbxplorerService,
@@ -55,12 +60,20 @@ import { SwapService } from './SwapService.js';
         BitcoinService,
         MempoolDotSpaceService,
         SwapService,
+        LiquidService,
         {
             inject: [BitcoinService],
             useFactory: (bitcoinService: BitcoinService) => {
                 return bitcoinService.configurationDetails;
             },
             provide: BitcoinConfigurationDetails,
+        },
+        {
+            inject: [LiquidService],
+            useFactory: (liquidService: LiquidService) => {
+                return liquidService.configurationDetails;
+            },
+            provide: 'LIQUID_CONFIG_DETAILS',
         },
         {
             inject: [ConfigService],
@@ -97,6 +110,13 @@ import { SwapService } from './SwapService.js';
                 return new grpcType.invoicesrpc.Invoices(config.socket, credentials.combineChannelCredentials(sslCreds, macaroonCreds));
             },
             provide: 'lnd-invoices',
+        },
+        {
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {
+                return configService.getOrThrow('elements', { infer: true });
+            },
+            provide: 'ELEMENTS_CONFIG',
         },
     ],
 })

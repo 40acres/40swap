@@ -1,0 +1,27 @@
+include:
+  - "../../../docker/docker-compose.yml"
+services:
+  backend:
+    container_name: 40swap_backend
+    image: 40swap-server-backend
+    build:
+      context: ../../..
+      dockerfile: server-backend/docker/Dockerfile
+    volumes:
+      - ${BACKEND_CONFIG_FILE}:/etc/40swap.conf.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      lnd-lsp:
+        condition: service_started
+      nbxplorer:
+        condition: service_started
+    environment:
+      - IS_TESTING=true
+    healthcheck:
+      test: curl --fail http://localhost:8081/api/health || exit 1
+      interval: 3s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8081"
