@@ -24,33 +24,46 @@ export type PersistedSwapOut = z.infer<typeof persistedSwapOutSchema>;
 export interface FourtySwapDbSchema extends DBSchema {
     'swap': {
         key: string,
-        value: PersistedSwapIn|PersistedSwapOut,
+        value: PersistedSwapIn | PersistedSwapOut,
         indexes: {
             'by-created-at': string,
         },
     };
 }
 
-export type PersistedSwapKey = Pick<PersistedSwapIn|PersistedSwapOut, 'type'|'swapId'>;
+export type PersistedSwapKey = Pick<PersistedSwapIn | PersistedSwapOut, 'type' | 'swapId'>;
 
 export class LocalSwapStorageService {
 
     private db: Promise<IDBPDatabase<FourtySwapDbSchema>>;
 
     constructor() {
+        if (navigator.storage && navigator.storage.persist) {
+            try {
+                navigator.storage.persist().then(persisted => {
+                    if (persisted) {
+                        console.log('PERSISTED DATA GRANTED');
+                    } else {
+                        console.error('PERSISTED DATA DENIED');
+                    }
+                });
+            } catch (error) {
+                console.error('PERSISTED DATA ERROR', error);
+            }
+        }
         this.db = idb.openDB<FourtySwapDbSchema>('40swap', 1, {
             upgrade(db) {
-                const store = db.createObjectStore('swap', { keyPath: 'swapId'});
+                const store = db.createObjectStore('swap', { keyPath: 'swapId' });
                 store.createIndex('by-created-at', 'createdAt', { unique: false });
             },
         });
     }
 
-    async persist(swap: PersistedSwapIn|PersistedSwapOut): Promise<void> {
+    async persist(swap: PersistedSwapIn | PersistedSwapOut): Promise<void> {
         await (await this.db).add('swap', swap);
     }
 
-    async update<T extends PersistedSwapIn|PersistedSwapOut>(swap: Partial<T> & PersistedSwapKey): Promise<void> {
+    async update<T extends PersistedSwapIn | PersistedSwapOut>(swap: Partial<T> & PersistedSwapKey): Promise<void> {
         const existing = await this.findById(swap.type, swap.swapId);
         if (existing == null) {
             throw new Error();
@@ -58,7 +71,7 @@ export class LocalSwapStorageService {
         await (await this.db).put('swap', { ...existing, ...swap });
     }
 
-    async findById<T extends SwapType>(type: T, swapId: PersistedSwapIn['swapId']): Promise<(T extends 'in' ? PersistedSwapIn : PersistedSwapOut)|null> {
+    async findById<T extends SwapType>(type: T, swapId: PersistedSwapIn['swapId']): Promise<(T extends 'in' ? PersistedSwapIn : PersistedSwapOut) | null> {
         const obj = (await (await this.db).get('swap', swapId));
         if (obj != null && obj.type === type) {
             return obj as (T extends 'in' ? PersistedSwapIn : PersistedSwapOut);
@@ -66,7 +79,7 @@ export class LocalSwapStorageService {
         return null;
     }
 
-    async findAllLocally(): Promise<(PersistedSwapIn|PersistedSwapOut)[]> {
+    async findAllLocally(): Promise<(PersistedSwapIn | PersistedSwapOut)[]> {
         return (await (await this.db).getAllFromIndex('swap', 'by-created-at')).reverse();
     }
 

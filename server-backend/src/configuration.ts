@@ -15,7 +15,7 @@ const SEARCH_PATHS = [
     '/etc/40swap',
 ];
 
-const configSchema = z.object({
+export const configSchema = z.object({
     server: z.object({
         port: z.number().int().positive(),
     }),
@@ -51,12 +51,19 @@ const configSchema = z.object({
         minimumAmount: z.number().positive(),
         maximumAmount: z.number().positive(),
         lockBlockDelta: z.object({
+            minIn: z.number().int().positive().default(144),
             in: z.number().int().positive(),
             out: z.number().int().positive(),
         }),
         expiryDuration: z.string()
             .transform(d => moment.duration(d))
             .refine(d => d.toISOString() !== 'P0D'),
+    }),
+    elements: z.object({
+        xpub: z.string(),
+        rpcUrl: z.string().url(),
+        rpcUsername: z.string(),
+        rpcPassword: z.string(),
     }),
 });
 
@@ -69,14 +76,21 @@ export default (): FourtySwapConfiguration => {
     assert(filePath, 'config file not found');
     const config = yaml.load(fs.readFileSync(filePath).toString()) as object;
 
-    const devFilePath = 'dev/40swap.lightning.yml';
-    let devConfig: object|undefined;
-    if (fs.existsSync(devFilePath)) {
-        const devFileContent = fs.readFileSync(devFilePath).toString();
-        devConfig = yaml.load(devFileContent) as object;
+    const lightningDevFilePath = 'dev/40swap.lightning.yml';
+    let lightningDevConfig: object|undefined;
+    if (fs.existsSync(lightningDevFilePath)) {
+        const lightningDevFileContent = fs.readFileSync(lightningDevFilePath).toString();
+        lightningDevConfig = yaml.load(lightningDevFileContent) as object;
+    }
+    const elementsDevFilePath = 'dev/40swap.elements.yml';
+    let elementsDevConfig: object|undefined;
+    if (fs.existsSync(elementsDevFilePath)) {
+        const elementsDevFileContent = fs.readFileSync(elementsDevFilePath).toString();
+        elementsDevConfig = yaml.load(elementsDevFileContent) as object;
     }
     return configSchema.parse({
         ...config,
-        ...devConfig,
+        ...lightningDevConfig,
+        ...elementsDevConfig,
     });
 };

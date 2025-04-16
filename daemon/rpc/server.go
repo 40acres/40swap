@@ -1,30 +1,43 @@
 package rpc
 
 import (
-	"context"
 	"fmt"
 	"net"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/40acres/40swap/daemon/database"
+	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/40acres/40swap/daemon/swaps"
 	"google.golang.org/grpc"
 )
 
+//go:generate go tool mockgen -destination=mock_repository.go -package=rpc . Repository
+type Repository interface {
+	database.SwapInRepository
+	// Add more repositories here
+	database.SwapOutRepository
+}
+
 type Server struct {
 	UnimplementedSwapServiceServer
-	Port int
+	Port            uint32
+	Repository      Repository
+	grpcServer      *grpc.Server
+	lightningClient lightning.Client
+	swapClient      swaps.ClientInterface
+	network         Network
 }
 
-func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOutResponse, error) {
-	log.Info("HELLO WORLD")
-	log.Infof("Received SwapOut request: %v", req)
-
-	return &SwapOutResponse{}, nil
-}
-
-func NewRPCServer(port int) *Server {
+func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, network Network) *Server {
 	svr := &Server{
-		Port: port,
+		Port:            port,
+		Repository:      repository,
+		grpcServer:      grpc.NewServer(),
+		swapClient:      swapClient,
+		lightningClient: lightningClient,
+		network:         network,
 	}
+
+	RegisterSwapServiceServer(svr.grpcServer, svr)
 
 	return svr
 }
@@ -34,11 +47,14 @@ func (server *Server) ListenAndServe() error {
 	if err != nil {
 		return fmt.Errorf("failed to listen to port: %w", err)
 	}
-	grpcServer := grpc.NewServer()
-	RegisterSwapServiceServer(grpcServer, server)
-	if err := grpcServer.Serve(listener); err != nil {
+
+	if err := server.grpcServer.Serve(listener); err != nil {
 		return fmt.Errorf("failed to initialize grpc server: %w", err)
 	}
 
 	return nil
+}
+
+func (server *Server) Stop() {
+	server.grpcServer.GracefulStop()
 }

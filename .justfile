@@ -4,8 +4,6 @@ set fallback := true
 ###########
 # Aliases #
 ###########
-
-
 alias du := docker-up
 alias drm := docker-rm
 
@@ -18,19 +16,19 @@ install-dependencies:
     npm install --workspaces
 
 # Start services with docker compose
-[working-directory: 'server-backend/dev']
+[working-directory: 'docker']
 docker-up $COMPOSE_PROFILES='mempool-btc,esplora-liquid':
     docker compose up -d
 
 # Stop and remove services with docker compose
-[working-directory: 'server-backend/dev']
+[working-directory: 'docker']
 docker-rm:
     docker compose --profile '*' down  -v
 
 # Initialize blockchain and lightning nodes
-[working-directory: 'server-backend/dev']
+[working-directory: 'docker']
 initialize-nodes: 
-    ./lightning-setup.sh
+    ./nodes-setup.sh
 
 # Build shared module
 [working-directory: 'shared']
@@ -63,6 +61,7 @@ sendtoaddress address amount:
    just bitcoin-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
    just generate 6
 
+# Send to address with fee rate and generate blocks for Liquid
 elements-sendtoaddress address amount:
     just elements-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
     just generate 6
@@ -71,9 +70,12 @@ elements-sendtoaddress address amount:
 generate blocks:
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+
 # Generate blocks(mining) for Liquid
 generate-liquid blocks='1':
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+
+# Generate blocks(mining) for Bitcoin
 generate-bitcoin blocks='6':
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
 
@@ -88,5 +90,12 @@ user-lncli *cmd:
 # Run command within alice-lnd container
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
+
+# Run command within elements container
 elements-cli *cmd:
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest  {{cmd}}
+
+# Run backend IgTests
+[working-directory: 'server-backend']
+test-igtest-backend: build-shared 
+    npm run build && npm run test

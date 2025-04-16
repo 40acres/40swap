@@ -20,20 +20,23 @@ import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
-import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { liquid, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
+import { LiquidService } from './LiquidService.js';
+import { getLiquidNetwork } from './LiquidUtils.js';
+
 
 const ECPair = ECPairFactory(ecc);
 
 @Injectable()
 export class SwapService implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly logger = new Logger(SwapService.name);
-    private readonly runningSwaps: Map<string, SwapInRunner|SwapOutRunner>;
+    private readonly runningSwaps: Map<string, SwapInRunner | SwapOutRunner>;
     private readonly swapConfig: FourtySwapConfiguration['swap'];
+    private readonly elementsConfig: FourtySwapConfiguration['elements'];
 
     constructor(
         private bitcoinConfig: BitcoinConfigurationDetails,
         private bitcoinService: BitcoinService,
+        private liquidService: LiquidService,
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
         private lnd: LndService,
@@ -41,6 +44,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     ) {
         this.runningSwaps = new Map();
         this.swapConfig = config.getOrThrow('swap', { infer: true });
+        this.elementsConfig = config.getOrThrow('elements', { infer: true });
+    }
+
+    getCheckedAmount(amount: Decimal): Decimal {
+        if (amount.lt(this.swapConfig.minimumAmount) || amount.gt(this.swapConfig.maximumAmount)) {
+            throw new BadRequestException('invalid amount');
+        }
+        return amount;
     }
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
@@ -58,11 +69,16 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         assert(satoshis != null);
         const paymentHash = hashTag.data;
 
-        const outputAmount = new Decimal(satoshis).div(1e8).toDecimalPlaces(8);
-        if (outputAmount.lt(this.swapConfig.minimumAmount) || outputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException(`invalid amount ${outputAmount.toNumber()}`);
+        const outputAmount = this.getCheckedAmount(new Decimal(satoshis).div(1e8).toDecimalPlaces(8));
+        /**
+         * The lockBlockDeltaIn parameter specifies a custom CLTV expiry (in blocks) for the swap.
+         * If not provided, the default value from the swap configuration is used.
+         */
+        const lockBlockDeltaIn = request.lockBlockDeltaIn ?? this.swapConfig.lockBlockDelta.in;
+        if (lockBlockDeltaIn < this.swapConfig.lockBlockDelta.minIn) {
+            throw new BadRequestException(`lockBlockDeltaIn must be at least ${this.swapConfig.lockBlockDelta.minIn} blocks`);
         }
-        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + this.swapConfig.lockBlockDelta.in;
+        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
         const lockScript = swapScript(
@@ -71,18 +87,18 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             counterpartyPubKey,
             timeoutBlockHeight,
         );
-        let address: string|undefined;
+        let address: string | undefined;
         if (request.chain === 'BITCOIN') {
-            address = payments.p2wsh({network, redeem: { output: lockScript, network }}).address;
+            address = payments.p2wsh({ network, redeem: { output: lockScript, network } }).address;
             assert(address);
             await this.nbxplorer.trackAddress(address);
         } else if (request.chain === 'LIQUID') {
-            const liquidNetwork = network === bitcoin ? liquid : liquidRegtest;
+            const liquidNetworkToUse = getLiquidNetwork(network);
             address = liquidPayments.p2wsh({
-                network: liquidNetwork,
+                network: liquidNetworkToUse,
                 redeem: {
                     output: lockScript,
-                    network: liquidNetwork,
+                    network: liquidNetworkToUse,
                 },
                 blindkey: undefined, // TODO
             }).address;
@@ -109,7 +125,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             outcome: null,
             lockTxHeight: 0,
             unlockTxHeight: 0,
-        } satisfies Omit<SwapIn, 'createdAt'|'modifiedAt'>);
+        } satisfies Omit<SwapIn, 'createdAt' | 'modifiedAt'>);
         const runner = new SwapInRunner(
             swap,
             repository,
@@ -124,23 +140,22 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapOut(request: SwapOutRequest): Promise<SwapOut> {
-        if (request.chain !== 'BITCOIN') {
-            throw new Error('not implemented'); // TODO
+        let sweepAddress: string | null = null;
+        if (request.chain === 'BITCOIN') {
+            sweepAddress = await this.lnd.getNewAddress();
         }
+        if (request.chain === 'LIQUID') {
+            sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
+        }
+        assert(sweepAddress, 'Could not create sweep address for requested chain');
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
-        const inputAmount = new Decimal(request.inputAmount);
-        if (inputAmount.lt(this.swapConfig.minimumAmount) || inputAmount.gt(this.swapConfig.maximumAmount)) {
-            throw new BadRequestException('invalid amount');
-        }
-
+        const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
         });
-
         const refundKey = ECPair.makeRandom();
-        const sweepAddress = await this.lnd.getNewAddress();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
             id: base58Id(),
@@ -162,7 +177,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             outcome: null,
             lockTxHeight: 0,
             unlockTxHeight: 0,
-        } satisfies Omit<SwapOut, 'createdAt'|'modifiedAt'>);
+        } satisfies Omit<SwapOut, 'createdAt' | 'modifiedAt'>);
         const runner = new SwapOutRunner(
             swap,
             repository,
@@ -171,12 +186,13 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
+            this.elementsConfig,
         );
         this.runAndMonitor(swap, runner);
         return swap;
     }
 
-    private async runAndMonitor(swap: SwapIn|SwapOut, runner: SwapInRunner|SwapOutRunner): Promise<void> {
+    private async runAndMonitor(swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
         this.logger.log(`Starting swap (id=${swap.id})`);
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
@@ -197,6 +213,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async onApplicationBootstrap(): Promise<void> {
+        // Resume existing swaps
         const swapInRepository = this.dataSource.getRepository(SwapIn);
         const swapOutRepository = this.dataSource.getRepository(SwapOut);
         const resumableSwapIns = await swapInRepository.findBy({
@@ -206,7 +223,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             status: Not('DONE'),
         });
         for (const swap of [...resumableSwapIns, ...resumableSwapOuts]) {
-            const runner =  swap instanceof SwapIn ? new SwapInRunner(
+            const runner = swap instanceof SwapIn ? new SwapInRunner(
                 swap,
                 swapInRepository,
                 this.bitcoinConfig,
@@ -222,6 +239,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.nbxplorer,
                 this.lnd,
                 this.swapConfig,
+                this.elementsConfig,
             );
             this.logger.log(`Resuming swap (id=${swap.id})`);
             this.runAndMonitor(swap, runner);

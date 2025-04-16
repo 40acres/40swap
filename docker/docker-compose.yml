@@ -14,6 +14,25 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  postgres-daemon:
+    image: "postgres:16.4"
+    container_name: 40swap_postgres_daemon
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: "40swap"
+      POSTGRES_PASSWORD: "40swap"
+      POSTGRES_DB: "40swap"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U 40swap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    volumes:
+      - postgres-daemon-data:/var/lib/postgresql/data
   cloudbeaver:
     profiles: ["cloudbeaver"]
     image: dbeaver/cloudbeaver:22.2.5
@@ -47,11 +66,11 @@ services:
     volumes:
       - lnd-lsp-data:/root/.lnd
     expose:
-      - '8080'
-      - '10009'
-      - '9735'
+      - "8080"
+      - "10009"
+      - "9735"
     ports:
-      - '10002:10009'
+      - "10002:10009"
   lnd-user:
     image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_user
@@ -63,9 +82,11 @@ services:
     volumes:
       - lnd-user-data:/root/.lnd
     expose:
-      - '8080'
-      - '10009'
-      - '9735'
+      - "8080"
+      - "10009"
+      - "9735"
+    ports:
+      - "10001:10009"
   lnd-alice:
     image: lightninglabs/lnd:v0.18.4-beta
     container_name: 40swap_lnd_alice
@@ -77,9 +98,11 @@ services:
     volumes:
       - lnd-alice-data:/root/.lnd
     expose:
-      - '8080'
-      - '10009'
-      - '9735'
+      - "8080"
+      - "10009"
+      - "9735"
+    ports:
+      - "10003:10009"
   nbxplorer:
     image: nicolasdorier/nbxplorer:2.5.17
     container_name: 40swap_nbxplorer
@@ -90,8 +113,6 @@ services:
         condition: service_healthy
       bitcoind:
         condition: service_started
-      elements:
-        condition: service_started
     restart: always
     environment:
       NBXPLORER_NETWORK: regtest
@@ -100,7 +121,7 @@ services:
       NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:18443/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:18333
-      NBXPLORER_POSTGRES: Host=postgres;Port=5432;Database=40swap;Username=40swap;Password=40swap
+      NBXPLORER_POSTGRES: Host=postgres;Port=5432;Database=nbxplorer;Username=40swap;Password=40swap
       NBXPLORER_BTCRPCUSER: "40swap"
       NBXPLORER_BTCRPCPASSWORD: "pass"
       NBXPLORER_MAXGAPSIZE: 400
@@ -131,13 +152,13 @@ services:
       HOST: 0.0.0.0
       MACAROON_PATH: /shared/data/chain/bitcoin/regtest
       LN_SERVER_URL: https://lnd-user:8080
-      CONFIG_PATH: ''
+      CONFIG_PATH: ""
       LN_IMPLEMENTATION: LND
       RTL_SSO: 0
-      RTL_COOKIE_PATH: ''
-      LOGOUT_REDIRECT_LINK: ''
+      RTL_COOKIE_PATH: ""
+      LOGOUT_REDIRECT_LINK: ""
       RTL_CONFIG_PATH: /RTL
-      BITCOIND_CONFIG_PATH: ''
+      BITCOIND_CONFIG_PATH: ""
       CHANNEL_BACKUP_PATH: /shared/lnd/backup
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
@@ -158,13 +179,13 @@ services:
       HOST: 0.0.0.0
       MACAROON_PATH: /shared/data/chain/bitcoin/regtest
       LN_SERVER_URL: https://lnd-lsp:8080
-      CONFIG_PATH: ''
+      CONFIG_PATH: ""
       LN_IMPLEMENTATION: LND
       RTL_SSO: 0
-      RTL_COOKIE_PATH: ''
-      LOGOUT_REDIRECT_LINK: ''
+      RTL_COOKIE_PATH: ""
+      LOGOUT_REDIRECT_LINK: ""
       RTL_CONFIG_PATH: /RTL
-      BITCOIND_CONFIG_PATH: ''
+      BITCOIND_CONFIG_PATH: ""
       CHANNEL_BACKUP_PATH: /shared/lnd/backup
       ENABLE_OFFERS: false
       ENABLE_PEERSWAP: false
@@ -172,6 +193,8 @@ services:
     container_name: 40swap_elements
     image: ghcr.io/vulpemventures/elements:23.2.4
     restart: always
+    ports:
+      - 18884:18884
     depends_on:
       - bitcoind
     volumes:
@@ -361,3 +384,5 @@ volumes:
   mempool-backend-btc-data:
   mempool-db-btc-data:
   electrumx-data:
+  postgres-data:
+  postgres-daemon-data:
