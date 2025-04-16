@@ -7,8 +7,10 @@ import (
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/lightningnetwork/lnd/lntypes"
+	"github.com/lightningnetwork/lnd/zpay32"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -65,6 +67,12 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 			currentSwap.Outcome = &outcome
 			// FAILED doesn't exist in the 40swap backend so we don't need to check it
 			logger.Debug("success. The funds have been claimed")
+			preimage, err := m.getPreimage(ctx, currentSwap.PaymentRequest)
+			if err != nil {
+				return fmt.Errorf("failed to get preimage: %w", err)
+			}
+
+			currentSwap.PreImage = preimage
 		}
 	case models.StatusContractRefundedUnconfirmed:
 		log.Debug("the refund has been sent, waiting for on-chain confirmation")
@@ -144,4 +152,21 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 	}
 
 	return tx.TxID(), nil
+}
+
+func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*lntypes.Preimage, error) {
+	invoice, err := zpay32.Decode(paymentRequest, lightning.ToChainCfgNetwork(m.network))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode invoice: %w", err)
+	}
+	p, err := m.lightningClient.GetInvoicePreimage(ctx, *invoice.PaymentHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invoice preimage from node: %w", err)
+	}
+	preimage, err := lntypes.MakePreimage([]byte(p))
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert preimage: %w", err)
+	}
+
+	return &preimage, nil
 }
