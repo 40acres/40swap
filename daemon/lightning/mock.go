@@ -73,6 +73,21 @@ func (mr *MockClientMockRecorder) GenerateInvoice(ctx, amountSats, expiry, memo 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateInvoice", reflect.TypeOf((*MockClient)(nil).GenerateInvoice), ctx, amountSats, expiry, memo)
 }
 
+// GetInvoicePreimage mocks base method.
+func (m *MockClient) GetInvoicePreimage(ctx context.Context, rhash [32]byte) (Preimage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInvoicePreimage", ctx, rhash)
+	ret0, _ := ret[0].(Preimage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetInvoicePreimage indicates an expected call of GetInvoicePreimage.
+func (mr *MockClientMockRecorder) GetInvoicePreimage(ctx, rhash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInvoicePreimage", reflect.TypeOf((*MockClient)(nil).GetInvoicePreimage), ctx, rhash)
+}
+
 // MonitorPaymentReception mocks base method.
 func (m *MockClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error) {
 	m.ctrl.T.Helper()
