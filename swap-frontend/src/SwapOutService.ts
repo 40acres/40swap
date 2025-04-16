@@ -74,7 +74,7 @@ export class SwapOutService {
         };
     }
 
-    async createSwap(sweepAddress: string, amount: number): Promise<PersistedSwapOut> {
+    async createSwap(sweepAddress: string, amount: number, chain: 'BITCOIN' | 'LIQUID'): Promise<PersistedSwapOut> {
         const randomBytes = crypto.getRandomValues(new Uint8Array(32));
         const preImage = Buffer.from(randomBytes);
         const preImageHash = await this.sha256(preImage);
@@ -85,7 +85,7 @@ export class SwapOutService {
             claimKey: claimKey.privateKey!.toString('hex'),
             sweepAddress,
         };
-        const swap = await this.postSwap(amount, claimKey.publicKey, preImageHash);
+        const swap = await this.postSwap(amount, claimKey.publicKey, preImageHash, chain);
         const localSwap: PersistedSwapOut = {
             type: 'out',
             ...swap,
@@ -122,14 +122,14 @@ export class SwapOutService {
         }
     }
 
-    private async postSwap(amount: number, claimPubKey: Buffer, preImageHash: Buffer): Promise<GetSwapOutResponse> {
+    private async postSwap(amount: number, claimPubKey: Buffer, preImageHash: Buffer, chain: 'BITCOIN' | 'LIQUID'): Promise<GetSwapOutResponse> {
         const resp = await fetch('/api/swap/out', {
             method: 'POST',
             body: JSON.stringify({
                 inputAmount: new Decimal(amount).toDecimalPlaces(8).toNumber(),
                 claimPubKey: claimPubKey.toString('hex'),
                 preImageHash: preImageHash.toString('hex'),
-                chain: 'BITCOIN',
+                chain,
             } satisfies SwapOutRequest),
             headers: {
                 'content-type': 'application/json',

@@ -201,7 +201,8 @@ export const SwapForm: Component = () => {
                 const swap = await swapInService.createSwap(form.payload);
                 navigate(`/swap/in/${swap.swapId}`);
             } else if (swapType() === 'out') {
-                const swap = await swapOutService.createSwap(form.payload, inputAmount());
+                const chain = form.to.asset === AssetType.ON_CHAIN_BITCOIN ? 'BITCOIN' : 'LIQUID';
+                const swap = await swapOutService.createSwap(form.payload, inputAmount(), chain);
                 navigate(`/swap/out/${swap.swapId}`);
             }
         } catch (e) {
