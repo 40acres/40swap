@@ -1,44 +1,44 @@
 import { Component, For } from 'solid-js';
 import { Dropdown } from 'solid-bootstrap';
-import { AssetType } from '../utils.js';
+import { Asset } from '../utils.js';
 import bitcoinLogo from '/assets/bitcoin-logo.svg';
 import lightningLogo from '/assets/lightning-logo.svg';
 import liquidLogo from '/assets/liquid-logo.svg';
 
 
 type AssetSelectorProps = {
-    selectedAsset: AssetType;
-    onAssetSelect: (asset: AssetType) => void;
+    selectedAsset: Asset;
+    onAssetSelect: (asset: Asset) => void;
     disabled?: boolean;
-    excludeAssets?: AssetType[];
+    excludeAssets?: Asset[];
 }
 
-const AssetDetails: Record<AssetType, {
+const AssetDetails: Record<Asset, {
     displayName: string;
     icon: string;
 }> = {
-    [AssetType.ON_CHAIN_BITCOIN]: {
+    'ON_CHAIN_BITCOIN': {
         displayName: 'BTC',
         icon: bitcoinLogo,
     },
-    [AssetType.LIGHTNING_BITCOIN]: {
+    'LIGHTNING_BITCOIN': {
         displayName: 'Lightning',
         icon: lightningLogo,
     },
-    [AssetType.ON_CHAIN_LIQUID]: {
+    'ON_CHAIN_LIQUID': {
         displayName: 'Liquid',
         icon: liquidLogo,
     },
 };
 
 const AVAILABLE_ASSETS = [
-    AssetType.ON_CHAIN_BITCOIN,
-    AssetType.LIGHTNING_BITCOIN,
-    AssetType.ON_CHAIN_LIQUID,
+    'ON_CHAIN_BITCOIN',
+    'LIGHTNING_BITCOIN',
+    'ON_CHAIN_LIQUID',
 ] as const;
 
 export const AssetSelector: Component<AssetSelectorProps> = (props) => {
-    const filteredAssets = (): AssetType[] => 
+    const filteredAssets = (): Asset[] => 
         AVAILABLE_ASSETS.filter(asset => !props.excludeAssets?.includes(asset));
 
     return (

@@ -1,7 +1,7 @@
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { Form } from 'solid-bootstrap';
 import flipImg from '/assets/flip.png';
-import { AssetType, currencyFormat, SwapType } from './utils.js';
+import { Asset, currencyFormat, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
@@ -16,14 +16,11 @@ import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
 import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetSelector } from './components/AssetSelector.jsx';
 
-export type SwappableAsset = {
-    asset: AssetType
-}
 
 type FormData = {
     inputAmount: number,
-    from: SwappableAsset,
-    to: SwappableAsset,
+    from: Asset,
+    to: Asset,
     payload: string,
 };
 
@@ -31,14 +28,14 @@ export const SwapForm: Component = () => {
     const { swapInService, swapOutService } = applicationContext;
     const navigate = useNavigate();
     const [config] = createResource(() => applicationContext.config);
-    const [destinationAsset, setDestinationAsset] = createSignal<AssetType>(AssetType.ON_CHAIN_BITCOIN);
+    const [destinationAsset, setDestinationAsset] = createSignal<Asset>('ON_CHAIN_BITCOIN');
     const [swapType, setSwapType] = createSignal<SwapType>('in');
     const [errorMessage, setErrorMessage] = createSignal('');
     const [validated, setValidated] = createSignal(false);
 
     const [form, setForm] = createStore<FormData>({
-        from: { asset: AssetType.ON_CHAIN_BITCOIN},
-        to: { asset: AssetType.LIGHTNING_BITCOIN},
+        from: 'ON_CHAIN_BITCOIN',
+        to: 'LIGHTNING_BITCOIN',
         payload: '',
         inputAmount: 0,
     });
@@ -96,10 +93,10 @@ export const SwapForm: Component = () => {
         });
     }
 
-    function changeAsset(from: AssetType, to: AssetType): void {
+    function changeAsset(from: Asset, to: Asset): void {
         setForm({
-            from: { asset: from},
-            to: { asset: to},
+            from,
+            to,
             inputAmount: 0,
             payload: '',
         });
@@ -174,9 +171,9 @@ export const SwapForm: Component = () => {
             validateLightningInvoice(form.payload);
         } else {
             validateInputAmount(conf);
-            if (form.to.asset === AssetType.ON_CHAIN_LIQUID) {
+            if (form.to === 'ON_CHAIN_LIQUID') {
                 validateLiquidAddress(form.payload, conf);
-            } else if (form.to.asset === AssetType.ON_CHAIN_BITCOIN) {
+            } else if (form.to === 'ON_CHAIN_BITCOIN') {
                 validateBitcoinAddress(form.payload, conf);
             }
         }
@@ -216,18 +213,18 @@ export const SwapForm: Component = () => {
     });
 
     createEffect(() => {
-        const toAsset = form.to.asset;
-        if (toAsset === AssetType.ON_CHAIN_BITCOIN || toAsset === AssetType.ON_CHAIN_LIQUID) {
+        const toAsset = form.to;
+        if (toAsset === 'ON_CHAIN_BITCOIN' || toAsset === 'ON_CHAIN_LIQUID') {
             setSwapType('out');
-        } else if (toAsset === AssetType.LIGHTNING_BITCOIN) {
+        } else if (toAsset === 'LIGHTNING_BITCOIN') {
             setSwapType('in');
         }
-    }, [form.from.asset, form.to.asset]);
+    }, [form.from, form.to]);
 
     createEffect(() => {
-        const toAsset = form.to.asset;
+        const toAsset = form.to;
         setDestinationAsset(toAsset);
-    }, [form.to.asset]);
+    }, [form.to]);
 
     return <>
         <h3 class="fw-bold">Create a Swap</h3>
@@ -236,9 +233,9 @@ export const SwapForm: Component = () => {
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
                     <div class="fw-medium">
                         <AssetSelector 
-                            selectedAsset={form.from.asset}
-                            excludeAssets={[form.to.asset, form.from.asset]}
-                            onAssetSelect={(asset) => changeAsset(asset, form.to.asset)}
+                            selectedAsset={form.from}
+                            excludeAssets={[form.to, form.from]}
+                            onAssetSelect={(asset) => changeAsset(asset, form.to)}
                         />
                     </div>
                     <hr />
@@ -264,9 +261,9 @@ export const SwapForm: Component = () => {
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
                     <div class="fw-medium">
                         <AssetSelector 
-                            selectedAsset={form.to.asset}
-                            excludeAssets={[form.from.asset, form.to.asset]}
-                            onAssetSelect={(asset) => changeAsset(form.from.asset, asset)}
+                            selectedAsset={form.to}
+                            excludeAssets={[form.from, form.to]}
+                            onAssetSelect={(asset) => changeAsset(form.from, asset)}
                         />
                     </div>
                     <hr />
@@ -278,7 +275,7 @@ export const SwapForm: Component = () => {
                     </div>
                 </div>
             </div>
-            <Show when={destinationAsset() === AssetType.LIGHTNING_BITCOIN}>
+            <Show when={destinationAsset() === 'LIGHTNING_BITCOIN'}>
                 <Form.Control 
                     as="textarea" 
                     rows={5} 
@@ -289,7 +286,7 @@ export const SwapForm: Component = () => {
                     isValid={isValid('payload')} isInvalid={isInvalid('payload')}
                 />
             </Show>
-            <Show when={destinationAsset() === AssetType.ON_CHAIN_BITCOIN}>
+            <Show when={destinationAsset() === 'ON_CHAIN_BITCOIN'}>
                 <Form.Control 
                     type="text" 
                     placeholder="Enter bitcoin address"
@@ -299,7 +296,7 @@ export const SwapForm: Component = () => {
                     isValid={isValid('payload')} isInvalid={isInvalid('payload')}
                 />
             </Show>
-            <Show when={destinationAsset() === AssetType.ON_CHAIN_LIQUID}>
+            <Show when={destinationAsset() === 'ON_CHAIN_LIQUID'}>
                 <Form.Control 
                     type="text" 
                     placeholder="Enter liquid address"
