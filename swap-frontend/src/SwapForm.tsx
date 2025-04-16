@@ -89,11 +89,11 @@ export const SwapForm: Component = () => {
     }
 
     function flipSwapType(): void {
-        if (swapType() === 'in') {
-            setSwapType('out');
-        } else {
-            setSwapType('in');
-        }
+        setForm({
+            from: form.to,
+            to: form.from,
+            inputAmount: 0,
+        });
     }
 
     function changeAsset(from: AssetType, to: AssetType): void {
