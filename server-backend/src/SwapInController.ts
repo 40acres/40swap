@@ -102,6 +102,7 @@ export class SwapInController {
     private mapToResponse(swap: SwapIn): GetSwapInResponse {
         return {
             swapId: swap.id,
+            chain: swap.chain,
             contractAddress: swap.contractAddress,
             redeemScript: swap.lockScript.toString('hex'),
             timeoutBlockHeight: swap.timeoutBlockHeight,
