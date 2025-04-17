@@ -53,6 +53,9 @@ jobs:
       - name: Install dependencies
         working-directory: server-backend
         run: npm ci
+      - name: Check code formatting
+        working-directory: server-backend
+        run: npm run format:check
       - name: Build shared
         working-directory: shared
         run: npm run build
