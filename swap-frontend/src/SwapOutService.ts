@@ -7,10 +7,12 @@ import {
     signContractSpend,
     SwapOutRequest,
     TxRequest,
+    signLiquidPset,
 } from '@40swap/shared';
 import { LocalSwapStorageService, PersistedSwapOut } from './LocalSwapStorageService.js';
 import { ECPairAPI } from 'ecpair';
 import Decimal from 'decimal.js';
+import * as liquid from 'liquidjs-lib';
 
 export class SwapOutService {
 
@@ -30,21 +32,32 @@ export class SwapOutService {
         }
         const { claimKey, preImage, sweepAddress } = localDetails;
         const network = (await this.config).bitcoinNetwork;
-        const psbt = await this.getClaimPsbt(swap.swapId, sweepAddress);
-        if (!this.isValidClaimTx(psbt, sweepAddress)) {
-            throw new Error('Error building refund transactions');
+        const psbtHex = await this.getClaimPsbtHex(swap.swapId, sweepAddress);
+        if (swap.chain === 'BITCOIN') {
+            const psbt = Psbt.fromHex(psbtHex, { network });
+            if (!this.isValidClaimTx(psbt, sweepAddress)) {
+                throw new Error('Error building refund transactions');
+            }
+            signContractSpend({
+                psbt,
+                network,
+                key: this.ECPair.fromPrivateKey(Buffer.from(claimKey, 'hex')),
+                preImage: Buffer.from(preImage, 'hex'),
+            });
+            if (psbt.getFeeRate() > 1000) {
+                throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
+            }
+            const claimTx = psbt.extractTransaction();
+            await this.publishClaimTx(swap.swapId, claimTx);
+        } else if (swap.chain === 'LIQUID') {
+            const pset = liquid.Pset.fromBase64(psbtHex);
+            if (!this.isValidLiquidClaimTx(pset, sweepAddress)) {
+                throw new Error('Error building refund transactions');
+            }
+            signLiquidPset(pset, preImage, this.ECPair.fromPrivateKey(Buffer.from(claimKey, 'hex')));
+            const claimTx = liquid.Extractor.extract(pset);
+            await this.publishClaimTx(swap.swapId, claimTx);
         }
-        signContractSpend({
-            psbt,
-            network,
-            key: this.ECPair.fromPrivateKey(Buffer.from(claimKey, 'hex')),
-            preImage: Buffer.from(preImage, 'hex'),
-        });
-        if (psbt.getFeeRate() > 1000) {
-            throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
-        }
-        const claimTx = psbt.extractTransaction();
-        await this.publishClaimTx(swap.swapId, claimTx);
     }
 
     isValidClaimTx(psbt: Psbt, address: string): boolean {
@@ -53,6 +66,14 @@ export class SwapOutService {
             return false;
         }
         if (outs[0].address !== address) {
+            return false;
+        }
+        return true;
+    }
+
+    isValidLiquidClaimTx(pset: liquid.Pset, address: string): boolean {
+        const outs = pset.outputs;
+        if (outs.length !== 2) { // In liquid the fee output is also included
             return false;
         }
         return true;
@@ -95,19 +116,17 @@ export class SwapOutService {
         return localSwap;
     }
 
-    private async getClaimPsbt(swapId: string, address: string): Promise<Psbt> {
-        const network = (await this.config).bitcoinNetwork;
+    private async getClaimPsbtHex(swapId: string, address: string): Promise<string> {
         const resp = await fetch(`/api/swap/out/${swapId}/claim-psbt?` + new URLSearchParams({
             address,
         }));
         if (resp.status >= 300) {
             throw new Error(`error getting claim psbt: ${await resp.text()}`);
         }
-        const psbt = Psbt.fromBase64(psbtResponseSchema.parse(await resp.json()).psbt, { network });
-        return psbt;
+        return psbtResponseSchema.parse(await resp.json()).psbt;
     }
 
-    private async publishClaimTx(swapId: string, tx: Transaction): Promise<void> {
+    private async publishClaimTx(swapId: string, tx: Transaction | liquid.Transaction): Promise<void> {
         const resp = await fetch(`/api/swap/out/${swapId}/claim`, {
             method: 'POST',
             body: JSON.stringify({
