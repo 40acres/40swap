@@ -7,9 +7,11 @@ import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
-import { ECPair, waitFor, waitForChainSync, signLiquidPset } from './utils';
+import { ECPair, waitFor, waitForChainSync } from './utils';
 import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
+import * as liquid from 'liquidjs-lib';
+import { signLiquidPset } from '@40swap/shared';
 
 jest.setTimeout(2 * 60 * 1000);
 
@@ -78,7 +80,10 @@ describe('40Swap backend', () => {
         
         const claimAddress = await elements.getNewAddress();
         const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
-        const signedTx = signLiquidPset(claimPsbt.psbt, preImage.toString('hex'), claimKey);
+        const pset = liquid.Pset.fromBase64(claimPsbt.psbt);
+        signLiquidPset(pset, preImage.toString('hex'), claimKey);
+        const transaction = liquid.Extractor.extract(pset);
+        const signedTx = transaction.toHex();
         await backend.claimSwap(swap.swapId, signedTx);
         
         await elements.mine();

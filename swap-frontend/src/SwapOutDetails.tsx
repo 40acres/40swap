@@ -51,9 +51,11 @@ export const SwapOutDetails: Component = () => {
     });
 
     return <>
-        <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}
-            fallback={<h3 class="fw-bold">Swap lightning to bitcoin</h3>}>
+        <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'BITCOIN'}>
             <h3 class="text-center" style="text-transform: none">You have successfully swapped Lightning to Bitcoin!</h3>
+        </Show>
+        <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'LIQUID'}>
+            <h3 class="text-center" style="text-transform: none">You have successfully swapped Lightning to Liquid!</h3>
         </Show>
         <div class="d-flex flex-column gap-3">
             <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
