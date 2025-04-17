@@ -1,14 +1,16 @@
 {
     "parser": "@typescript-eslint/parser",
-    "plugins": ["@typescript-eslint/eslint-plugin"],
+    "plugins": ["@typescript-eslint/eslint-plugin", "prettier"],
     "extends": [
         "eslint:recommended",
         "plugin:@typescript-eslint/eslint-recommended",
-        "plugin:@typescript-eslint/recommended"
+        "plugin:@typescript-eslint/recommended",
+        "prettier"
     ],
     "root": true,
     "ignorePatterns": [".eslintrc.json"],
     "rules": {
+        "prettier/prettier": "error",
         "max-len": ["warn", { "code": 160 }],
         "indent": ["error", 4, { "ignoredNodes": ["PropertyDefinition"] } ],
         "comma-dangle": ["warn", "always-multiline"],
