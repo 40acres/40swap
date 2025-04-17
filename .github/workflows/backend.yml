@@ -56,6 +56,9 @@ jobs:
       - name: Check code formatting
         working-directory: server-backend
         run: npm run format:check
+      - name: Check linting
+        working-directory: server-backend
+        run: npm run lint:check
       - name: Build shared
         working-directory: shared
         run: npm run build
