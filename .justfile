@@ -107,3 +107,11 @@ format:
 # Check code formatting
 check-format:
     npm run format:check
+
+# Run linter
+lint:
+    npm run lint
+
+# Check linting
+check-lint:
+    npm run lint:check
