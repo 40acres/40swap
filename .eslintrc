@@ -12,7 +12,7 @@
     "rules": {
         "prettier/prettier": "error",
         "max-len": ["warn", { "code": 160 }],
-        "indent": ["error", 4, { "ignoredNodes": ["PropertyDefinition"] } ],
+        "indent": ["error", 4, { "SwitchCase": 2, "ignoredNodes": ["PropertyDefinition"] }],
         "comma-dangle": ["warn", "always-multiline"],
         "@typescript-eslint/interface-name-prefix": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",
