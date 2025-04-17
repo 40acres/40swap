@@ -4,15 +4,19 @@ import { applicationContext } from './ApplicationContext.js';
 import { A } from '@solidjs/router';
 import lightningIcon from '/assets/lightning-icon-monochrome.svg';
 import bitcoinIcon from '/assets/bitcoin-icon-monochrome.svg';
+import liquidIcon from '/assets/liquid-logo-monochrome.svg';
 import swapIcon from '/assets/swap-icon-monochrome.svg';
 import { SwapType } from './utils.js';
 import Fa from 'solid-fa';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import moment from 'moment';
 
-const SwapTypeComponent: Component<{ type: SwapType }> = (props) => {
+const SwapTypeComponent: Component<{ type: SwapType, chain: 'BITCOIN' | 'LIQUID' }> = (props) => {
     const from = props.type === 'in' ? bitcoinIcon : lightningIcon;
-    const to = props.type === 'in' ? lightningIcon : bitcoinIcon;
+    let to = props.type === 'in' ? lightningIcon : bitcoinIcon;
+    if (props.chain === 'LIQUID') {
+        to = liquidIcon;
+    }
 
     return <><img src={from} /> <img src={swapIcon} /> <img src={to} /></>;
 };
@@ -81,7 +85,7 @@ export const History: Component = () => {
                 <tbody>
                     <For each={swaps()}>{s => <>
                         <tr>
-                            <td><SwapTypeComponent type={s.type} /></td>
+                            <td><SwapTypeComponent type={s.type} chain={s.chain} /></td>
                             <td><A href={`/swap/${s.type}/${s.swapId}`}>{s.swapId}</A></td>
                             <td>{new Date(s.createdAt).toLocaleString()}</td>
                             <td><span onClick={() => setSwapToDelete(s.swapId)}><Fa icon={faTrash} /></span></td>
