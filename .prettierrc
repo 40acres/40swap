@@ -4,5 +4,6 @@
   "trailingComma": "all",
   "printWidth": 160,
   "tabWidth": 4,
+  "useTabs": false,
   "endOfLine": "auto"
 } 
