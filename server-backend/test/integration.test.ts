@@ -7,7 +7,7 @@ import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
-import { ECPair, waitFor, waitForChainSync, signLiquidPset } from './utils';
+import { ECPair, waitFor, waitForChainSync, signLiquidPset, waitForAllChannelsActive } from './utils';
 import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
 
@@ -292,17 +292,19 @@ describe('40Swap backend', () => {
         await lndLsp.connect(lndUser.uri);
         await lndAlice.connect(lndUser.uri);
         await waitForChainSync(allLnds);
-        await lndLsp.openChannel(lndAlice.pubkey, 0.05);
-        await lndAlice.openChannel(lndUser.pubkey, 0.05);
-        await lndUser.openChannel(lndAlice.pubkey, 0.05);
-        await lndAlice.openChannel(lndLsp.pubkey, 0.05);
+        await lndLsp.openChannel(lndAlice.pubkey, 0.16);
+        await lndAlice.openChannel(lndUser.pubkey, 0.16);
+        await lndUser.openChannel(lndAlice.pubkey, 0.16);
+        await lndAlice.openChannel(lndLsp.pubkey, 0.16);
         await bitcoind.mine();
         await waitForChainSync(allLnds);
 
         // just to bootstrap the graph
-        const ch = await lndLsp.openChannel(lndUser.pubkey, 0.05);
+        const ch = await lndLsp.openChannel(lndUser.pubkey, 0.16);
         await bitcoind.mine();
         await waitForChainSync(allLnds);
+        //Wait for all channels to be active so the next one can be closed
+        await waitForAllChannelsActive(allLnds);
         await lndLsp.closeChannel(ch);
         await bitcoind.mine();
         await waitForChainSync(allLnds);

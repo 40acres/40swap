@@ -11,6 +11,15 @@ export async function waitForChainSync(lnds: Lnd[]): Promise<void> {
     }
 }
 
+export async function waitForAllChannelsActive(lnds: Lnd[]): Promise<void> {
+    for (const lnd of lnds) {
+        await waitFor(async () => {
+            const channels = await lnd.listChannels();
+            return channels.channels.every(channel => channel.active);
+        });
+    }
+}
+
 export function sleep(ms = 1000): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }

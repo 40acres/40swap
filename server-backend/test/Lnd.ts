@@ -10,6 +10,8 @@ import Decimal from 'decimal.js';
 import { loadSync } from '@grpc/proto-loader';
 import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
 import { ProtoGrpcType as LndGrpcType } from '../src/lnd/lightning.js';
+import { Channel__Output } from '../src/lnd/lnrpc/Channel.js';
+import { ListChannelsResponse__Output } from '../src/lnd/lnrpc/ListChannelsResponse.js';
 
 export class Lnd {
 
@@ -119,6 +121,20 @@ export class Lnd {
                     reject(err);
                 } else {
                     resolve(value);
+                }
+            });
+        });
+    }
+
+    async listChannels(): Promise<ListChannelsResponse__Output> {
+        return new Promise((resolve, reject) => {
+            const call = this.client.ListChannels({}, (err, value) => {
+                if (err != null || value == null) {
+                    reject(err);
+                    return;
+                }else{
+                    resolve(value);
+                    call.cancel();
                 }
             });
         });
