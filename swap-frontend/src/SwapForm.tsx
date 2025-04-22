@@ -85,7 +85,7 @@ export const SwapForm: Component = () => {
         return new Decimal(inputAmount()).minus(outputAmount()).toDecimalPlaces(8).toNumber();
     }
 
-    function flipSwapType(): void {
+    function flipAssets(): void {
         setForm({
             from: form.to,
             to: form.from,
@@ -255,7 +255,7 @@ export const SwapForm: Component = () => {
                         />
                     </div>
                 </div>
-                <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipSwapType}>
+                <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipAssets}>
                     <img src={flipImg} draggable={false}/>
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
