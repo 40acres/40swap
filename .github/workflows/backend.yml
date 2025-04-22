@@ -13,10 +13,6 @@ on:
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - "daemon/**"
-      - ".justfile"
-      - "README.md"
 
 concurrency:
   # Cancel any previous workflows if they are from a PR or push.
@@ -42,7 +38,16 @@ jobs:
           - /var/run/docker.sock:/var/run/docker.sock:ro
     steps:
       - uses: actions/checkout@v4
+      - name: Check if the integrations tests should be run
+        uses: tj-actions/changed-files@v46
+        id: changed-files
+        with:
+          files: |
+            server-backend/**
+            shared/**
+            docker/**
       - name: Setup Node.js
+        if: steps.changed-files.outputs.any_modified == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
@@ -51,12 +56,15 @@ jobs:
             package-lock.json
             package.json
       - name: Install dependencies
+        if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: server-backend
         run: npm ci
       - name: Build shared
+        if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: shared
         run: npm run build
       - name: Run tests
+        if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: server-backend
         run: npm test
   build:
