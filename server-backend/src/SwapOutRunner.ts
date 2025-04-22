@@ -220,7 +220,7 @@ export class SwapOutRunner {
             if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
                 swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
-                await this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
+                void this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
             } else {
                 this.swap = await this.repository.save(swap);
             }
@@ -258,7 +258,7 @@ export class SwapOutRunner {
             if (this.swap.status === 'CONTRACT_EXPIRED') {
                 swap.status = 'CONTRACT_REFUNDED_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
-                await this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
+                void this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
             }
         } else {
             const input = unlockTx.ins.find(i => Buffer.from(i.hash).equals(lockTx.getHash()));
@@ -285,16 +285,16 @@ export class SwapOutRunner {
         if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('CONTRACT_EXPIRED');
+            void this.onStatusChange('CONTRACT_EXPIRED');
         } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
             swap.status = 'CONTRACT_FUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('CONTRACT_FUNDED');
+            void this.onStatusChange('CONTRACT_FUNDED');
         } else if (swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             swap.status = 'DONE';
             swap.outcome = 'REFUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
+            void this.onStatusChange('DONE');
         } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             assert(swap.preImage != null);
             this.logger.log(`Settling invoice (id=${this.swap.id})`);
@@ -302,7 +302,7 @@ export class SwapOutRunner {
             swap.status = 'DONE';
             swap.outcome = 'SUCCESS';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
+            void this.onStatusChange('DONE');
         }
     }
 
