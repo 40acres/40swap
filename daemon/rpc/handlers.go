@@ -124,6 +124,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
+		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,

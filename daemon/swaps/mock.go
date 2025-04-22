@@ -100,6 +100,21 @@ func (mr *MockClientInterfaceMockRecorder) GetConfiguration(ctx any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfiguration", reflect.TypeOf((*MockClientInterface)(nil).GetConfiguration), ctx)
 }
 
+// GetRefundPSBT mocks base method.
+func (m *MockClientInterface) GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRefundPSBT", ctx, swapId, address)
+	ret0, _ := ret[0].(*RefundPSBTResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRefundPSBT indicates an expected call of GetRefundPSBT.
+func (mr *MockClientInterfaceMockRecorder) GetRefundPSBT(ctx, swapId, address any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRefundPSBT", reflect.TypeOf((*MockClientInterface)(nil).GetRefundPSBT), ctx, swapId, address)
+}
+
 // GetSwapIn mocks base method.
 func (m *MockClientInterface) GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error) {
 	m.ctrl.T.Helper()
@@ -142,4 +157,18 @@ func (m *MockClientInterface) PostClaim(ctx context.Context, swapId, tx string) 
 func (mr *MockClientInterfaceMockRecorder) PostClaim(ctx, swapId, tx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostClaim", reflect.TypeOf((*MockClientInterface)(nil).PostClaim), ctx, swapId, tx)
+}
+
+// PostRefund mocks base method.
+func (m *MockClientInterface) PostRefund(ctx context.Context, swapId, tx string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PostRefund", ctx, swapId, tx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PostRefund indicates an expected call of PostRefund.
+func (mr *MockClientInterfaceMockRecorder) PostRefund(ctx, swapId, tx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostRefund", reflect.TypeOf((*MockClientInterface)(nil).PostRefund), ctx, swapId, tx)
 }
