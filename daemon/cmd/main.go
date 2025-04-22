@@ -113,6 +113,12 @@ func main() {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("40SWAPD_LNDCONNECT")),
 			},
+			&cli.StringFlag{
+				Name:  "mempool-url",
+				Usage: "Mempool url to use for tx inspection",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("MEMPOOL_URL")),
+			},
 			&grpcPort,
 			&serverUrl,
 			&tlsCert,
@@ -193,7 +199,13 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, rpc.ToLightningNetworkType(network))
+					// Mempool host
+					mempoolUrl := c.String("mempool-url")
+					if mempoolUrl == "" {
+						return fmt.Errorf("❌ Mempool url is required")
+					}
+
+					err = daemon.Start(ctx, server, db, swapClient, lnClient, rpc.ToLightningNetworkType(network), mempoolUrl)
 					if err != nil {
 						return err
 					}

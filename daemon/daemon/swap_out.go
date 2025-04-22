@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
@@ -13,6 +15,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
+	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -60,6 +63,12 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
+		offchainFees, onchainFees, err := m.GetFeesSwapOut(&currentSwap)
+		if err != nil {
+			return fmt.Errorf("failed to get fees: %w", err)
+		}
+		currentSwap.OffchainFeeSats = int64(offchainFees)
+		currentSwap.OnchainFeeSats = int64(onchainFees)
 	case models.StatusContractExpired:
 	case models.StatusContractRefundedUnconfirmed:
 	}
@@ -118,6 +127,43 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	}
 
 	return tx.TxID(), nil
+}
+
+func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, error) {
+	invoice, err := decodepay.Decodepay(swap.PaymentRequest)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to decode invoice: %w", err)
+	}
+
+	// Offchain fees
+	_, offchainFees, monitorErr := m.lightningClient.MonitorPaymentRequest(context.Background(), invoice.PaymentHash)
+	if monitorErr != nil {
+		return 0, 0, fmt.Errorf("failed to monitor payment request: %w", monitorErr)
+	}
+
+	// Onchain fees
+	c := http.Client{}
+	resp, err := c.Get(fmt.Sprintf("/api/tx/%s", swap.TxID))
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get transaction from mempool: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return 0, 0, fmt.Errorf("failed to get transaction from mempool: %s", resp.Status)
+	}
+
+	var txInfo map[string]any
+	err = json.NewDecoder(resp.Body).Decode(&txInfo)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to decode transaction info: %w", err)
+	}
+	// Get the fee from the transaction info
+	onchainFees, ok := txInfo["fee"].(uint64)
+	if !ok {
+		return 0, 0, fmt.Errorf("failed to get fee from transaction info")
+	}
+
+	return uint64(offchainFees), onchainFees, nil
 }
 
 func serializePSBT(tx *wire.MsgTx) (string, error) {
