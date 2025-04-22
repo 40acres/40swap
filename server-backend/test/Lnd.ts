@@ -133,8 +133,8 @@ export class Lnd {
                     reject(err);
                     return;
                 }else{
-                    resolve(value);
                     call.cancel();
+                    resolve(value);
                 }
             });
         });
