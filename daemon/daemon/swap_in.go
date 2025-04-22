@@ -128,7 +128,7 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 	}
 
 	if fee, err := pkt.GetTxFee(); err != nil || fee > 1000 {
-		return "", fmt.Errorf(`fee rate too high ${psbt.getFeeRate()}`)
+		return "", fmt.Errorf("fee is too high: %d", fee)
 	}
 
 	serializedTx, err := bitcoin.SerializeTx(tx)
