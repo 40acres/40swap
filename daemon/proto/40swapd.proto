@@ -100,4 +100,5 @@ message GetSwapOutResponse {
   double output_amount = 5; // Output amount in BTC.
   Status status = 6; // Current status of the swap.
   google.protobuf.Timestamp created_at = 7; // Timestamp when the swap was created.
+  optional string outcome = 8; // Outcome of the swap.
 }
