@@ -31,7 +31,9 @@
         "swap",
         "recover",
         "-refund-to",
-        "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx"
+        "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
+        "-outpoint",
+        "432cbad07d989e691f96fd76bcbad40ddc35b21aef656cdf675330429749a6b1:0"
       ]
     },
     {
