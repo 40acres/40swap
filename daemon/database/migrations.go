@@ -260,6 +260,24 @@ func ChangeNameClaimPubkey() *gormigrate.Migration {
 	}
 }
 
+func DropClaimTxForSwapIns() *gormigrate.Migration {
+	const ID = "7_drop_claim_tx_for_swap_ins"
+
+	type swapIn struct {
+		ClaimTxID string
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			return tx.Migrator().DropColumn(&swapIn{}, "ClaimTxID")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			return tx.Migrator().AddColumn(&swapIn{}, "ClaimTxID")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
@@ -267,6 +285,7 @@ var migrations = []*gormigrate.Migration{
 	RemoveNotNullSwapOut(),
 	AddPreimageTxIdTimeoutBlockHeightToSwapOut(),
 	ChangeNameClaimPubkey(),
+	DropClaimTxForSwapIns(),
 }
 
 type Migrator struct {

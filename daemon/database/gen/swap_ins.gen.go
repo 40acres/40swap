@@ -34,7 +34,6 @@ func newSwapIn(db *gorm.DB, opts ...gen.DOOption) swapIn {
 	_swapIn.Outcome = field.NewField(tableName, "outcome")
 	_swapIn.SourceChain = field.NewField(tableName, "source_chain")
 	_swapIn.ClaimAddress = field.NewString(tableName, "claim_address")
-	_swapIn.ClaimTxID = field.NewString(tableName, "claim_tx_id")
 	_swapIn.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
 	_swapIn.RefundAddress = field.NewString(tableName, "refund_address")
 	_swapIn.RefundTxID = field.NewString(tableName, "refund_tx_id")
@@ -64,7 +63,6 @@ type swapIn struct {
 	Outcome            field.Field
 	SourceChain        field.Field
 	ClaimAddress       field.String
-	ClaimTxID          field.String
 	TimeoutBlockHeight field.Int64
 	RefundAddress      field.String
 	RefundTxID         field.String
@@ -100,7 +98,6 @@ func (s *swapIn) updateTableName(table string) *swapIn {
 	s.Outcome = field.NewField(table, "outcome")
 	s.SourceChain = field.NewField(table, "source_chain")
 	s.ClaimAddress = field.NewString(table, "claim_address")
-	s.ClaimTxID = field.NewString(table, "claim_tx_id")
 	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
 	s.RefundAddress = field.NewString(table, "refund_address")
 	s.RefundTxID = field.NewString(table, "refund_tx_id")
@@ -137,7 +134,7 @@ func (s *swapIn) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapIn) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 20)
+	s.fieldMap = make(map[string]field.Expr, 19)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["amount_sats"] = s.AmountSats
@@ -145,7 +142,6 @@ func (s *swapIn) fillFieldMap() {
 	s.fieldMap["outcome"] = s.Outcome
 	s.fieldMap["source_chain"] = s.SourceChain
 	s.fieldMap["claim_address"] = s.ClaimAddress
-	s.fieldMap["claim_tx_id"] = s.ClaimTxID
 	s.fieldMap["timeout_block_height"] = s.TimeoutBlockHeight
 	s.fieldMap["refund_address"] = s.RefundAddress
 	s.fieldMap["refund_tx_id"] = s.RefundTxID
