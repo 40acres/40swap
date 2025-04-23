@@ -5,7 +5,7 @@
     },
     "[typescript]": {
         "editor.formatOnSave": false,
-        "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+        "editor.defaultFormatter": null
     },
     "editor.formatOnSave": false,
     "json.format.enable": false,
