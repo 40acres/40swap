@@ -1,83 +1,77 @@
-import { Component, For } from 'solid-js';
+import { Component, For, Show } from 'solid-js';
 import { Dropdown } from 'solid-bootstrap';
-import { Asset } from '../utils.js';
-import bitcoinLogo from '/assets/bitcoin-logo.svg';
-import lightningLogo from '/assets/lightning-logo.svg';
-import liquidLogo from '/assets/liquid-logo.svg';
+import { Asset } from '../controllers/AssetsConfiguration.js';
+import { assetController } from '../controllers/AssetController.js';
+import { AssetConfig } from '../controllers/AssetsConfiguration.js';
 
 
 type AssetSelectorProps = {
     selectedAsset: Asset;
+    counterpartyAsset: Asset;
     onAssetSelect: (asset: Asset) => void;
     disabled?: boolean;
-    excludeAssets?: Asset[];
 }
 
-const AssetDetails: Record<Asset, {
-    displayName: string;
-    icon: string;
-}> = {
-    'ON_CHAIN_BITCOIN': {
-        displayName: 'BTC',
-        icon: bitcoinLogo,
-    },
-    'LIGHTNING_BITCOIN': {
-        displayName: 'Lightning',
-        icon: lightningLogo,
-    },
-    'ON_CHAIN_LIQUID': {
-        displayName: 'Liquid',
-        icon: liquidLogo,
-    },
-};
-
-const AVAILABLE_ASSETS = [
-    'ON_CHAIN_BITCOIN',
-    'LIGHTNING_BITCOIN',
-    'ON_CHAIN_LIQUID',
-] as const;
-
 export const AssetSelector: Component<AssetSelectorProps> = (props) => {
-    const filteredAssets = (): Asset[] => 
-        AVAILABLE_ASSETS.filter(asset => !props.excludeAssets?.includes(asset));
+    function availableAssets(): AssetConfig[] {
+        const assets = assetController.getAvailableAssetsForAsset(props.counterpartyAsset);
+        return assets.filter((asset) => asset.name !== props.selectedAsset);
+    }
+
+    function hasAvailableAssets(): boolean {
+        return availableAssets().length > 0;
+    }
 
     return (
         <div class="fw-medium">
-            <Dropdown>
-                <Dropdown.Toggle 
-                    variant="light" 
-                    class="d-flex align-items-center gap-2 border-0 p-2"
-                    disabled={props.disabled}
-                >
+            <Show when={hasAvailableAssets()} fallback={
+                <div class="d-flex align-items-center gap-2 border-0 p-2">
                     <img 
-                        src={AssetDetails[props.selectedAsset].icon} 
-                        alt={AssetDetails[props.selectedAsset].displayName} 
+                        src={assetController.getIconForAsset(props.selectedAsset)} 
+                        alt={assetController.getDisplayNameForAsset(props.selectedAsset)} 
                         draggable={false}
                     />
                     <span class="text-uppercase">
-                        {AssetDetails[props.selectedAsset].displayName}
+                        {assetController.getDisplayNameForAsset(props.selectedAsset)}
                     </span>
-                </Dropdown.Toggle>
-                <Dropdown.Menu class='w-100'>
-                    <For each={filteredAssets()}>
-                        {(asset) => (
-                            <Dropdown.Item 
-                                onClick={() => props.onAssetSelect(asset)}
-                                class="d-flex align-items-center gap-2"
-                            >
-                                <img 
-                                    src={AssetDetails[asset].icon}
-                                    alt={AssetDetails[asset].displayName}
-                                    draggable={false}
-                                />
-                                <span class="text-uppercase">
-                                    {AssetDetails[asset].displayName}
-                                </span>
-                            </Dropdown.Item>
-                        )}
-                    </For>
-                </Dropdown.Menu>
-            </Dropdown>
+                </div>
+            }>
+                <Dropdown>
+                    <Dropdown.Toggle 
+                        variant="light" 
+                        class="d-flex align-items-center gap-2 border-0 p-2"
+                        disabled={props.disabled}
+                    >
+                        <img 
+                            src={assetController.getIconForAsset(props.selectedAsset)} 
+                            alt={assetController.getDisplayNameForAsset(props.selectedAsset)} 
+                            draggable={false}
+                        />
+                        <span class="text-uppercase">
+                            {assetController.getDisplayNameForAsset(props.selectedAsset)}
+                        </span>
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu class='w-100'>
+                        <For each={availableAssets()}>
+                            {(asset) => (
+                                <Dropdown.Item 
+                                    onClick={() => props.onAssetSelect(asset.name)}
+                                    class="d-flex align-items-center gap-2"
+                                >
+                                    <img 
+                                        src={assetController.getIconForAsset(asset.name)}
+                                        alt={assetController.getDisplayNameForAsset(asset.name)}
+                                        draggable={false}
+                                    />
+                                    <span class="text-uppercase">
+                                        {assetController.getDisplayNameForAsset(asset.name)}
+                                    </span>
+                                </Dropdown.Item>
+                            )}
+                        </For>
+                    </Dropdown.Menu>
+                </Dropdown>
+            </Show>
         </div>
     );
 }; 

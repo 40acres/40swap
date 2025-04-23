@@ -1,8 +1,9 @@
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { Form } from 'solid-bootstrap';
 import flipImg from '/assets/flip.png';
-import { Asset, currencyFormat, SwapType } from './utils.js';
+import { currencyFormat, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
+import { Asset } from './controllers/AssetsConfiguration.js';
 import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
 import { useNavigate } from '@solidjs/router';
@@ -29,7 +30,6 @@ export const SwapForm: Component = () => {
     const navigate = useNavigate();
     const [config] = createResource(() => applicationContext.config);
     const [destinationAsset, setDestinationAsset] = createSignal<Asset>('ON_CHAIN_BITCOIN');
-    const [swapType, setSwapType] = createSignal<SwapType>('in');
     const [errorMessage, setErrorMessage] = createSignal('');
     const [validated, setValidated] = createSignal(false);
 
@@ -39,6 +39,7 @@ export const SwapForm: Component = () => {
         payload: '',
         inputAmount: 0,
     });
+
     const [formErrors, setFormErrors] = createStore<{ [key in keyof FormData]: boolean } & { outputAmount: boolean }>({
         inputAmount: false,
         from: false,
@@ -46,6 +47,16 @@ export const SwapForm: Component = () => {
         outputAmount: false,
         payload: false,
     });
+
+    function swapType(): SwapType {
+        const toAsset = form.to;
+        if (toAsset === 'ON_CHAIN_BITCOIN' || toAsset === 'ON_CHAIN_LIQUID') {
+            return 'out';
+        } else if (toAsset === 'LIGHTNING_BITCOIN') {
+            return 'in';
+        }
+        throw new Error('Invalid asset');
+    }
 
     function outputAmount(): number {
         if (swapType() === 'in') {
@@ -159,7 +170,7 @@ export const SwapForm: Component = () => {
             setErrorMessage('Invalid liquid address');
         }
     }
-    
+
     async function validate(): Promise<void> {
         const conf = config();
         if (conf == null) {
@@ -214,15 +225,6 @@ export const SwapForm: Component = () => {
 
     createEffect(() => {
         const toAsset = form.to;
-        if (toAsset === 'ON_CHAIN_BITCOIN' || toAsset === 'ON_CHAIN_LIQUID') {
-            setSwapType('out');
-        } else if (toAsset === 'LIGHTNING_BITCOIN') {
-            setSwapType('in');
-        }
-    }, [form.from, form.to]);
-
-    createEffect(() => {
-        const toAsset = form.to;
         setDestinationAsset(toAsset);
     }, [form.to]);
 
@@ -233,18 +235,18 @@ export const SwapForm: Component = () => {
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
                     <div class="fw-medium">
                         <AssetSelector 
-                            selectedAsset={form.from}
-                            excludeAssets={[form.to, form.from]}
+                            selectedAsset={form.from} 
+                            counterpartyAsset={form.to}
                             onAssetSelect={(asset) => changeAsset(asset, form.to)}
                         />
                     </div>
                     <hr />
                     <div class="fs-6">You send</div>
                     <div>
-                        <input 
-                            class="form-control form-control-lg inline-input" 
-                            step={0.001} 
-                            max={2} 
+                        <input
+                            class="form-control form-control-lg inline-input"
+                            step={0.001}
+                            max={2}
                             type="number"
                             value={inputAmount()}
                             onChange={e => setForm('inputAmount', Number(e.target.value))}
@@ -256,13 +258,13 @@ export const SwapForm: Component = () => {
                     </div>
                 </div>
                 <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipAssets}>
-                    <img src={flipImg} draggable={false}/>
+                    <img src={flipImg} draggable={false} />
                 </div>
                 <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
                     <div class="fw-medium">
                         <AssetSelector 
-                            selectedAsset={form.to}
-                            excludeAssets={[form.from, form.to]}
+                            selectedAsset={form.to} 
+                            counterpartyAsset={form.from} 
                             onAssetSelect={(asset) => changeAsset(form.from, asset)}
                         />
                     </div>
@@ -276,9 +278,9 @@ export const SwapForm: Component = () => {
                 </div>
             </div>
             <Show when={destinationAsset() === 'LIGHTNING_BITCOIN'}>
-                <Form.Control 
-                    as="textarea" 
-                    rows={5} 
+                <Form.Control
+                    as="textarea"
+                    rows={5}
                     placeholder="Paste a lightning invoice" id="invoice-input"
                     value={form.payload}
                     onChange={e => setForm('payload', e.target.value)}
@@ -287,8 +289,8 @@ export const SwapForm: Component = () => {
                 />
             </Show>
             <Show when={destinationAsset() === 'ON_CHAIN_BITCOIN'}>
-                <Form.Control 
-                    type="text" 
+                <Form.Control
+                    type="text"
                     placeholder="Enter bitcoin address"
                     value={form.payload}
                     onChange={e => setForm('payload', e.target.value)}
@@ -297,8 +299,8 @@ export const SwapForm: Component = () => {
                 />
             </Show>
             <Show when={destinationAsset() === 'ON_CHAIN_LIQUID'}>
-                <Form.Control 
-                    type="text" 
+                <Form.Control
+                    type="text"
                     placeholder="Enter liquid address"
                     value={form.payload}
                     onChange={e => setForm('payload', e.target.value)}
@@ -309,13 +311,13 @@ export const SwapForm: Component = () => {
             <div class="text-muted text-end small">Fee ({config()?.feePercentage}%): {currencyFormat(fee())}</div>
             <ActionButton action={createSwap} disabled={!isSendable()}>Create swap</ActionButton>
             <div class="text-muted text-center small border border-primary rounded-3 p-2">
-                <Fa icon={faInfoCircle} /> 
+                <Fa icon={faInfoCircle} />
                 Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)}
                 &nbsp; | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
             </div>
             <Show when={errorMessage() !== ''}>
-                <div 
-                    class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" 
+                <div
+                    class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle"
                     style="border-style: dashed !important"
                 >
                     <Fa icon={faInfoCircle} /> {errorMessage()}
