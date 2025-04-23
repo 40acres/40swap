@@ -8,6 +8,7 @@ import {
     SwapOutRequest,
     TxRequest,
     signLiquidPset,
+    Chain,
 } from '@40swap/shared';
 import { LocalSwapStorageService, PersistedSwapOut } from './LocalSwapStorageService.js';
 import { ECPairAPI } from 'ecpair';
@@ -95,7 +96,7 @@ export class SwapOutService {
         };
     }
 
-    async createSwap(sweepAddress: string, amount: number, chain: 'BITCOIN' | 'LIQUID'): Promise<PersistedSwapOut> {
+    async createSwap(sweepAddress: string, amount: number, chain: Chain): Promise<PersistedSwapOut> {
         const randomBytes = crypto.getRandomValues(new Uint8Array(32));
         const preImage = Buffer.from(randomBytes);
         const preImageHash = await this.sha256(preImage);
