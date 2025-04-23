@@ -61,12 +61,12 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
-		offchainFees, onchainFees, err := m.GetFeesSwapOut(&currentSwap)
+		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, &currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to get fees: %w", err)
 		}
-		currentSwap.OffchainFeeSats = int64(offchainFees)
-		currentSwap.OnchainFeeSats = int64(onchainFees)
+		currentSwap.OffchainFeeSats = offchainFees
+		currentSwap.OnchainFeeSats = onchainFees
 	case models.StatusContractExpired:
 	case models.StatusContractRefundedUnconfirmed:
 	}
@@ -125,7 +125,7 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	return tx.TxID(), nil
 }
 
-func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, error) {
+func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) (int64, int64, error) {
 	invoice, err := decodepay.Decodepay(swap.PaymentRequest)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to decode invoice: %w", err)
@@ -139,7 +139,12 @@ func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, erro
 
 	// Onchain fees
 	c := http.Client{}
-	resp, err := c.Get(fmt.Sprintf("%s/api/tx/%s", m.mempoolUrl, swap.TxID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/tx/%s", m.mempoolUrl, swap.TxID), nil)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.Do(req)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get transaction from mempool: %w", err)
 	}
@@ -149,7 +154,7 @@ func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, erro
 	}
 
 	var txInfo struct {
-		Fee uint64 `json:"fee"`
+		Fee int64 `json:"fee"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&txInfo)
 	if err != nil {
@@ -158,7 +163,7 @@ func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, erro
 	// Get the fee from the transaction info
 	onchainFees := txInfo.Fee
 
-	return uint64(offchainFees), onchainFees, nil
+	return offchainFees, onchainFees, nil
 }
 
 func serializePSBT(tx *wire.MsgTx) (string, error) {
