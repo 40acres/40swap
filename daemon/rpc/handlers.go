@@ -372,9 +372,8 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 	if recommendedFeeRate > 1000 {
 		return nil, fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
-
 	logger.Infof("Claiming reused address outpoint for swap: %s", swap.SwapID)
-	pkt, err := bitcoin.BuildPSBT(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, network)
+	pkt, err := bitcoin.BuildPSBT(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, s.minRelayFee, network)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build PSBT: %w", err)
 	}
@@ -395,10 +394,6 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 	tx, err = bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign PSBT: %w", err)
-	}
-
-	if fee, err := pkt.GetTxFee(); err != nil || fee < 135 {
-		return nil, fmt.Errorf(`fee rate should be between 135 and 1000 sat/vbyte, got %d: %w`, fee, err)
 	}
 
 	serializedTx, err := bitcoin.SerializeTx(tx)

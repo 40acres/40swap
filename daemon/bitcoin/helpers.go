@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/psbt"
+	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -241,7 +242,7 @@ func ParseOutpoint(outpoint string) (string, int, error) {
 	return txid, int(intVOut), nil
 }
 
-func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate int64, network lightning.Network) (*psbt.Packet, error) {
+func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate, minRelayFee int64, network lightning.Network) (*psbt.Packet, error) {
 	cfgnetwork := lightning.ToChainCfgNetwork(network)
 	_, vout, err := ParseOutpoint(outpoint)
 	if err != nil {
@@ -258,7 +259,7 @@ func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, ou
 
 	prevOut, err := wire.NewOutPointFromString(outpoint)
 	if err != nil {
-		log.Errorf("failed to parse outpoint: %v", err)
+		return nil, fmt.Errorf("failed to parse outpoint: %w", err)
 	}
 
 	txIn := wire.NewTxIn(prevOut, nil, nil)
@@ -274,9 +275,9 @@ func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, ou
 	tx.AddTxOut(txOut)
 
 	// Update fee
-	fee := feeRate * int64(tx.SerializeSize())
+	fee := feeRate * mempool.GetTxVirtualSize(btcutil.NewTx(tx))
 	if feeRate < 135 {
-		fee = 135 // minimum fee
+		fee = minRelayFee
 	}
 
 	outputAmount := int64(amount) - fee
@@ -284,7 +285,7 @@ func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, ou
 
 	pkt, err := psbt.NewFromUnsignedTx(tx)
 	if err != nil {
-		log.Errorf("failed to create new PSBT: %v", err)
+		return nil, fmt.Errorf("failed to create new PSBT: %w", err)
 	}
 
 	pkScript := spendingTxHex.TxOut[vout].PkScript

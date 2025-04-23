@@ -122,6 +122,11 @@ func main() {
 			&lndHost,
 			&testnet,
 			&regtest,
+			&cli.IntFlag{
+				Name:  "minrelayfee",
+				Usage: "Minimum relay fee in satoshis per kB",
+				Value: 1000,
+			},
 			&cli.StringFlag{
 				Name:  "mempool-endpoint",
 				Usage: "Url to the mempool space API",
@@ -208,7 +213,7 @@ func main() {
 
 					mempool := mempool.New(c.String("mempool-token"), mempool.WithURL(c.String("mempool-endpoint")))
 
-					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, network)
+					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, c.Int("minrelayfee"), network)
 					defer server.Stop()
 
 					err = daemon.Start(ctx, server, db, swapClient, rpc.ToLightningNetworkType(network))
