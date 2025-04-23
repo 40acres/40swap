@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
@@ -25,9 +26,10 @@ type Server struct {
 	lightningClient lightning.Client
 	swapClient      swaps.ClientInterface
 	network         Network
+	bitcoin         bitcoin.Client
 }
 
-func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, network Network) *Server {
+func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, bitcoin bitcoin.Client, network Network) *Server {
 	svr := &Server{
 		Port:            port,
 		Repository:      repository,
@@ -35,6 +37,7 @@ func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInt
 		swapClient:      swapClient,
 		lightningClient: lightningClient,
 		network:         network,
+		bitcoin:         bitcoin,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)
