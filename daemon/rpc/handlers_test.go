@@ -676,7 +676,10 @@ func TestServer_SwapOut(t *testing.T) {
 					AmountSats: amt,
 				},
 			},
-			want:    &SwapOutResponse{},
+			want: &SwapOutResponse{
+				SwapId:     swapId,
+				AmountSats: 200105,
+			},
 			wantErr: false,
 			err:     nil,
 		},
@@ -708,7 +711,10 @@ func TestServer_SwapOut(t *testing.T) {
 					Address:    address,
 				},
 			},
-			want:    &SwapOutResponse{},
+			want: &SwapOutResponse{
+				SwapId:     swapId,
+				AmountSats: 200105,
+			},
 			wantErr: false,
 			err:     nil,
 		},
