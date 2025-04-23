@@ -15,11 +15,7 @@ type PreimageSerializer struct{}
 
 // Scan implements serializer interface
 func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst reflect.Value, dbValue interface{}) error {
-	preimagePointer := dst.Elem().FieldByName(field.Name)
 	if dbValue == nil {
-		// Ensure it sets a nil pointer for *lntypes.Preimage
-		preimagePointer.Set(reflect.Zero(field.FieldType))
-
 		return nil
 	}
 
@@ -33,6 +29,7 @@ func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst ref
 		return fmt.Errorf("failed to cast preimage value: %v", dbValue)
 	}
 
+	preimagePointer := dst.Elem().FieldByName(field.Name)
 	if preimageStr == "" {
 		preimagePointer.Set(reflect.Zero(field.FieldType)) // Ensure nil pointer
 

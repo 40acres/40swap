@@ -124,6 +124,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
+		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
@@ -238,7 +239,10 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 
 	log.Info("Swap created: ", swap.SwapId)
 
-	return &SwapOutResponse{}, nil
+	return &SwapOutResponse{
+		SwapId:     swap.SwapId,
+		AmountSats: uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec
+	}, nil
 }
 
 // mapStatus maps the swap status from the database to the RPC status
