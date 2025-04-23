@@ -297,18 +297,19 @@ describe('40Swap backend', () => {
         await lndLsp.connect(lndUser.uri);
         await lndAlice.connect(lndUser.uri);
         await waitForChainSync(allLnds);
-        await lndLsp.openChannel(lndAlice.pubkey, 0.05);
-        await lndAlice.openChannel(lndUser.pubkey, 0.05);
-        await lndUser.openChannel(lndAlice.pubkey, 0.05);
-        await lndAlice.openChannel(lndLsp.pubkey, 0.05);
+        await lndLsp.openChannel(lndAlice.pubkey, 0.16);
+        await lndAlice.openChannel(lndUser.pubkey, 0.16);
+        await lndUser.openChannel(lndAlice.pubkey, 0.16);
+        await lndAlice.openChannel(lndLsp.pubkey, 0.16);
         await bitcoind.mine();
         await waitForChainSync(allLnds);
 
         // just to bootstrap the graph
-        const ch = await lndLsp.openChannel(lndUser.pubkey, 0.05);
+        const ch = await lndLsp.openChannel(lndUser.pubkey, 0.16);
         await bitcoind.mine();
         await waitForChainSync(allLnds);
-        await lndLsp.closeChannel(ch);
+        // Force close the channel to avoid flaky issue 'unable to gracefully close  channel while peer is offline (try force closing it instead):  channel link not found'
+        await lndLsp.closeChannel(ch, true);
         await bitcoind.mine();
         await waitForChainSync(allLnds);
         await waitFor(async () => (await lndLsp.describeGraph()).nodes?.length === 3);
