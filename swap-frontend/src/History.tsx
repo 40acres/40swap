@@ -10,8 +10,9 @@ import { SwapType } from './utils.js';
 import Fa from 'solid-fa';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import moment from 'moment';
+import { Chain } from '@40swap/shared';
 
-const SwapTypeComponent: Component<{ type: SwapType, chain: 'BITCOIN' | 'LIQUID' }> = (props) => {
+const SwapTypeComponent: Component<{ type: SwapType, chain: Chain }> = (props) => {
     const from = props.type === 'in' ? bitcoinIcon : lightningIcon;
     let to = props.type === 'in' ? lightningIcon : bitcoinIcon;
     if (props.chain === 'LIQUID') {
