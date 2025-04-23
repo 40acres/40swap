@@ -12,8 +12,6 @@ import (
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
 	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
@@ -96,17 +94,15 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	}
 
 	// Get psbt from response
-	pkt, err := psbt.NewFromRawBytes(bytes.NewReader([]byte(res.PSBT)), true)
+	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse PSBT: %w", err)
 	}
 
-	privateKeyBytes, err := hex.DecodeString(swap.ClaimPrivateKey)
+	privateKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode claim private key: %w", err)
 	}
-	// Deserialize the private key
-	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
 
 	// Process the PSBT
 	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, swap.PreImage, 0)
@@ -114,7 +110,7 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 		return "", fmt.Errorf("failed to process PSBT: %w", err)
 	}
 
-	serializedTx, err := serializePSBT(tx)
+	serializedTx, err := bitcoin.SerializeTx(tx)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
