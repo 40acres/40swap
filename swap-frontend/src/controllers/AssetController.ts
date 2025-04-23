@@ -27,7 +27,7 @@ export const assetsConfiguration = [
         'name': 'ON_CHAIN_LIQUID',
         'displayName': 'Liquid',
         'icon': '/liquid-logo.svg',
-        'available': true,
+        'available': false,
         'restrictedAssets': [
             'ON_CHAIN_BITCOIN',
         ],
