@@ -109,4 +109,6 @@ message RecoverReusedSwapAddressRequest {
   optional string refund_to = 2; // Address to refund to
 }
 
-message RecoverReusedSwapAddressResponse {}
+message RecoverReusedSwapAddressResponse {
+  string txid = 1; // Transaction ID of the refund transaction
+}

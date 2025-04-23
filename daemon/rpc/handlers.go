@@ -419,5 +419,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, err
 	}
 
-	return &RecoverReusedSwapAddressResponse{}, nil
+	return &RecoverReusedSwapAddressResponse{
+		Txid: tx.TxID(),
+	}, nil
 }
