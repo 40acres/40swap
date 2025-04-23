@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/40acres/40swap/daemon/bitcoin/mempool"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning/lnd"
@@ -120,6 +121,20 @@ func main() {
 			&lndHost,
 			&testnet,
 			&regtest,
+			&cli.StringFlag{
+				Name:  "mempool-endpoint",
+				Usage: "Url to the mempool space API",
+				Value: "https://mempool.space/api",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("MEMPOOL_ENDPOINT")),
+			},
+			&cli.StringFlag{
+				Name:  "mempool-token",
+				Usage: "Token for the mempool space API",
+				Value: "",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("MEMPOOL_TOKEN")),
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -190,7 +205,9 @@ func main() {
 						return fmt.Errorf("❌ Could not connect to LND: %w", err)
 					}
 
-					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, network)
+					mempool := mempool.New(c.String("mempool-token"), mempool.WithURL(c.String("mempool-endpoint")))
+
+					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, network)
 					defer server.Stop()
 
 					err = daemon.Start(ctx, server, db, swapClient, rpc.ToLightningNetworkType(network))
