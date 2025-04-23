@@ -7,7 +7,7 @@ import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
 import { address, payments, Transaction } from 'bitcoinjs-lib';
 import { buildContractSpendBasePsbt, buildTransactionWithFee, reverseSwapScript } from './bitcoin-utils.js';
-import { signContractSpend, SwapOutStatus } from '@40swap/shared';
+import { signContractSpend, SwapOutStatus, getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import { ECPairFactory } from 'ecpair';
@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { getLiquidNetwork, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -220,7 +220,7 @@ export class SwapOutRunner {
             if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
                 swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
-                await this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
+                void this.onStatusChange('CONTRACT_FUNDED_UNCONFIRMED');
             } else {
                 this.swap = await this.repository.save(swap);
             }
@@ -258,7 +258,7 @@ export class SwapOutRunner {
             if (this.swap.status === 'CONTRACT_EXPIRED') {
                 swap.status = 'CONTRACT_REFUNDED_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
-                await this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
+                void this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
             }
         } else {
             const input = unlockTx.ins.find(i => Buffer.from(i.hash).equals(lockTx.getHash()));
@@ -285,16 +285,16 @@ export class SwapOutRunner {
         if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('CONTRACT_EXPIRED');
+            void this.onStatusChange('CONTRACT_EXPIRED');
         } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
             swap.status = 'CONTRACT_FUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('CONTRACT_FUNDED');
+            void this.onStatusChange('CONTRACT_FUNDED');
         } else if (swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             swap.status = 'DONE';
             swap.outcome = 'REFUNDED';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
+            void this.onStatusChange('DONE');
         } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             assert(swap.preImage != null);
             this.logger.log(`Settling invoice (id=${this.swap.id})`);
@@ -302,7 +302,7 @@ export class SwapOutRunner {
             swap.status = 'DONE';
             swap.outcome = 'SUCCESS';
             this.swap = await this.repository.save(swap);
-            await this.onStatusChange('DONE');
+            void this.onStatusChange('DONE');
         }
     }
 
@@ -334,7 +334,7 @@ export class SwapOutRunner {
     }
 
     async buildLiquidRefundTx(swap: SwapOut): Promise<liquid.Transaction> {
-        const network = getLiquidNetwork(this.bitcoinConfig.network);
+        const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
         const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
         const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!));
         const psetTx = liquid.Extractor.extract(pset);

@@ -124,10 +124,11 @@ export class Lnd {
         });
     }
 
-    async closeChannel(channelPoint: ChannelPoint): Promise<void> {
+    async closeChannel(channelPoint: ChannelPoint, force: boolean = false): Promise<void> {
         return new Promise((resolve, reject) => {
             const call = this.client.closeChannel({
-                channelPoint,
+                channelPoint: channelPoint,
+                force: force,
             });
             call.on('data', async (update: CloseStatusUpdate) => {
                 if (update.closePending != null) {
@@ -176,6 +177,18 @@ export class Lnd {
                     resolve(value);
                 }
             });
+        });
+    }
+
+    async sendPayment(invoice: string): Promise<unknown> {
+        return new Promise((resolve, reject) => {
+            this.client.sendPaymentSync({ paymentRequest: invoice }, (err, value) => {
+                if (err != null || value == null) {
+                    reject(err);
+                } else {
+                    resolve(value);
+                }
+            }); 
         });
     }
 }
