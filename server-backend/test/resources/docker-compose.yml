@@ -1,7 +1,8 @@
 include:
   - "../../../docker/docker-compose.yml"
 services:
-  40swap-backend:
+  backend:
+    container_name: 40swap_backend
     image: 40swap-server-backend
     build:
       context: ../../..
@@ -15,6 +16,8 @@ services:
         condition: service_started
       nbxplorer:
         condition: service_started
+    environment:
+      - IS_TESTING=true
     healthcheck:
       test: curl --fail http://localhost:8081/api/health || exit 1
       interval: 3s
