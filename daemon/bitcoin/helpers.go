@@ -299,7 +299,6 @@ func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, ou
 
 	pkt.Inputs[0].WitnessScript = decodedLockScript
 
-	// fixed
 	pkt.UnsignedTx.TxIn[0].Sequence = 4294967293 // locktime does not work without this
 
 	return pkt, nil

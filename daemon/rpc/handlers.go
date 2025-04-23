@@ -339,12 +339,22 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 	network := ToLightningNetworkType(s.network)
 	_, vout, err := bitcoin.ParseOutpoint(req.Outpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse outpoint: %w", err)
+		return nil, fmt.Errorf("failed to parse outpoint %s: %w", req.Outpoint, err)
+	}
+
+	// If the user didn't provide a refund address, generate one to the connected lightning node
+	if req.RefundTo == nil {
+		address, err := s.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate address: %w", err)
+		}
+
+		req.RefundTo = &address
 	}
 
 	tx, err := s.bitcoin.GetTxFromOutpoint(ctx, req.Outpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get address from outpoint: %w", err)
+		return nil, fmt.Errorf("failed to get address from outpoint %s: %w", req.Outpoint, err)
 	}
 
 	address, err := bitcoin.GetOutputAddress(tx, vout, network)
@@ -361,7 +371,8 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 	}
 
 	logger := log.WithFields(log.Fields{
-		"swap_id": swap.SwapID,
+		"swap_id":  swap.SwapID,
+		"outpoint": req.Outpoint,
 	})
 
 	recommendedFeeRate, err := s.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
@@ -369,7 +380,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, fmt.Errorf("failed to get recommended fees: %w", err)
 	}
 
-	if recommendedFeeRate > 1000 {
+	if recommendedFeeRate > 200 {
 		return nil, fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 	logger.Infof("Claiming reused address outpoint for swap: %s", swap.SwapID)
@@ -390,7 +401,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, fmt.Errorf("failed to decode refund private key: %w", err)
 	}
 
-	// // Process the PSBT
+	// Process the PSBT
 	tx, err = bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign PSBT: %w", err)

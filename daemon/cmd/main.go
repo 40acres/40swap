@@ -435,9 +435,8 @@ func main() {
 								Required: true,
 							},
 							&cli.StringFlag{
-								Name:     "refund-to",
-								Usage:    "The address where the recovery will be refunded to",
-								Required: true,
+								Name:  "refund-to",
+								Usage: "The address where the recovery will be refunded to",
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
