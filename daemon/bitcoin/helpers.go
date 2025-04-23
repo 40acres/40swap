@@ -9,6 +9,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
@@ -219,4 +220,101 @@ func PSBTHasValidOutputAddress(psbt *psbt.Packet, network lightning.Network, add
 	}
 
 	return addrs[0].EncodeAddress() == address
+}
+
+// IsValidOutpoint checks if the outpoint is valid by parsing it and checking the format.
+func IsValidOutpoint(outpoint string) bool {
+	_, err := wire.NewOutPointFromString(outpoint)
+
+	return err == nil
+}
+
+// ParseOutpoint parses an outpoint string in the format "txid:vout" and returns the txid and vout as separate values.
+func ParseOutpoint(outpoint string) (string, int, error) {
+	opt, err := wire.NewOutPointFromString(outpoint)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse outpoint: %w", err)
+	}
+	txid := opt.Hash.String()
+	intVOut := opt.Index
+
+	return txid, int(intVOut), nil
+}
+
+func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate int64, network lightning.Network) (*psbt.Packet, error) {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+	_, vout, err := ParseOutpoint(outpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse outpoint: %w", err)
+	}
+
+	destinationAddr, err := btcutil.DecodeAddress(outputAddress, cfgnetwork)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to decode destination address: %w", err)
+	}
+	amount := spendingTxHex.TxOut[vout].Value
+
+	tx := wire.NewMsgTx(2)
+
+	prevOut, err := wire.NewOutPointFromString(outpoint)
+	if err != nil {
+		log.Errorf("failed to parse outpoint: %v", err)
+	}
+
+	txIn := wire.NewTxIn(prevOut, nil, nil)
+	tx.AddTxIn(txIn)
+
+	// Create the output script from the address
+	outputScript, err := txscript.PayToAddrScript(destinationAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create output script: %w", err)
+	}
+
+	txOut := wire.NewTxOut(amount, outputScript)
+	tx.AddTxOut(txOut)
+
+	// Update fee
+	fee := feeRate * int64(tx.SerializeSize())
+	if feeRate < 135 {
+		fee = 135 // minimum fee
+	}
+
+	outputAmount := int64(amount) - fee
+	tx.TxOut[0].Value = outputAmount
+
+	pkt, err := psbt.NewFromUnsignedTx(tx)
+	if err != nil {
+		log.Errorf("failed to create new PSBT: %v", err)
+	}
+
+	pkScript := spendingTxHex.TxOut[vout].PkScript
+	prevTxOut := wire.NewTxOut(amount, pkScript)
+	pkt.Inputs[0].WitnessUtxo = prevTxOut
+
+	decodedLockScript, err := hex.DecodeString(lockScript)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode lock script: %w", err)
+	}
+
+	pkt.Inputs[0].WitnessScript = decodedLockScript
+
+	// fixed
+	pkt.UnsignedTx.TxIn[0].Sequence = 4294967293 // locktime does not work without this
+
+	return pkt, nil
+}
+
+func GetOutputAddress(msgTx *wire.MsgTx, index int, network lightning.Network) (btcutil.Address, error) {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+
+	pkScript := msgTx.TxOut[index].PkScript
+	_, addresses, _, err := txscript.ExtractPkScriptAddrs(pkScript, cfgnetwork)
+	if err != nil {
+		return nil, err
+	}
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no address found")
+	}
+
+	return addresses[0], nil
 }
