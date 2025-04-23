@@ -104,7 +104,7 @@ export const SwapForm: Component = () => {
         });
     }
 
-    function changeAsset(from: Asset, to: Asset): void {
+    function updateAssets(from: Asset, to: Asset): void {
         setForm({
             from,
             to,
@@ -237,7 +237,7 @@ export const SwapForm: Component = () => {
                         <AssetSelector 
                             selectedAsset={form.from} 
                             counterpartyAsset={form.to}
-                            onAssetSelect={(asset) => changeAsset(asset, form.to)}
+                            onAssetSelect={(asset) => updateAssets(asset, form.to)}
                         />
                     </div>
                     <hr />
@@ -265,7 +265,7 @@ export const SwapForm: Component = () => {
                         <AssetSelector 
                             selectedAsset={form.to} 
                             counterpartyAsset={form.from} 
-                            onAssetSelect={(asset) => changeAsset(form.from, asset)}
+                            onAssetSelect={(asset) => updateAssets(form.from, asset)}
                         />
                     </div>
                     <hr />
