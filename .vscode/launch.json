@@ -35,9 +35,24 @@
         "-server-url=http://localhost:7081",
         "-tls-cert=./tls.cert",
         "-macaroon=./admin.macaroon",
-        "-lnd-host=localhost:10001"
+        "-lnd-host=localhost:10001",
+        "-mempool-url=http://localhost:7084"
       ],
       "preLaunchTask": "copy-lnd-data"
+    },
+    {
+      "name": "Launch Swap Out",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/daemon/cmd/main.go",
+      "cwd": "${workspaceFolder}/daemon",
+      "args": [
+        "swap",
+        "out",
+        "-amt=200000",
+        "-address=bcrt1q0sxmg6qvazh0de04f89enswgdj6q5ysk9qjuxv"
+      ]
     },
     {
       "name": "Debug daemon",

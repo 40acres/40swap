@@ -143,7 +143,7 @@ func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, erro
 
 	// Onchain fees
 	c := http.Client{}
-	resp, err := c.Get(fmt.Sprintf("/api/tx/%s", swap.TxID))
+	resp, err := c.Get(fmt.Sprintf("%s/api/tx/%s", m.mempoolUrl, swap.TxID))
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get transaction from mempool: %w", err)
 	}
@@ -152,16 +152,15 @@ func (m *SwapMonitor) GetFeesSwapOut(swap *models.SwapOut) (uint64, uint64, erro
 		return 0, 0, fmt.Errorf("failed to get transaction from mempool: %s", resp.Status)
 	}
 
-	var txInfo map[string]any
+	var txInfo struct {
+		Fee uint64 `json:"fee"`
+	}
 	err = json.NewDecoder(resp.Body).Decode(&txInfo)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to decode transaction info: %w", err)
 	}
 	// Get the fee from the transaction info
-	onchainFees, ok := txInfo["fee"].(uint64)
-	if !ok {
-		return 0, 0, fmt.Errorf("failed to get fee from transaction info")
-	}
+	onchainFees := txInfo.Fee
 
 	return uint64(offchainFees), onchainFees, nil
 }
