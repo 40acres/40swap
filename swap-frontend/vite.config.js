@@ -3,7 +3,7 @@ import solidPlugin from 'vite-plugin-solid';
 import pluginChecker from 'vite-plugin-checker';
 import wasm from 'vite-plugin-wasm';
 import devtools from 'solid-devtools/vite';
-import mkcert from 'vite-plugin-mkcert'
+import mkcert from 'vite-plugin-mkcert';
 
 export default defineConfig({
     root: 'src',

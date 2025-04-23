@@ -10,7 +10,7 @@ export const assetsConfiguration = [
     {
         'name': 'ON_CHAIN_BITCOIN',
         'displayName': 'BTC',
-        'icon': '/assets/bitcoin-logo.svg',
+        'icon': '/bitcoin-logo.svg',
         'available': true,
         'restrictedAssets': [
             'ON_CHAIN_LIQUID',
@@ -19,15 +19,15 @@ export const assetsConfiguration = [
     {
         'name': 'LIGHTNING_BITCOIN',
         'displayName': 'Lightning',
-        'icon': '/assets/lightning-logo.svg',
+        'icon': '/lightning-logo.svg',
         'available': true,
         'restrictedAssets': [],
     },
     {
         'name': 'ON_CHAIN_LIQUID',
         'displayName': 'Liquid',
-        'icon': '/assets/liquid-logo.svg',
-        'available': false,
+        'icon': '/liquid-logo.svg',
+        'available': true,
         'restrictedAssets': [
             'ON_CHAIN_BITCOIN',
         ],
