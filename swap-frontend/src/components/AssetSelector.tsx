@@ -1,8 +1,6 @@
 import { Component, For, Show } from 'solid-js';
 import { Dropdown } from 'solid-bootstrap';
-import { Asset } from '../controllers/AssetsConfiguration.js';
-import { assetController } from '../controllers/AssetController.js';
-import { AssetConfig } from '../controllers/AssetsConfiguration.js';
+import { assetController, Asset, AssetConfig } from '../controllers/AssetController.js';
 
 
 type AssetSelectorProps = {

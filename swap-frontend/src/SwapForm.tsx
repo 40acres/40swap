@@ -3,7 +3,6 @@ import { Form } from 'solid-bootstrap';
 import flipImg from '/assets/flip.png';
 import { currencyFormat, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
-import { Asset } from './controllers/AssetsConfiguration.js';
 import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
 import { useNavigate } from '@solidjs/router';
@@ -16,6 +15,7 @@ import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
 import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetSelector } from './components/AssetSelector.jsx';
+import { Asset } from './controllers/AssetController.js';
 
 
 type FormData = {
