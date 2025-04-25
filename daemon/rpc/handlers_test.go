@@ -181,9 +181,10 @@ func TestServer_SwapIn(t *testing.T) {
 				Expiry:     &expiry,
 			},
 			want: &SwapInResponse{
-				SwapId:       swapId,
-				AmountSats:   200105,
-				ClaimAddress: contractAddress,
+				SwapId:        swapId,
+				AmountSats:    200105,
+				ClaimAddress:  contractAddress,
+				RefundAddress: "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
 			},
 		},
 		{
@@ -211,9 +212,10 @@ func TestServer_SwapIn(t *testing.T) {
 				Invoice: &invoice,
 			},
 			want: &SwapInResponse{
-				SwapId:       swapId,
-				AmountSats:   200105,
-				ClaimAddress: contractAddress,
+				SwapId:        swapId,
+				AmountSats:    200105,
+				ClaimAddress:  contractAddress,
+				RefundAddress: "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
 			},
 		},
 	}
