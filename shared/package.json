@@ -11,14 +11,16 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "zod": "^3.23.8",
     "bitcoinjs-lib": "6.1.6",
-    "decimal.js": "^10.4.3"
+    "decimal.js": "^10.4.3",
+    "liquidjs-lib": "^6.0.2-liquid.37",
+    "tiny-secp256k1": "^2.2.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.6.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.57.1"
+    "eslint": "^8.57.1",
+    "typescript": "^5.6.2"
   }
 }
