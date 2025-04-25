@@ -426,7 +426,7 @@ func main() {
 					},
 					{
 						Name:  "recover",
-						Usage: "Recover a swap that was paid more than once", // TODO move
+						Usage: "Recover a swap that was paid more than once",
 						Flags: []cli.Flag{
 							&grpcPort,
 							&cli.StringFlag{
@@ -462,7 +462,7 @@ func main() {
 							if err != nil {
 								return err
 							}
-							// Marshal response into json
+
 							resp, err := json.MarshalIndent(swap, "", indent)
 							if err != nil {
 								return err
