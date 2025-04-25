@@ -36,7 +36,10 @@
         "-tls-cert=./tls.cert",
         "-macaroon=./admin.macaroon",
         "-lnd-host=localhost:10001",
-        "-mempool-url=http://localhost:7084"
+        "-mempool-endpoint",
+        "http://localhost:7084/api",
+        "-mempool-token",
+        "test"
       ],
       "preLaunchTask": "copy-lnd-data"
     },

@@ -20,7 +20,7 @@ type Repository interface {
 	database.SwapOutRepository
 }
 
-func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lnClient lightning.Client, network lightning.Network, mempoolUrl string) error {
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, network lightning.Network) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -49,10 +49,9 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 			monitor := &SwapMonitor{
 				repository:      db,
 				swapClient:      swaps,
-				now:             time.Now,
-				lightningClient: lnClient,
+				lightningClient: lightning,
 				network:         network,
-				mempoolUrl:      mempoolUrl,
+				now:             time.Now,
 			}
 			monitor.MonitorSwaps(ctx)
 
@@ -65,9 +64,8 @@ type SwapMonitor struct {
 	repository      Repository
 	swapClient      swaps.ClientInterface
 	lightningClient lightning.Client
-	now             func() time.Time
 	network         lightning.Network
-	mempoolUrl      string
+	now             func() time.Time
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
