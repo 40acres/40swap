@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -149,7 +150,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 					Status:  models.StatusDone,
 					Outcome: outcomeSuccess.String(),
 				}, nil)
-				lightningClient.EXPECT().GetInvoicePreimage(ctx, lightning.TestPaymentHash).Return(string(lightning.TestPreimage[:]), nil)
+				lightningClient.EXPECT().MonitorPaymentReception(ctx, lightning.TestPaymentHash[:]).Return(hex.EncodeToString(lightning.TestPreimage[:]), nil)
 			},
 			req: models.SwapIn{
 				SwapID:         testSwapId,

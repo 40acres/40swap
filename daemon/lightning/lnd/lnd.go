@@ -371,20 +371,6 @@ func (c *Client) GenerateAddress(ctx context.Context) (string, error) {
 	return res.Address, nil
 }
 
-func (c *Client) GetInvoicePreimage(ctx context.Context, rhash [32]byte) (lightning.Preimage, error) {
-	invoiceReq := &invoicesrpc.LookupInvoiceMsg{
-		InvoiceRef: &invoicesrpc.LookupInvoiceMsg_PaymentHash{
-			PaymentHash: rhash[:],
-		},
-	}
-	res, err := c.invoicesClient.LookupInvoiceV2(ctx, invoiceReq)
-	if err != nil {
-		return "", err
-	}
-
-	return string(res.RPreimage), nil
-}
-
 // CloseConnection closes the connection with the lnd node
 func (c *Client) CloseConnection() {
 	c.closeConnection()

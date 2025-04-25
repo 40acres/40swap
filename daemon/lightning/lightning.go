@@ -27,5 +27,4 @@ type Client interface {
 	MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error)
 	GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error)
 	GenerateAddress(ctx context.Context) (string, error)
-	GetInvoicePreimage(ctx context.Context, rhash [32]byte) (Preimage, error)
 }

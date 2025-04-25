@@ -159,11 +159,11 @@ func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode invoice: %w", err)
 	}
-	p, err := m.lightningClient.GetInvoicePreimage(ctx, *invoice.PaymentHash)
+	p, err := m.lightningClient.MonitorPaymentReception(ctx, invoice.PaymentHash[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to get invoice preimage from node: %w", err)
 	}
-	preimage, err := lntypes.MakePreimage([]byte(p))
+	preimage, err := lntypes.MakePreimageFromStr(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert preimage: %w", err)
 	}
