@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -36,16 +38,22 @@ func Test_MonitorSwapIns(t *testing.T) {
 
 	repository := rpc.NewMockRepository(ctrl)
 	swapClient := swaps.NewMockClientInterface(ctrl)
+	lightningClient := lightning.NewMockClient(ctrl)
 	now := func() time.Time {
 		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
 	}
 	ctx := context.Background()
 	swapMonitor := SwapMonitor{
-		repository: repository,
-		swapClient: swapClient,
-		network:    lightning.Regtest,
-		now:        now,
+		repository:      repository,
+		swapClient:      swapClient,
+		lightningClient: lightningClient,
+		network:         lightning.Regtest,
+		now:             now,
 	}
+
+	mockInvoice := lightning.CreateMockInvoice(t, 100)
+	lnPreimage, err := lntypes.MakePreimage(lightning.TestPreimage[:])
+	require.NoError(t, err)
 
 	outcomeFailed := models.OutcomeFailed
 	outcomeRefunded := models.OutcomeRefunded
@@ -142,15 +150,19 @@ func Test_MonitorSwapIns(t *testing.T) {
 					Status:  models.StatusDone,
 					Outcome: outcomeSuccess.String(),
 				}, nil)
+				lightningClient.EXPECT().MonitorPaymentReception(ctx, lightning.TestPaymentHash[:]).Return(hex.EncodeToString(lightning.TestPreimage[:]), nil)
 			},
 			req: models.SwapIn{
-				SwapID: testSwapId,
-				Status: models.StatusContractRefundedUnconfirmed,
+				SwapID:         testSwapId,
+				Status:         models.StatusContractRefundedUnconfirmed,
+				PaymentRequest: mockInvoice,
 			},
 			want: &models.SwapIn{
-				SwapID:  testSwapId,
-				Status:  models.StatusDone,
-				Outcome: &outcomeSuccess,
+				SwapID:         testSwapId,
+				Status:         models.StatusDone,
+				Outcome:        &outcomeSuccess,
+				PaymentRequest: mockInvoice,
+				PreImage:       &lnPreimage,
 			},
 		},
 		{
