@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -239,9 +241,14 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 
 	log.Info("Swap created: ", swap.SwapId)
 
+	amountSats, err := money.NewFromBtc(swap.InputAmount)
+	if err != nil {
+		return nil, fmt.Errorf("error converting amount to BTC: %w", err)
+	}
+
 	return &SwapOutResponse{
 		SwapId:     swap.SwapId,
-		AmountSats: uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec
+		AmountSats: uint64(amountSats), // nolint:gosec
 	}, nil
 }
 
@@ -287,13 +294,25 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		return nil, err
 	}
 
+	var txId string
+	if swap.LockTx != nil {
+		packet, err := psbt.NewFromRawBytes(
+			bytes.NewReader([]byte(*swap.LockTx)), false,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse PSBT: %w", err)
+		}
+
+		txId = packet.UnsignedTx.TxID()
+	}
+
 	res := &GetSwapInResponse{
 		Id:                 swap.SwapId,
 		Status:             rpcStatus,
 		ContractAddress:    swap.ContractAddress,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		InputAmount:        swap.InputAmount.InexactFloat64(),
-		LockTx:             swap.LockTx,
+		LockTxId:           &txId,
 		Outcome:            &swap.Outcome,
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
@@ -319,6 +338,17 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		return nil, err
 	}
 
+	var txId string
+	if swap.UnlockTx != nil {
+		packet, err := psbt.NewFromRawBytes(
+			bytes.NewReader([]byte(*swap.UnlockTx)), false,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse PSBT: %w", err)
+		}
+		txId = packet.UnsignedTx.TxID()
+	}
+
 	res := &GetSwapOutResponse{
 		Id:                 swap.SwapId,
 		Status:             rpcStatus,
@@ -327,6 +357,8 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		Invoice:            swap.Invoice,
 		InputAmount:        swap.InputAmount.InexactFloat64(),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
+		Outcome:            (*string)(&swap.Outcome),
+		ClaimTxId:          &txId,
 	}
 
 	return res, nil

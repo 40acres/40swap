@@ -49,7 +49,8 @@ type SwapOutResponse struct {
 	Status             models.SwapStatus  `json:"status"`
 	Outcome            models.SwapOutcome `json:"outcome"`
 	CreatedAt          time.Time          `json:"createdAt"`
-	TxId               *string            `json:"lockTx"`
+	LockTx             *string            `json:"lockTx"`
+	UnlockTx           *string            `json:"unlockTx"`
 }
 
 type GetClaimPSBTResponse struct {
