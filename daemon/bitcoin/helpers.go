@@ -244,23 +244,23 @@ func ParseOutpoint(outpoint string) (string, int, error) {
 
 func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate, minRelayFee int64, network lightning.Network) (*psbt.Packet, error) {
 	cfgnetwork := lightning.ToChainCfgNetwork(network)
-	_, vout, err := ParseOutpoint(outpoint)
+	prevOut, err := wire.NewOutPointFromString(outpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse outpoint: %w", err)
 	}
 
 	destinationAddr, err := btcutil.DecodeAddress(outputAddress, cfgnetwork)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode destination address: %w", err)
+		return nil, fmt.Errorf("failed to decode destination address: %w", err)
 	}
-	amount := spendingTxHex.TxOut[vout].Value
+
+	if len(spendingTxHex.TxOut) <= int(prevOut.Index) {
+		return nil, fmt.Errorf("invalid outpoint index: %d", prevOut.Index)
+	}
+
+	amount := spendingTxHex.TxOut[prevOut.Index].Value
 
 	tx := wire.NewMsgTx(2)
-
-	prevOut, err := wire.NewOutPointFromString(outpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse outpoint: %w", err)
-	}
 
 	txIn := wire.NewTxIn(prevOut, nil, nil)
 	tx.AddTxIn(txIn)
@@ -288,7 +288,7 @@ func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, ou
 		return nil, fmt.Errorf("failed to create new PSBT: %w", err)
 	}
 
-	pkScript := spendingTxHex.TxOut[vout].PkScript
+	pkScript := spendingTxHex.TxOut[prevOut.Index].PkScript
 	prevTxOut := wire.NewTxOut(amount, pkScript)
 	pkt.Inputs[0].WitnessUtxo = prevTxOut
 
