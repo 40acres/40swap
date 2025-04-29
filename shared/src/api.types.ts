@@ -11,6 +11,10 @@ export type Chain = z.infer<typeof chainSchema>;
 const SWAP_IN_STATUSES = [
     // happy path
     'CREATED',
+    // If the amount does not match the L2 invoice, partial payment statuses
+    'PARTIAL_PAYMENT_UNCONFIRMED',
+    'PARTIAL_PAYMENT_CONFIRMED',
+    // happy path
     'CONTRACT_FUNDED_UNCONFIRMED',
     'CONTRACT_FUNDED',
     'INVOICE_PAID',
