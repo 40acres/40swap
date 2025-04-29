@@ -296,14 +296,10 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 
 	var txId string
 	if swap.LockTx != nil {
-		packet, err := psbt.NewFromRawBytes(
-			bytes.NewReader([]byte(*swap.LockTx)), false,
-		)
+		txId, err = getTxId(*swap.LockTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse PSBT: %w", err)
 		}
-
-		txId = packet.UnsignedTx.TxID()
 	}
 
 	res := &GetSwapInResponse{
@@ -340,13 +336,10 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 
 	var txId string
 	if swap.UnlockTx != nil {
-		packet, err := psbt.NewFromRawBytes(
-			bytes.NewReader([]byte(*swap.UnlockTx)), false,
-		)
+		txId, err = getTxId(*swap.UnlockTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse PSBT: %w", err)
 		}
-		txId = packet.UnsignedTx.TxID()
 	}
 
 	res := &GetSwapOutResponse{
@@ -362,4 +355,15 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 	}
 
 	return res, nil
+}
+
+func getTxId(tx string) (string, error) {
+	packet, err := psbt.NewFromRawBytes(
+		bytes.NewReader([]byte(tx)), false,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse PSBT: %w", err)
+	}
+
+	return packet.UnsignedTx.TxID(), nil
 }
