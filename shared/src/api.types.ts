@@ -65,6 +65,7 @@ export type SwapInRequest = z.infer<typeof swapInRequestSchema>;
 
 const swapResponseSchema = z.object({
     swapId: z.string(),
+    chain: chainSchema,
     contractAddress: z.string(),
     redeemScript: z.string(),
     timeoutBlockHeight: z.number(),

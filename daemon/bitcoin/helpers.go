@@ -2,9 +2,11 @@ package bitcoin
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"github.com/btcsuite/btcd/btcutil/psbt"
@@ -176,4 +178,64 @@ func SignFinishExtractPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btce
 	}
 
 	return tx, nil
+}
+
+// Serializes a transaction into a hex string
+func SerializeTx(tx *wire.MsgTx) (string, error) {
+	txBuffer := bytes.NewBuffer(nil)
+	err := tx.Serialize(txBuffer)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	return hex.EncodeToString(txBuffer.Bytes()), nil
+}
+
+// ParsePrivateKey string into a btcec.PrivateKey
+func ParsePrivateKey(privKey string) (*btcec.PrivateKey, error) {
+	privateKeyBytes, err := hex.DecodeString(privKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode refund private key: %w", err)
+	}
+
+	// Deserialize the private key
+	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
+
+	return privateKey, nil
+}
+
+// PSBTHasValidOutputAddress checks if the PSBT is valid by comparing the
+// output address in the PSBT with the provided address.
+func PSBTHasValidOutputAddress(psbt *psbt.Packet, network lightning.Network, address string) bool {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+
+	outs := psbt.UnsignedTx.TxOut
+	if len(outs) != 1 {
+		return false
+	}
+	_, addrs, _, err := txscript.ExtractPkScriptAddrs(outs[0].PkScript, cfgnetwork)
+	if err != nil || len(addrs) != 1 {
+		return false
+	}
+
+	return addrs[0].EncodeAddress() == address
+}
+
+// IsValidOutpoint checks if the outpoint is valid by parsing it and checking the format.
+func IsValidOutpoint(outpoint string) bool {
+	_, err := wire.NewOutPointFromString(outpoint)
+
+	return err == nil
+}
+
+// ParseOutpoint parses an outpoint string in the format "txid:vout" and returns the txid and vout as separate values.
+func ParseOutpoint(outpoint string) (string, int, error) {
+	opt, err := wire.NewOutPointFromString(outpoint)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse outpoint: %w", err)
+	}
+	txid := opt.Hash.String()
+	intVOut := opt.Index
+
+	return txid, int(intVOut), nil
 }
