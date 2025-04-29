@@ -10,7 +10,6 @@ import (
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
 	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
@@ -137,12 +136,7 @@ func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) 
 	}
 
 	// Onchain fees
-	tx, err := m.mempoolClient.GetTxFromOutpoint(ctx, fmt.Sprintf("%s:%d", swap.TxID, 0))
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get transaction from outpoint: %w", err)
-	}
-
-	onchainFees, err := calculateTxFees(tx)
+	onchainFees, err := m.mempoolClient.GetFeeFromTxId(ctx, swap.TxID)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get transaction from outpoint: %w", err)
 	}
@@ -158,23 +152,4 @@ func serializePSBT(tx *wire.MsgTx) (string, error) {
 	}
 
 	return hex.EncodeToString(txBuffer.Bytes()), nil
-}
-
-func calculateTxFees(tx *wire.MsgTx) (int64, error) {
-	serializedTx, err := bitcoin.SerializeTx(tx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to serialize transaction: %w", err)
-	}
-
-	pkt, err := psbt.NewFromRawBytes(bytes.NewReader([]byte(serializedTx)), false)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse PSBT: %w", err)
-	}
-
-	fees, err := pkt.GetTxFee()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get transaction fee: %w", err)
-	}
-
-	return int64(fees), nil
 }

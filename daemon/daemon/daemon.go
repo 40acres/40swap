@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/40acres/40swap/daemon/bitcoin/mempool"
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
@@ -21,7 +21,7 @@ type Repository interface {
 	database.SwapOutRepository
 }
 
-func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, network lightning.Network, mempoolClient *mempool.MempoolSpace) error {
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, network lightning.Network, mempoolClient bitcoin.Client) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -68,7 +68,7 @@ type SwapMonitor struct {
 	lightningClient lightning.Client
 	network         lightning.Network
 	now             func() time.Time
-	mempoolClient   *mempool.MempoolSpace
+	mempoolClient   bitcoin.Client
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
