@@ -220,3 +220,22 @@ func PSBTHasValidOutputAddress(psbt *psbt.Packet, network lightning.Network, add
 
 	return addrs[0].EncodeAddress() == address
 }
+
+// IsValidOutpoint checks if the outpoint is valid by parsing it and checking the format.
+func IsValidOutpoint(outpoint string) bool {
+	_, err := wire.NewOutPointFromString(outpoint)
+
+	return err == nil
+}
+
+// ParseOutpoint parses an outpoint string in the format "txid:vout" and returns the txid and vout as separate values.
+func ParseOutpoint(outpoint string) (string, int, error) {
+	opt, err := wire.NewOutPointFromString(outpoint)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse outpoint: %w", err)
+	}
+	txid := opt.Hash.String()
+	intVOut := opt.Index
+
+	return txid, int(intVOut), nil
+}
