@@ -12,8 +12,8 @@ const SWAP_IN_STATUSES = [
     // happy path
     'CREATED',
     // If the amount does not match the L2 invoice, mismatched payment statuses
-    'CONTRACT_MISMATCH_UNCONFIRMED',
-    'CONTRACT_MISMATCH',
+    'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED',
+    'CONTRACT_AMOUNT_MISMATCH',
     // happy path
     'CONTRACT_FUNDED_UNCONFIRMED',
     'CONTRACT_FUNDED',

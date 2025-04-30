@@ -106,7 +106,7 @@ export const SwapInDetails: Component = () => {
                                     <td class="text-break">{s().contractAddress}</td>
                                 </tr>
                             </Match>
-                            <Match when={s().status === 'CONTRACT_MISMATCH_UNCONFIRMED' || s().status === 'CONTRACT_MISMATCH'}>
+                            <Match when={s().status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED' || s().status === 'CONTRACT_AMOUNT_MISMATCH'}>
                                 <tr>
                                     <th>Status:</th>
                                     <td>Wrong amount detected. Once the onchain contract expires, you'll be able to request a refund</td>

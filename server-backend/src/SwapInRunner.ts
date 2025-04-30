@@ -144,13 +144,13 @@ export class SwapInRunner {
             // eslint-disable-next-line max-len
             this.logger.warn(`Contract amount mismatch. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
             if (this.swap.status === 'CREATED') {
-                swap.status = 'CONTRACT_MISMATCH_UNCONFIRMED';
+                swap.status = 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
                 return;
             }            
         }                        
                                             
-        if (this.swap.status === 'CREATED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED'|| this.swap.status === 'CONTRACT_MISMATCH_UNCONFIRMED') {
+        if (this.swap.status === 'CREATED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED'|| this.swap.status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED') {
 
             if (event.data.transactionData.height != null) {
                 swap.lockTxHeight = event.data.transactionData.height;
@@ -206,13 +206,13 @@ export class SwapInRunner {
     async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
         this.logger.debug(`Processing new block ${event.data.height} (swap=${this.swap})`);
         const { swap } = this;
-        if ((swap.status === 'CONTRACT_FUNDED' || swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' || swap.status === 'CONTRACT_MISMATCH')
+        if ((swap.status === 'CONTRACT_FUNDED' || swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' || swap.status === 'CONTRACT_AMOUNT_MISMATCH')
             && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
             void this.onStatusChange('CONTRACT_EXPIRED');
-        } else if ((swap.status === 'CONTRACT_MISMATCH_UNCONFIRMED') && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
-            swap.status = 'CONTRACT_MISMATCH';
+        } else if ((swap.status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED') && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
+            swap.status = 'CONTRACT_AMOUNT_MISMATCH';
             this.swap = await this.repository.save(swap);
         } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
             swap.status = 'CONTRACT_FUNDED';

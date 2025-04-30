@@ -220,11 +220,11 @@ describe('40Swap backend', () => {
 
         // Send the input amount to the contract address a with a small extra amount to overpay (mismatched payment)
         await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount + 0.0001); 
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_MISMATCH_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
 
         // Wait for the mismatched payment to be confirmed
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_MISMATCH');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_AMOUNT_MISMATCH');
 
         // Simulate passing the timeout block height
         await bitcoind.mine(145);
