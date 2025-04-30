@@ -111,4 +111,5 @@ message RecoverReusedSwapAddressRequest {
 
 message RecoverReusedSwapAddressResponse {
   string txid = 1; // Transaction ID of the refund transaction
+  double recovered_amount = 2; // Amount recovered in BTC
 }
