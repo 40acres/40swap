@@ -203,7 +203,7 @@ describe('40Swap backend', () => {
         expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
-    it('should refund partial payment after timeout block height', async () => {
+    it('should refund mismatched payment after timeout block height', async () => {
         const refundKey = ECPair.makeRandom();
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
         const swap = await backend.createSwapIn({
@@ -213,13 +213,13 @@ describe('40Swap backend', () => {
             lockBlockDeltaIn: 144, // Minimum allowed value
         });
 
-        // Send the input amount to the contract address a with a small extra amount to overpay (Partial payment)
+        // Send the input amount to the contract address a with a small extra amount to overpay (mismatched payment)
         await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount + 0.0001); 
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'PARTIAL_PAYMENT_UNCONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_MISMATCH_UNCONFIRMED');
 
-        // Wait for the partial payment to be confirmed
+        // Wait for the mismatched payment to be confirmed
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'PARTIAL_PAYMENT_CONFIRMED');
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_MISMATCH');
 
         // Simulate passing the timeout block height
         await bitcoind.mine(145);
