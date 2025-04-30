@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
 
@@ -45,6 +47,13 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		// Do nothing
 		logger.Debug("waiting for payment")
 	case models.StatusContractFundedUnconfirmed:
+		if newSwap.LockTx != nil {
+			txId, err := getTxId(*newSwap.LockTx)
+			if err != nil {
+				return fmt.Errorf("failed to get tx id: %w", err)
+			}
+			currentSwap.LockTxID = txId
+		}
 		logger.Debug("on-chain payment detected, waiting for confirmation")
 	case models.StatusContractFunded:
 		logger.Debug("contract funded, waiting for 40swap to pay the invoice")
@@ -169,4 +178,19 @@ func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*
 	}
 
 	return &preimage, nil
+}
+
+func getTxId(tx string) (string, error) {
+	if tx == "" {
+		return "", nil
+	}
+
+	packet, err := psbt.NewFromRawBytes(
+		bytes.NewReader([]byte(tx)), false,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse PSBT: %w", err)
+	}
+
+	return packet.UnsignedTx.TxID(), nil
 }

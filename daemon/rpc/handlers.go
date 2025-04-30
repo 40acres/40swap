@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -14,7 +13,6 @@ import (
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -294,21 +292,12 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		return nil, err
 	}
 
-	var txId string
-	if swap.LockTx != nil {
-		txId, err = getTxId(*swap.LockTx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse PSBT: %w", err)
-		}
-	}
-
 	res := &GetSwapInResponse{
 		Id:                 swap.SwapId,
 		Status:             rpcStatus,
 		ContractAddress:    swap.ContractAddress,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		InputAmount:        swap.InputAmount.InexactFloat64(),
-		LockTxId:           &txId,
 		Outcome:            &swap.Outcome,
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
@@ -334,14 +323,6 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		return nil, err
 	}
 
-	var txId string
-	if swap.UnlockTx != nil {
-		txId, err = getTxId(*swap.UnlockTx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse PSBT: %w", err)
-		}
-	}
-
 	res := &GetSwapOutResponse{
 		Id:                 swap.SwapId,
 		Status:             rpcStatus,
@@ -351,19 +332,7 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		InputAmount:        swap.InputAmount.InexactFloat64(),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		Outcome:            (*string)(&swap.Outcome),
-		ClaimTxId:          &txId,
 	}
 
 	return res, nil
-}
-
-func getTxId(tx string) (string, error) {
-	packet, err := psbt.NewFromRawBytes(
-		bytes.NewReader([]byte(tx)), false,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse PSBT: %w", err)
-	}
-
-	return packet.UnsignedTx.TxID(), nil
 }
