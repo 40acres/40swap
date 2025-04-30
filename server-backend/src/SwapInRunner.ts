@@ -146,6 +146,7 @@ export class SwapInRunner {
             if (this.swap.status === 'CREATED') {
                 swap.status = 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
+                void this.onStatusChange('CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
                 return;
             }            
         }                        
@@ -214,6 +215,7 @@ export class SwapInRunner {
         } else if ((swap.status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED') && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
             swap.status = 'CONTRACT_AMOUNT_MISMATCH';
             this.swap = await this.repository.save(swap);
+            void this.onStatusChange('CONTRACT_AMOUNT_MISMATCH');
         } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
             swap.status = 'CONTRACT_FUNDED';
             this.swap = await this.repository.save(swap);
