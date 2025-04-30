@@ -142,7 +142,7 @@ export class SwapInRunner {
         // Handle mismatched payment by checking if the received amount is different than the expected amount, if so, this is considered a failed swap but will be processed until contract is expired to be able to be refunded by the sender
         if (!receivedAmount.equals(swap.inputAmount)) {
             // eslint-disable-next-line max-len
-            this.logger.warn(`Contract mount mismatch, failed swap. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
+            this.logger.warn(`Contract amount mismatch. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
             if (this.swap.status === 'CREATED') {
                 swap.status = 'CONTRACT_MISMATCH_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
