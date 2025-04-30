@@ -184,7 +184,6 @@ export class SwapOutController {
             createdAt: swap.createdAt.toISOString(),
             inputAmount: swap.inputAmount.toNumber(),
             outcome: swap.outcome ?? undefined,
-            unlockTx: swap.unlockTx?.toString('hex'),
         };
     }
 }
