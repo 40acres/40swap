@@ -135,10 +135,6 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (s
 		return "", fmt.Errorf("failed to sign PSBT: %w", err)
 	}
 
-	if fee, err := pkt.GetTxFee(); err != nil || fee > 1000 {
-		return "", fmt.Errorf("fee is too high: %d", fee)
-	}
-
 	serializedTx, err := bitcoin.SerializeTx(tx)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
