@@ -86,6 +86,21 @@ func (mr *MockRepositoryMockRecorder) GetSwapIn(ctx, swapID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapIn", reflect.TypeOf((*MockRepository)(nil).GetSwapIn), ctx, swapID)
 }
 
+// GetSwapInByClaimAddress mocks base method.
+func (m *MockRepository) GetSwapInByClaimAddress(ctx context.Context, address string) (*models.SwapIn, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSwapInByClaimAddress", ctx, address)
+	ret0, _ := ret[0].(*models.SwapIn)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSwapInByClaimAddress indicates an expected call of GetSwapInByClaimAddress.
+func (mr *MockRepositoryMockRecorder) GetSwapInByClaimAddress(ctx, address any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapInByClaimAddress", reflect.TypeOf((*MockRepository)(nil).GetSwapInByClaimAddress), ctx, address)
+}
+
 // GetSwapOut mocks base method.
 func (m *MockRepository) GetSwapOut(ctx context.Context, swapID string) (*models.SwapOut, error) {
 	m.ctrl.T.Helper()
@@ -99,21 +114,6 @@ func (m *MockRepository) GetSwapOut(ctx context.Context, swapID string) (*models
 func (mr *MockRepositoryMockRecorder) GetSwapOut(ctx, swapID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapOut", reflect.TypeOf((*MockRepository)(nil).GetSwapOut), ctx, swapID)
-}
-
-// GetSwapInByClaimAddress mocks base method.
-func (m *MockRepository) GetSwapInByClaimAddress(address string) (*models.SwapIn, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSwapInByClaimAddress", address)
-	ret0, _ := ret[0].(*models.SwapIn)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSwapInByClaimAddress indicates an expected call of GetSwapInByClaimAddress.
-func (mr *MockRepositoryMockRecorder) GetSwapInByClaimAddress(address any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSwapInByClaimAddress", reflect.TypeOf((*MockRepository)(nil).GetSwapInByClaimAddress), address)
 }
 
 // SaveSwapIn mocks base method.

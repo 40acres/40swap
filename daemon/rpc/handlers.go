@@ -362,7 +362,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, fmt.Errorf("failed to get address from output: %w", err)
 	}
 
-	swap, err := s.Repository.GetSwapInByClaimAddress(address.String())
+	swap, err := s.Repository.GetSwapInByClaimAddress(ctx, address.String())
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		return nil, fmt.Errorf("outpoint doesn't belong to any address registered for a swap in the database")
