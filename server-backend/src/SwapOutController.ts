@@ -173,6 +173,7 @@ export class SwapOutController {
     private mapToResponse(swap: SwapOut): GetSwapOutResponse {
         return {
             swapId: swap.id,
+            chain: swap.chain,
             timeoutBlockHeight: swap.timeoutBlockHeight,
             redeemScript: swap.lockScript?.toString('hex'),
             invoice: swap.invoice,

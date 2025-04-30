@@ -3,7 +3,8 @@ import solidPlugin from 'vite-plugin-solid';
 import pluginChecker from 'vite-plugin-checker';
 import wasm from 'vite-plugin-wasm';
 import devtools from 'solid-devtools/vite';
-import mkcert from 'vite-plugin-mkcert'
+import mkcert from 'vite-plugin-mkcert';
+import inject from '@rollup/plugin-inject';
 
 export default defineConfig({
     root: 'src',
@@ -29,12 +30,18 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         target: 'esnext',
+        rollupOptions: {
+            plugins: [
+                inject({
+                    Buffer: ['buffer', 'Buffer'],
+                }),
+            ],
+        },
     },
     publicDir: 'assets',
     resolve: {
         alias: {
-            buffer: 'rollup-plugin-node-polyfills/polyfills/buffer-es6',
-            // for bolt11
+            buffer: 'buffer/',
             stream: 'rollup-plugin-node-polyfills/polyfills/stream',
             util: 'rollup-plugin-node-polyfills/polyfills/util',
             process: 'rollup-plugin-node-polyfills/polyfills/process-es6',

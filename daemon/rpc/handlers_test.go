@@ -260,7 +260,7 @@ func TestStatus_SwapIn(t *testing.T) {
 		TimeoutBlockHeight: 12345,
 	}, nil)
 
-	server := NewRPCServer(8080, nil, mockSwapClient, nil, Network_REGTEST)
+	server := NewRPCServer(8080, nil, mockSwapClient, nil, nil, Network_REGTEST)
 
 	res, err := server.GetSwapIn(ctx, req)
 	require.NoError(t, err)
