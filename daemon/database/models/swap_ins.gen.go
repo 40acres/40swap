@@ -34,6 +34,7 @@ type SwapIn struct {
 	UpdatedAt          time.Time         `gorm:"column:updated_at;type:timestamp with time zone;<-:update" json:"updated_at"`
 	RefundRequestedAt  time.Time         `gorm:"column:refund_requested_at;type:timestamp with time zone" json:"refund_requested_at"`
 	LockTxID           string            `gorm:"column:lock_tx_id;type:text" json:"lock_tx_id"`
+	RefundAmount       int64             `gorm:"column:refund_amount;type:bigint" json:"refund_amount"`
 }
 
 // TableName SwapIn's table name

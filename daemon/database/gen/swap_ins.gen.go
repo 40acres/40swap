@@ -47,6 +47,7 @@ func newSwapIn(db *gorm.DB, opts ...gen.DOOption) swapIn {
 	_swapIn.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_swapIn.RefundRequestedAt = field.NewTime(tableName, "refund_requested_at")
 	_swapIn.LockTxID = field.NewString(tableName, "lock_tx_id")
+	_swapIn.RefundAmount = field.NewInt64(tableName, "refund_amount")
 
 	_swapIn.fillFieldMap()
 
@@ -77,6 +78,7 @@ type swapIn struct {
 	UpdatedAt          field.Time
 	RefundRequestedAt  field.Time
 	LockTxID           field.String
+	RefundAmount       field.Int64
 
 	fieldMap map[string]field.Expr
 }
@@ -113,6 +115,7 @@ func (s *swapIn) updateTableName(table string) *swapIn {
 	s.UpdatedAt = field.NewTime(table, "updated_at")
 	s.RefundRequestedAt = field.NewTime(table, "refund_requested_at")
 	s.LockTxID = field.NewString(table, "lock_tx_id")
+	s.RefundAmount = field.NewInt64(table, "refund_amount")
 
 	s.fillFieldMap()
 
@@ -137,7 +140,7 @@ func (s *swapIn) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapIn) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 20)
+	s.fieldMap = make(map[string]field.Expr, 21)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["amount_sats"] = s.AmountSats
@@ -158,6 +161,7 @@ func (s *swapIn) fillFieldMap() {
 	s.fieldMap["updated_at"] = s.UpdatedAt
 	s.fieldMap["refund_requested_at"] = s.RefundRequestedAt
 	s.fieldMap["lock_tx_id"] = s.LockTxID
+	s.fieldMap["refund_amount"] = s.RefundAmount
 }
 
 func (s swapIn) clone(db *gorm.DB) swapIn {
