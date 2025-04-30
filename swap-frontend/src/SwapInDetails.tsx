@@ -106,6 +106,12 @@ export const SwapInDetails: Component = () => {
                                     <td class="text-break">{s().contractAddress}</td>
                                 </tr>
                             </Match>
+                            <Match when={s().status === 'CONTRACT_MISMATCH_UNCONFIRMED' || s().status === 'CONTRACT_MISMATCH'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Contract amount mismatch, you will need to request a refund once the contract expires</td>
+                                </tr>
+                            </Match>
                             <Match when={s().status === 'DONE' && s().outcome === 'SUCCESS'}>
                                 <tr>
                                     <th>Status:</th>
