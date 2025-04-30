@@ -25,19 +25,21 @@ type Server struct {
 	grpcServer      *grpc.Server
 	lightningClient lightning.Client
 	swapClient      swaps.ClientInterface
-	network         Network
 	bitcoin         bitcoin.Client
+	minRelayFee     int64
+	network         Network
 }
 
-func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, bitcoin bitcoin.Client, network Network) *Server {
+func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, bitcoin bitcoin.Client, minRelayFee int64, network Network) *Server {
 	svr := &Server{
 		Port:            port,
 		Repository:      repository,
 		grpcServer:      grpc.NewServer(),
 		swapClient:      swapClient,
 		lightningClient: lightningClient,
-		network:         network,
 		bitcoin:         bitcoin,
+		minRelayFee:     minRelayFee,
+		network:         network,
 	}
 
 	RegisterSwapServiceServer(svr.grpcServer, svr)

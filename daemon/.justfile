@@ -11,7 +11,7 @@ tidy:
 # Build the project
 [working-directory: 'cmd']
 build: tidy
-    go build .
+    go build -gcflags '-N -l' .
 
 # Generate the project
 generate:
