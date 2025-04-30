@@ -11,6 +11,7 @@ type SwapInRepository interface {
 	SaveSwapIn(ctx context.Context, swapIn *models.SwapIn) error
 	GetPendingSwapIns(ctx context.Context) ([]*models.SwapIn, error)
 	GetSwapIn(ctx context.Context, swapID string) (*models.SwapIn, error)
+	GetSwapInByClaimAddress(address string) (*models.SwapIn, error)
 }
 
 func (d *Database) SaveSwapIn(ctx context.Context, swapIn *models.SwapIn) error {
@@ -36,4 +37,14 @@ func (d *Database) GetSwapIn(ctx context.Context, swapID string) (*models.SwapIn
 	return d.query.WithContext(ctx).SwapIn.
 		Where(d.query.SwapIn.SwapID.Eq(swapID)).
 		First()
+}
+
+func (d *Database) GetSwapInByClaimAddress(address string) (*models.SwapIn, error) {
+	var swapIn models.SwapIn
+	err := d.orm.Where("claim_address = ?", address).First(&swapIn).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &swapIn, nil
 }
