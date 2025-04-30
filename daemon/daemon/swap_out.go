@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.SwapOut) error {
+func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.SwapOut) error {
 	logger := log.WithField("id", currentSwap.SwapID)
 	logger.Info("processing swap out")
 
@@ -24,7 +24,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		currentSwap.Outcome = &outcome
 		currentSwap.Status = models.StatusDone
 
-		err := m.repository.SaveSwapOut(&currentSwap)
+		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)
 		}
@@ -44,7 +44,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")
-		tx, err := m.ClaimSwapOut(ctx, &currentSwap)
+		tx, err := m.ClaimSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to claim swap out: %w", err)
 		}
@@ -61,13 +61,13 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 
 	if changed {
 		currentSwap.Status = newStatus
-		err := m.repository.SaveSwapOut(&currentSwap)
+		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)
 		}
 	}
 
-	logger.Infof("swap out processed")
+	logger.Debug("swap out processed")
 
 	return nil
 }

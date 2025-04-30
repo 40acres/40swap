@@ -171,7 +171,7 @@ func TestServer_SwapIn(t *testing.T) {
 					TimeoutBlockHeight: 1000,
 					RedeemScript:       "test",
 				}, nil)
-				reposistory.EXPECT().SaveSwapIn(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 
 				return &server
 			},
@@ -203,7 +203,7 @@ func TestServer_SwapIn(t *testing.T) {
 					TimeoutBlockHeight: 1000,
 					RedeemScript:       "test",
 				}, nil)
-				reposistory.EXPECT().SaveSwapIn(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 
 				return &server
 			},

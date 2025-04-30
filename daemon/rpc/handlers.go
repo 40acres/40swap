@@ -115,7 +115,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
-	err = server.Repository.SaveSwapIn(&models.SwapIn{
+	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
 		AmountSats: int64(*invoice.MilliSat / 1000),
@@ -224,7 +224,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		PreImage:           preimage,
 	}
 
-	err = server.Repository.SaveSwapOut(&swapModel)
+	err = server.Repository.SaveSwapOut(ctx, &swapModel)
 	if err != nil {
 		return nil, err
 	}
