@@ -55,8 +55,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
-        if (request.chain !== 'BITCOIN') {
-            throw new Error('not implemented'); // TODO
+        if (!['BITCOIN', 'LIQUID'].includes(request.chain)) {
+            throw new BadRequestException('invalid chain');
         }
         const { network } = this.bitcoinConfig;
         const { tags, satoshis, network: invoiceNetwork } = decode(request.invoice);
@@ -88,10 +88,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             timeoutBlockHeight,
         );
         let address: string | undefined;
+        let sweepAddress: string | undefined;
         if (request.chain === 'BITCOIN') {
             address = payments.p2wsh({ network, redeem: { output: lockScript, network } }).address;
             assert(address);
             await this.nbxplorer.trackAddress(address);
+            sweepAddress = await this.lnd.getNewAddress();
         } else if (request.chain === 'LIQUID') {
             const liquidNetworkToUse = getLiquidNetworkFromBitcoinNetwork(network);
             address = liquidPayments.p2wsh({
@@ -100,11 +102,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                     output: lockScript,
                     network: liquidNetworkToUse,
                 },
-                blindkey: undefined, // TODO
+                blindkey: undefined, // TODO: add blinding key
             }).address;
+            assert(address);
+            await this.nbxplorer.trackAddress(address, 'lbtc');
+            sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
         }
         assert(address);
-
+        assert(sweepAddress);
         const repository = this.dataSource.getRepository(SwapIn);
         const swap = await repository.save({
             id: base58Id(),
@@ -117,7 +122,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             inputAmount: getSwapInInputAmount(outputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             outputAmount,
             status: 'CREATED',
-            sweepAddress: await this.lnd.getNewAddress(),
+            sweepAddress,
             timeoutBlockHeight,
             lockTx: null,
             unlockTx: null,
@@ -134,6 +139,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
+            this.elementsConfig,
         );
         this.runAndMonitor(swap, runner);
         return swap;
@@ -231,6 +237,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.nbxplorer,
                 this.lnd,
                 this.swapConfig,
+                this.elementsConfig,
             ) : new SwapOutRunner(
                 swap,
                 swapOutRepository,

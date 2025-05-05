@@ -8,6 +8,7 @@ import * as ecc from 'tiny-secp256k1';
 import assert from 'node:assert';
 import BIP32Factory from 'bip32';
 import Decimal from 'decimal.js';
+import { SwapIn } from './entities/SwapIn.js';
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -224,7 +225,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 }
 
 export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
-    async getPset(swap: SwapOut, spendingTx: liquid.Transaction, destinationAddress: string,): Promise<liquid.Pset> {
+    async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, destinationAddress: string,): Promise<liquid.Pset> {
         // Find the contract vout info
         const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(
             spendingTx, swap.contractAddress!, this.network

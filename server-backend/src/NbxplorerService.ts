@@ -127,19 +127,21 @@ const nbxplorerBaseEvent = z.object({
     data: z.object({}),
 });
 
-const nbxplorerTransactionEvent = nbxplorerBaseEvent.extend({
+const bitcoinTransactionOutput = z.object({
+    keyPath: z.string().optional(),
+    scriptPubKey: z.string(),
+    index: z.number().int(),
+    value: z.number().int(),
+    address: z.string(),
+});
+
+const bitcoinTransactionEventSchema = nbxplorerBaseEvent.extend({
     type: z.literal('newtransaction'),
     data: z.object({
         blockId: z.string().nullish(),
         trackedSource: z.string(),
         transactionData: nbxplorerTransactionSchema,
-        outputs: z.object({
-            keyPath: z.string().optional(),
-            scriptPubKey: z.string(),
-            index: z.number().int(),
-            value: z.number().int(),
-            address: z.string(),
-        }).array(),
+        outputs: bitcoinTransactionOutput.array(),
     }),
 });
 
@@ -193,8 +195,8 @@ const liquidTransactionEventSchema = nbxplorerBaseEvent.extend({
         trackedSource: z.string(),
         derivationStrategy: z.string().optional(),
         transactionData: nbxplorerTransactionSchema,
-        outputs: liquidTransactionOutputSchema.array(),
-        inputs: liquidTransactionInputSchema.array(),
+        outputs: liquidTransactionOutputSchema.array().optional().default([]),
+        inputs: liquidTransactionInputSchema.array().optional().default([]),
         replacing: z.array(z.any()).default([]),
         cryptoCode: z.string(),
     }),
@@ -205,10 +207,12 @@ export type NBXplorerLiquidAssetValue = z.infer<typeof liquidAssetValueSchema>;
 export type NBXplorerLiquidTransactionOutput = z.infer<typeof liquidTransactionOutputSchema>;
 export type NBXplorerLiquidTransactionInput = z.infer<typeof liquidTransactionInputSchema>;
 export type NBXplorerLiquidWalletTransaction = z.infer<typeof liquidTransactionEventSchema>['data'];
+export type NBXplorerBitcoinTransactionOutput = z.infer<typeof bitcoinTransactionOutput>;
 
 const liquidNbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
-const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, nbxplorerTransactionEvent]);
+const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, bitcoinTransactionEventSchema]);
 const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
+const nbxplorerTransactionEvent = z.union([bitcoinTransactionEventSchema, liquidTransactionEventSchema]);
 export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
 export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
 export type NBXplorerBlockEvent = z.infer<typeof nbxplorerBlockEvent>;
@@ -410,12 +414,17 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 if (this.shutdownRequested) {
                     break;
                 }
-                await this.dataSource.transaction(async dbTx => {
-                    await this.saveLastLiquidEventId(event.eventId, dbTx);
-                    if (event.type === 'newblock' || event.type === 'newtransaction') {
-                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
-                    }
-                });
+                try{
+                    await this.dataSource.transaction(async dbTx => {
+                        await this.saveLastLiquidEventId(event.eventId, dbTx);
+                        if (event.type === 'newblock' || event.type === 'newtransaction') {
+                            await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                        }
+                    });
+                } catch (e) {
+                    console.log('event', event);
+                    this.logger.error('Error processing liquid event', e);
+                }
             }
         }
         this.logger.log('Liquid event listener stopped');
@@ -493,7 +502,15 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 });
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
-            return liquidNbxplorerEvent.array().parse(await response.json());
+            const responseJson = await response.json();
+            // console.log('responseJson', responseJson);
+            // for (const response of responseJson as unknown as { data: unknown }[]) {
+            //     console.log('response', response);
+            //     console.log('event', response.data);
+            //     console.log('*'.repeat(100));
+            // }
+            
+            return liquidNbxplorerEvent.array().parse(responseJson);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
