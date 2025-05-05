@@ -414,17 +414,12 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 if (this.shutdownRequested) {
                     break;
                 }
-                try{
-                    await this.dataSource.transaction(async dbTx => {
-                        await this.saveLastLiquidEventId(event.eventId, dbTx);
-                        if (event.type === 'newblock' || event.type === 'newtransaction') {
-                            await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
-                        }
-                    });
-                } catch (e) {
-                    console.log('event', event);
-                    this.logger.error('Error processing liquid event', e);
-                }
+                await this.dataSource.transaction(async dbTx => {
+                    await this.saveLastLiquidEventId(event.eventId, dbTx);
+                    if (event.type === 'newblock' || event.type === 'newtransaction') {
+                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                    }
+                });
             }
         }
         this.logger.log('Liquid event listener stopped');
@@ -503,13 +498,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
             const responseJson = await response.json();
-            // console.log('responseJson', responseJson);
-            // for (const response of responseJson as unknown as { data: unknown }[]) {
-            //     console.log('response', response);
-            //     console.log('event', response.data);
-            //     console.log('*'.repeat(100));
-            // }
-            
             return liquidNbxplorerEvent.array().parse(responseJson);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
