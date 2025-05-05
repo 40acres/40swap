@@ -65,16 +65,16 @@ type CreateSwapInRequest struct {
 
 type SwapInResponse struct {
 	// ContractAddress is the claim address for the swap
-	ContractAddress    string            `json:"contractAddress"`
-	CreatedAt          time.Time         `json:"createdAt"`
-	InputAmount        decimal.Decimal   `json:"inputAmount"`
-	LockTx             *string           `json:"lockTx"`
-	Outcome            string            `json:"outcome"`
-	OutputAmount       decimal.Decimal   `json:"outputAmount"`
-	RedeemScript       string            `json:"redeemScript"`
-	Status             models.SwapStatus `json:"status"`
-	SwapId             string            `json:"swapId"`
-	TimeoutBlockHeight uint32            `json:"timeoutBlockHeight"`
+	ContractAddress    string             `json:"contractAddress"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	InputAmount        decimal.Decimal    `json:"inputAmount"`
+	LockTx             *string            `json:"lockTx"`
+	Outcome            models.SwapOutcome `json:"outcome"`
+	OutputAmount       decimal.Decimal    `json:"outputAmount"`
+	RedeemScript       string             `json:"redeemScript"`
+	Status             models.SwapStatus  `json:"status"`
+	SwapId             string             `json:"swapId"`
+	TimeoutBlockHeight uint32             `json:"timeoutBlockHeight"`
 }
 
 type RefundPSBTResponse struct {

@@ -298,7 +298,7 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		ContractAddress:    swap.ContractAddress,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		InputAmount:        swap.InputAmount.InexactFloat64(),
-		Outcome:            &swap.Outcome,
+		Outcome:            (*string)(&swap.Outcome),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
 		TimeoutBlockHeight: swap.TimeoutBlockHeight,
