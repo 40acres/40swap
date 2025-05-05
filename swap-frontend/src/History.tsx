@@ -13,10 +13,11 @@ import moment from 'moment';
 import { Chain } from '@40swap/shared';
 
 const SwapTypeComponent: Component<{ type: SwapType, chain: Chain }> = (props) => {
-    const from = props.type === 'in' ? bitcoinIcon : lightningIcon;
+    let from = props.type === 'in' ? bitcoinIcon : lightningIcon;
     let to = props.type === 'in' ? lightningIcon : bitcoinIcon;
     if (props.chain === 'LIQUID') {
-        to = liquidIcon;
+        to = props.type === 'in' ? liquidIcon : lightningIcon;
+        from = props.type === 'in' ? lightningIcon : liquidIcon;
     }
 
     return <><img src={from} /> <img src={swapIcon} /> <img src={to} /></>;

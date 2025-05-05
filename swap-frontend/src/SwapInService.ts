@@ -74,9 +74,9 @@ export class SwapInService {
         };
     }
 
-    async createSwap(invoice: string): Promise<PersistedSwapIn> {
+    async createSwap(invoice: string, chain: 'BITCOIN' | 'LIQUID'): Promise<PersistedSwapIn> {
         const refundKey = applicationContext.ECPair.makeRandom();
-        const swap = await this.postSwap(invoice, refundKey.publicKey);
+        const swap = await this.postSwap(invoice, refundKey.publicKey, chain);
         const localSwap: PersistedSwapIn = {
             type: 'in',
             ...swap,
@@ -113,13 +113,13 @@ export class SwapInService {
         }
     }
 
-    private async postSwap(invoice: string, refundPublicKey: Buffer): Promise<GetSwapInResponse> {
+    private async postSwap(invoice: string, refundPublicKey: Buffer, chain: 'BITCOIN' | 'LIQUID'): Promise<GetSwapInResponse> {
         const resp = await fetch('/api/swap/in', {
             method: 'POST',
             body: JSON.stringify({
                 invoice,
                 refundPublicKey: refundPublicKey.toString('hex'),
-                chain: 'BITCOIN',
+                chain,
             } satisfies SwapInRequest),
             headers: {
                 'content-type': 'application/json',

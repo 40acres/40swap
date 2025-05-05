@@ -69,8 +69,11 @@ export const SwapInDetails: Component = () => {
         <Switch
             fallback={<h3 class="fw-bold">Swap bitcoin to lightning</h3>}
         >
-            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
+            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'BITCOIN'}>
                 <h3 class="text-center" style="text-transform: none">You have successfully swapped Bitcoin to Lightning!</h3>
+            </Match>
+            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'LIQUID'}>
+                <h3 class="text-center" style="text-transform: none">You have successfully swapped Liquid to Lightning!</h3>
             </Match>
             <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
                 <h3 class="text-center" style="text-transform: none">Transaction failed. Please try again.</h3>
