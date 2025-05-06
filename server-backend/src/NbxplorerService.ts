@@ -503,13 +503,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
             const responseJson = await response.json();
-            // console.log('responseJson', responseJson);
-            // for (const response of responseJson as unknown as { data: unknown }[]) {
-            //     console.log('response', response);
-            //     console.log('event', response.data);
-            //     console.log('*'.repeat(100));
-            // }
-            
             return liquidNbxplorerEvent.array().parse(responseJson);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {

@@ -55,9 +55,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
-        if (!['BITCOIN', 'LIQUID'].includes(request.chain)) {
-            throw new BadRequestException('invalid chain');
-        }
         const { network } = this.bitcoinConfig;
         const { tags, satoshis, network: invoiceNetwork } = decode(request.invoice);
         if (invoiceNetwork == null || invoiceNetwork.bech32 !== network.bech32) {
