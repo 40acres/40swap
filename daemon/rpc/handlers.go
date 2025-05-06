@@ -152,10 +152,6 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	network := ToLightningNetworkType(server.network)
 
 	// Validate request
-	if req.AmountSats > 21_000_000*100_000_000 {
-		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
-	}
-
 	// If the user didn't provide any address, generate one from the LND wallet
 	if req.Address == "" {
 		addr, err := server.lightningClient.GenerateAddress(ctx)
@@ -183,7 +179,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("invalid address: %w", err)
 	}
 	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
-		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
+		return nil, fmt.Errorf("invalid address: address is not for the current active network '%s'", network)
 	}
 
 	// Private key for the claim
@@ -196,15 +192,13 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	// Create swap out
 	swap, preimage, err := server.CreateSwapOut(ctx, pubkey, money.Money(req.AmountSats))
 	if err != nil {
-		log.Error("Error creating swap: ", err)
-
 		return nil, fmt.Errorf("error creating the swap: %w", err)
 	}
 
 	// Save swap to the database
 	amount, err := money.NewFromBtc(swap.InputAmount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error converting amount to BTC: %w", err)
 	}
 
 	maxRoutingFeeRatio := 0.005 // 0.5% is a good max value for Lightning Network
@@ -235,8 +229,6 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	// Send L2 payment
 	err = server.lightningClient.PayInvoice(ctx, swap.Invoice, swapModel.MaxRoutingFeeRatio)
 	if err != nil {
-		log.Error("Error paying the invoice: ", err)
-
 		return nil, fmt.Errorf("error paying the invoice: %w", err)
 	}
 
@@ -421,6 +413,6 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 
 	return &RecoverReusedSwapAddressResponse{
 		Txid:            tx.TxID(),
-		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(),
+		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), // nolint:gosec
 	}, nil
 }
