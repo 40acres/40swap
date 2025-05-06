@@ -421,6 +421,6 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 
 	return &RecoverReusedSwapAddressResponse{
 		Txid:            tx.TxID(),
-		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(),
+		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), // nolint:gosec
 	}, nil
 }
