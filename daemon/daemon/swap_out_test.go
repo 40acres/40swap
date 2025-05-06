@@ -231,7 +231,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 			name: "get swap not found",
 			setup: func() *SwapMonitor {
 				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(nil, swaps.ErrSwapNotFound)
-				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
 
 				return &swapMonitor
 			},
@@ -246,7 +246,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 			name: "get swap not found fail saving",
 			setup: func() *SwapMonitor {
 				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(nil, swaps.ErrSwapNotFound)
-				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(errors.New("error saving swap out"))
+				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(errors.New("error saving swap out"))
 
 				return &swapMonitor
 			},
@@ -303,7 +303,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 					PSBT: validPsbt, // unfinished psbt
 				}, nil)
 				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
-				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(errors.New("error saving swap out"))
+				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(errors.New("error saving swap out"))
 
 				return &swapMonitor
 			},
@@ -331,7 +331,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 					PSBT: validPsbt, // unfinished psbt
 				}, nil)
 				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
-				repository.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
 
 				return &swapMonitor
 			},
@@ -352,7 +352,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			swapMonitor := tt.setup()
-			err := swapMonitor.MonitorSwapOut(tt.args.ctx, tt.args.currentSwap)
+			err := swapMonitor.MonitorSwapOut(tt.args.ctx, &tt.args.currentSwap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SwapMonitor.MonitorSwapOut() error = %v, wantErr %v", err, tt.wantErr)
 			}

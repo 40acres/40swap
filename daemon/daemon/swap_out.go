@@ -1,16 +1,13 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/wire"
 	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
 )
@@ -61,7 +58,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
-		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, &currentSwap)
+		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to get fees: %w", err)
 		}
@@ -145,14 +142,4 @@ func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) 
 	}
 
 	return offchainFees, onchainFees, nil
-}
-
-func serializePSBT(tx *wire.MsgTx) (string, error) {
-	txBuffer := bytes.NewBuffer(nil)
-	err := tx.Serialize(txBuffer)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize transaction: %w", err)
-	}
-
-	return hex.EncodeToString(txBuffer.Bytes()), nil
 }
