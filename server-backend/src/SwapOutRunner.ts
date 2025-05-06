@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { NBXplorerLiquidTransactionOutput, NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
+import { NBXplorerLiquidTransactionOutput, NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService, NBXplorerBitcoinTransactionOutput } from './NbxplorerService.js';
 import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
@@ -204,8 +204,8 @@ export class SwapOutRunner {
         const output = event.data.outputs.find(o => o.address === swap.contractAddress);
         assert(output != null);
         const expectedAmount = swap.chain === 'LIQUID' ? 
-            new Decimal((output as unknown as NBXplorerLiquidTransactionOutput).value.value).div(1e8) : 
-            new Decimal(output.value).div(1e8);
+            new Decimal((output as NBXplorerLiquidTransactionOutput).value.value).div(1e8) : 
+            new Decimal((output as NBXplorerBitcoinTransactionOutput).value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.error(`Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`);

@@ -171,7 +171,7 @@ func TestServer_SwapIn(t *testing.T) {
 					TimeoutBlockHeight: 1000,
 					RedeemScript:       "test",
 				}, nil)
-				reposistory.EXPECT().SaveSwapIn(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 
 				return &server
 			},
@@ -204,7 +204,7 @@ func TestServer_SwapIn(t *testing.T) {
 					TimeoutBlockHeight: 1000,
 					RedeemScript:       "test",
 				}, nil)
-				reposistory.EXPECT().SaveSwapIn(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 
 				return &server
 			},
@@ -262,7 +262,7 @@ func TestStatus_SwapIn(t *testing.T) {
 		TimeoutBlockHeight: 12345,
 	}, nil)
 
-	server := NewRPCServer(8080, nil, mockSwapClient, nil, nil, Network_REGTEST)
+	server := NewRPCServer(8080, nil, mockSwapClient, nil, nil, 1000, Network_REGTEST)
 
 	res, err := server.GetSwapIn(ctx, req)
 	require.NoError(t, err)
@@ -392,6 +392,349 @@ func TestConvertStatus(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedStatus, status)
+			}
+		})
+	}
+}
+
+func TestServer_SwapOut(t *testing.T) {
+	ctx := context.Background()
+	swapId := "ugJHXnF12dUG"
+	amt := uint64(200000)
+	address := "bcrt1qey38yg6kjmtjxr28wrdrdhp22gu064xxj97006"
+
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	lightningClient := lightning.NewMockClient(ctrl)
+	swapClient := swaps.NewMockClientInterface(ctrl)
+	reposistory := NewMockRepository(ctrl)
+	server := Server{
+		lightningClient: lightningClient,
+		swapClient:      swapClient,
+		Repository:      reposistory,
+		network:         2, // regtest
+	}
+
+	type args struct {
+		ctx context.Context
+		req *SwapOutRequest
+	}
+	tests := []struct {
+		name    string
+		setup   func() *Server
+		args    args
+		want    *SwapOutResponse
+		wantErr bool
+		err     error
+	}{
+		{
+			name: "fail get LND address",
+			setup: func() *Server {
+				lightningClient.EXPECT().GenerateAddress(ctx).Return("", errors.New("failed to generate address"))
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("could not generate address: failed to generate address"),
+		},
+		{
+			name: "fail get server configuration",
+			setup: func() *Server {
+				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
+				swapClient.EXPECT().GetConfiguration(ctx).Return(nil, errors.New("failed to get configuration"))
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("could not get configuration: failed to get configuration"),
+		},
+		{
+			name: "amt lower than min",
+			setup: func() *Server {
+				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: 100,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("amount 0.000001 is not in the range [0.001, 0.01]"),
+		},
+		{
+			name: "amt higher than max",
+			setup: func() *Server {
+				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: 100000000,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("amount 1 is not in the range [0.001, 0.01]"),
+		},
+		{
+			name: "invalid address",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+					Address:    "invalid-address",
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("invalid address: decoded address is of unknown format"),
+		},
+		{
+			name: "invalid address network",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+					Address:    "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Address for a different network
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("invalid address: address is not for the current active network 'regtest'"),
+		},
+		{
+			name: "failed to create swap out",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+				swapClient.EXPECT().CreateSwapOut(ctx, gomock.Any()).Return(nil, errors.New("failed to create swap out"))
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+					Address:    address,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("error creating the swap: failed to create swap out"),
+		},
+		{
+			name: "bad response from server (invalid amount)",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+				swapClient.EXPECT().CreateSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusCreated,
+					TimeoutBlockHeight: 12345,
+					Invoice:            "dummy-invoice",
+					InputAmount:        decimal.NewFromInt(-1),
+					OutputAmount:       decimal.NewFromInt(-1),
+					CreatedAt:          time.Now(),
+				}, nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt, // Invalid amount
+					Address:    address,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("error converting amount to BTC: amount cannot be negative"),
+		},
+		{
+			name: "failed to save swap out",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+				swapClient.EXPECT().CreateSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{
+					SwapId:  swapId,
+					Status:  models.StatusCreated,
+					Invoice: "dummy-invoice",
+				}, nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(errors.New("failed to save swap out"))
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+					Address:    address,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("failed to save swap out"),
+		},
+		{
+			name: "fail to pay invoice",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+				swapClient.EXPECT().CreateSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{
+					SwapId:  swapId,
+					Status:  models.StatusCreated,
+					Invoice: "dummy-invoice",
+				}, nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
+				lightningClient.EXPECT().PayInvoice(ctx, "dummy-invoice", gomock.Any()).Return(errors.New("failed to pay invoice"))
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+					Address:    address,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+			err:     errors.New("error paying the invoice: failed to pay invoice"),
+		},
+		{
+			name: "valid request (lnd address)",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+				lightningClient.EXPECT().GenerateAddress(ctx).Return(address, nil)
+				swapClient.EXPECT().CreateSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusCreated,
+					TimeoutBlockHeight: 12345,
+					Invoice:            "dummy-invoice",
+					InputAmount:        decimal.NewFromFloat(0.00200105),
+					OutputAmount:       decimal.NewFromFloat(0.00200000),
+					CreatedAt:          time.Now(),
+				}, nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
+				lightningClient.EXPECT().PayInvoice(ctx, "dummy-invoice", gomock.Any()).Return(nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+				},
+			},
+			want: &SwapOutResponse{
+				SwapId:     swapId,
+				AmountSats: 200105,
+			},
+			wantErr: false,
+			err:     nil,
+		},
+		{
+			name: "valid request (provided address)",
+			setup: func() *Server {
+				swapClient.EXPECT().GetConfiguration(ctx).Return(&swaps.ConfigurationResponse{
+					MinimumAmount: decimal.NewFromFloat(0.001),
+					MaximumAmount: decimal.NewFromFloat(0.01),
+				}, nil)
+				swapClient.EXPECT().CreateSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusCreated,
+					TimeoutBlockHeight: 12345,
+					Invoice:            "dummy-invoice",
+					InputAmount:        decimal.NewFromFloat(0.00200105),
+					OutputAmount:       decimal.NewFromFloat(0.00200000),
+					CreatedAt:          time.Now(),
+				}, nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
+				lightningClient.EXPECT().PayInvoice(ctx, "dummy-invoice", gomock.Any()).Return(nil)
+
+				return &server
+			},
+			args: args{
+				ctx: ctx,
+				req: &SwapOutRequest{
+					AmountSats: amt,
+					Address:    address,
+				},
+			},
+			want: &SwapOutResponse{
+				SwapId:     swapId,
+				AmountSats: 200105,
+			},
+			wantErr: false,
+			err:     nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := tt.setup()
+			got, err := server.SwapOut(tt.args.ctx, tt.args.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Server.SwapOut() error = %v, wantErr %v", err, tt.wantErr)
+
+				return
+			}
+			if tt.wantErr {
+				require.Equal(t, tt.err.Error(), err.Error())
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Server.SwapIn() = %v, want %v", got, tt.want)
 			}
 		})
 	}

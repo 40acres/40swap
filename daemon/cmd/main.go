@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	bitcoinutils "github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/bitcoin/mempool"
 	"github.com/40acres/40swap/daemon/daemon"
 	"github.com/40acres/40swap/daemon/database"
@@ -114,6 +115,12 @@ func main() {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("40SWAPD_LNDCONNECT")),
 			},
+			&cli.StringFlag{
+				Name:  "mempool-url",
+				Usage: "Mempool url to use for tx inspection",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("MEMPOOL_URL")),
+			},
 			&grpcPort,
 			&serverUrl,
 			&tlsCert,
@@ -121,6 +128,11 @@ func main() {
 			&lndHost,
 			&testnet,
 			&regtest,
+			&cli.IntFlag{
+				Name:  "minrelayfee",
+				Usage: "Minimum relay fee in satoshis per kB",
+				Value: 1000,
+			},
 			&cli.StringFlag{
 				Name:  "mempool-endpoint",
 				Usage: "Url to the mempool space API",
@@ -207,10 +219,10 @@ func main() {
 
 					mempool := mempool.New(c.String("mempool-token"), mempool.WithURL(c.String("mempool-endpoint")))
 
-					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, network)
+					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, c.Int("minrelayfee"), network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, lnClient, rpc.ToLightningNetworkType(network))
+					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network))
 					if err != nil {
 						return err
 					}
@@ -411,6 +423,55 @@ func main() {
 								}
 							default:
 								return fmt.Errorf("invalid swap type: %s", swapType)
+							}
+
+							fmt.Printf("%s\n", resp)
+
+							return nil
+						},
+					},
+					{
+						Name:  "recover",
+						Usage: "Recover a swap that was paid more than once",
+						Flags: []cli.Flag{
+							&grpcPort,
+							&cli.StringFlag{
+								Name:     "outpoint",
+								Usage:    "The outpoint of the swap to recover, in the format txid:index",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:  "refund-to",
+								Usage: "The address where the recovery will be refunded to",
+							},
+						},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
+							if err != nil {
+								return err
+							}
+
+							client := rpc.NewRPCClient("localhost", grpcPort)
+
+							isValid := bitcoinutils.IsValidOutpoint(cmd.String("outpoint"))
+							if !isValid {
+								return fmt.Errorf("invalid outpoint: %s", cmd.String("outpoint"))
+							}
+
+							refundAddress := cmd.String("refund-to")
+							recoveryRequest := rpc.RecoverReusedSwapAddressRequest{
+								Outpoint: cmd.String("outpoint"),
+								RefundTo: &refundAddress,
+							}
+
+							swap, err := client.RecoverReusedSwapAddress(ctx, &recoveryRequest)
+							if err != nil {
+								return err
+							}
+
+							resp, err := json.MarshalIndent(swap, "", indent)
+							if err != nil {
+								return err
 							}
 
 							fmt.Printf("%s\n", resp)

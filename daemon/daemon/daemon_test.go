@@ -209,10 +209,10 @@ func Test_MonitorSwapIns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 			if tt.want != nil {
-				repository.EXPECT().SaveSwapIn(tt.want).Return(nil)
+				repository.EXPECT().SaveSwapIn(ctx, tt.want).Return(nil)
 			}
 
-			err := swapMonitor.MonitorSwapIn(ctx, tt.req)
+			err := swapMonitor.MonitorSwapIn(ctx, &tt.req)
 			require.NoError(t, err)
 		})
 	}
@@ -320,7 +320,7 @@ func Test_Refund(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
-			_, err := swapMonitor.InitiateRefund(ctx, tt.req)
+			_, err := swapMonitor.InitiateRefund(ctx, &tt.req)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.err.Error())
