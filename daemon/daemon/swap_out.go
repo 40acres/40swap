@@ -32,6 +32,8 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)
 		}
+
+		return nil
 	case err != nil:
 		return fmt.Errorf("failed to get swap out: %w", err)
 	}
@@ -67,6 +69,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		currentSwap.OnchainFeeSats = onchainFees
 	case models.StatusContractExpired:
 	case models.StatusContractRefundedUnconfirmed:
+		logger.Debug("contract refunded unconfirmed")
 	}
 
 	if changed {
