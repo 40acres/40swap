@@ -41,6 +41,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// GetFeeFromTxId mocks base method.
+func (m *MockClient) GetFeeFromTxId(ctx context.Context, txId string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFeeFromTxId", ctx, txId)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFeeFromTxId indicates an expected call of GetFeeFromTxId.
+func (mr *MockClientMockRecorder) GetFeeFromTxId(ctx, txId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFeeFromTxId", reflect.TypeOf((*MockClient)(nil).GetFeeFromTxId), ctx, txId)
+}
+
 // GetRecommendedFees mocks base method.
 func (m *MockClient) GetRecommendedFees(ctx context.Context, speed Speed) (int64, error) {
 	m.ctrl.T.Helper()
