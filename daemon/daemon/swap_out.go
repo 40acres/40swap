@@ -136,7 +136,7 @@ func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) 
 	}
 
 	// Onchain fees
-	onchainFees, err := m.mempoolClient.GetFeeFromTxId(ctx, swap.TxID)
+	onchainFees, err := m.bitcoin.GetFeeFromTxId(ctx, swap.TxID) // TODO: try to get the fees from the PSBT in the future
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get transaction from outpoint: %w", err)
 	}

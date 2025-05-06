@@ -21,7 +21,7 @@ type Repository interface {
 	database.SwapOutRepository
 }
 
-func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, network lightning.Network, mempoolClient bitcoin.Client) error {
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -53,7 +53,7 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 				lightningClient: lightning,
 				network:         network,
 				now:             time.Now,
-				mempoolClient:   mempoolClient,
+				bitcoin:         bitcoin,
 			}
 			monitor.MonitorSwaps(ctx)
 
@@ -68,7 +68,7 @@ type SwapMonitor struct {
 	lightningClient lightning.Client
 	network         lightning.Network
 	now             func() time.Time
-	mempoolClient   bitcoin.Client
+	bitcoin         bitcoin.Client
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
