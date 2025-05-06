@@ -208,6 +208,29 @@ describe('40Swap backend', () => {
         expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
+    it('should complete a swap in with liquid', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
+        let swap = await backend.createSwapIn({
+            chain: 'LIQUID',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+        });
+        expect(swap.status).toEqual<SwapInStatus>('CREATED');
+
+        await elements.sendToAddress(swap.contractAddress, swap.inputAmount);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+
+        swap = await backend.getSwapIn(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+        const invoice = await lndUser.lookupInvoice(rHash as Buffer);
+        expect(invoice.state).toEqual('SETTLED');
+    });
+
     it('should refund mismatched payment after timeout block height', async () => {
         const refundKey = ECPair.makeRandom();
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
