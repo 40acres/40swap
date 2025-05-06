@@ -72,14 +72,14 @@ type SwapMonitor struct {
 }
 
 func (m *SwapMonitor) MonitorSwaps(ctx context.Context) {
-	swapIns, err := m.repository.GetPendingSwapIns()
+	swapIns, err := m.repository.GetPendingSwapIns(ctx)
 	if err != nil {
 		log.Errorf("failed to get pending swap ins: %v", err)
 
 		return
 	}
 
-	swapOuts, err := m.repository.GetPendingSwapOuts()
+	swapOuts, err := m.repository.GetPendingSwapOuts(ctx)
 	if err != nil {
 		log.Errorf("failed to get pending swap outs: %v", err)
 

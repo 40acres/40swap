@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.SwapIn) error {
+func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.SwapIn) error {
 	logger := log.WithField("id", currentSwap.SwapID)
 	logger.Info("processing swap")
 
@@ -28,7 +28,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 		currentSwap.Outcome = &outcome
 		currentSwap.Status = models.StatusDone
 
-		err := m.repository.SaveSwapIn(&currentSwap)
+		err := m.repository.SaveSwapIn(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)
 		}
@@ -92,7 +92,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 
 	if changed {
 		currentSwap.Status = newStatus
-		err := m.repository.SaveSwapIn(&currentSwap)
+		err := m.repository.SaveSwapIn(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)
 		}
@@ -103,7 +103,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap models.Swap
 	return nil
 }
 
-func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap models.SwapIn) (string, error) {
+func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (string, error) {
 	logger := log.WithFields(log.Fields{
 		"swap_id": swap.SwapID,
 	})

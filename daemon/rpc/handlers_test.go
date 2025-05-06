@@ -171,7 +171,7 @@ func TestServer_SwapIn(t *testing.T) {
 					TimeoutBlockHeight: 1000,
 					RedeemScript:       "test",
 				}, nil)
-				reposistory.EXPECT().SaveSwapIn(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 
 				return &server
 			},
@@ -203,7 +203,7 @@ func TestServer_SwapIn(t *testing.T) {
 					TimeoutBlockHeight: 1000,
 					RedeemScript:       "test",
 				}, nil)
-				reposistory.EXPECT().SaveSwapIn(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 
 				return &server
 			},
@@ -605,7 +605,7 @@ func TestServer_SwapOut(t *testing.T) {
 					Status:  models.StatusCreated,
 					Invoice: "dummy-invoice",
 				}, nil)
-				reposistory.EXPECT().SaveSwapOut(gomock.Any()).Return(errors.New("failed to save swap out"))
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(errors.New("failed to save swap out"))
 
 				return &server
 			},
@@ -632,7 +632,7 @@ func TestServer_SwapOut(t *testing.T) {
 					Status:  models.StatusCreated,
 					Invoice: "dummy-invoice",
 				}, nil)
-				reposistory.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
 				lightningClient.EXPECT().PayInvoice(ctx, "dummy-invoice", gomock.Any()).Return(errors.New("failed to pay invoice"))
 
 				return &server
@@ -665,7 +665,7 @@ func TestServer_SwapOut(t *testing.T) {
 					OutputAmount:       decimal.NewFromFloat(0.00200000),
 					CreatedAt:          time.Now(),
 				}, nil)
-				reposistory.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
 				lightningClient.EXPECT().PayInvoice(ctx, "dummy-invoice", gomock.Any()).Return(nil)
 
 				return &server
@@ -699,7 +699,7 @@ func TestServer_SwapOut(t *testing.T) {
 					OutputAmount:       decimal.NewFromFloat(0.00200000),
 					CreatedAt:          time.Now(),
 				}, nil)
-				reposistory.EXPECT().SaveSwapOut(gomock.Any()).Return(nil)
+				reposistory.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
 				lightningClient.EXPECT().PayInvoice(ctx, "dummy-invoice", gomock.Any()).Return(nil)
 
 				return &server

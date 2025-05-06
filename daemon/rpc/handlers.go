@@ -118,7 +118,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
-	err = server.Repository.SaveSwapIn(&models.SwapIn{
+	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
 		AmountSats: int64(*invoice.MilliSat / 1000),
@@ -221,7 +221,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		PreImage:           preimage,
 	}
 
-	err = server.Repository.SaveSwapOut(&swapModel)
+	err = server.Repository.SaveSwapOut(ctx, &swapModel)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, fmt.Errorf("failed to get address from output: %w", err)
 	}
 
-	swap, err := s.Repository.GetSwapInByClaimAddress(address.String())
+	swap, err := s.Repository.GetSwapInByClaimAddress(ctx, address.String())
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		return nil, fmt.Errorf("outpoint doesn't belong to any address registered for a swap in the database")
@@ -413,6 +413,6 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 
 	return &RecoverReusedSwapAddressResponse{
 		Txid:            tx.TxID(),
-		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), // nolint:gosec
+		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), //nolint:gosec
 	}, nil
 }

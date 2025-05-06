@@ -1,21 +1,18 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/wire"
 	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
 )
 
-func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.SwapOut) error {
+func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.SwapOut) error {
 	logger := log.WithField("id", currentSwap.SwapID)
 	logger.Info("processing swap out")
 
@@ -28,7 +25,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		currentSwap.Outcome = &outcome
 		currentSwap.Status = models.StatusDone
 
-		err := m.repository.SaveSwapOut(&currentSwap)
+		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)
 		}
@@ -50,7 +47,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")
-		tx, err := m.ClaimSwapOut(ctx, &currentSwap)
+		tx, err := m.ClaimSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to claim swap out: %w", err)
 		}
@@ -61,7 +58,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
-		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, &currentSwap)
+		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to get fees: %w", err)
 		}
@@ -74,13 +71,13 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap models.Swa
 
 	if changed {
 		currentSwap.Status = newStatus
-		err := m.repository.SaveSwapOut(&currentSwap)
+		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)
 		}
 	}
 
-	logger.Infof("swap out processed")
+	logger.Debug("swap out processed")
 
 	return nil
 }
@@ -145,14 +142,4 @@ func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) 
 	}
 
 	return offchainFees, onchainFees, nil
-}
-
-func serializePSBT(tx *wire.MsgTx) (string, error) {
-	txBuffer := bytes.NewBuffer(nil)
-	err := tx.Serialize(txBuffer)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize transaction: %w", err)
-	}
-
-	return hex.EncodeToString(txBuffer.Bytes()), nil
 }
