@@ -141,9 +141,10 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	log.Info("Swap created: ", swap.SwapId)
 
 	return &SwapInResponse{
-		SwapId:       swap.SwapId,
-		AmountSats:   uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
-		ClaimAddress: swap.ContractAddress,
+		SwapId:        swap.SwapId,
+		AmountSats:    uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
+		ClaimAddress:  swap.ContractAddress,
+		RefundAddress: req.RefundTo,
 	}, nil
 }
 
