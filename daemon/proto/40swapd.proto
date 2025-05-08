@@ -81,7 +81,7 @@ message GetSwapInResponse {
   string contract_address = 2; // Address of the contract.
   google.protobuf.Timestamp created_at = 3; // Timestamp when the swap was created.
   double input_amount = 4; // Input amount in BTC.
-  optional string lock_tx = 5; // Lock transaction txid.
+  optional string lock_tx_id = 5; // Lock transaction txid.
   optional string outcome = 6; // Outcome of the swap.
   double output_amount = 7; // Output amount in BTC.
   string redeem_script = 8; // Redeem script for the contract.
@@ -103,6 +103,7 @@ message GetSwapOutResponse {
   Status status = 6; // Current status of the swap.
   google.protobuf.Timestamp created_at = 7; // Timestamp when the swap was created.
   optional string outcome = 8; // Outcome of the swap.
+  optional string claim_tx_id = 9; // Claim transaction txid.
 }
 
 message RecoverReusedSwapAddressRequest {

@@ -22,7 +22,7 @@ func (d *Database) GetPendingSwapOuts(ctx context.Context) ([]*models.SwapOut, e
 	swap := d.query.SwapOut
 
 	err := swap.WithContext(ctx).
-		Where(swap.Status.Eq(models.StatusDone)).
+		Where(swap.Status.Neq(models.StatusDone)).
 		Scan(&swapOuts)
 
 	if err != nil {
