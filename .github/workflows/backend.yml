@@ -111,7 +111,7 @@ jobs:
           context: .
           file: swap-frontend/docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           provenance: false
           tags: ${{ steps.meta-fe.outputs.tags }}
           labels: ${{ steps.meta-fe.outputs.labels }}
@@ -141,7 +141,7 @@ jobs:
           context: .
           file: server-backend/docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           provenance: false
           tags: ${{ steps.meta-be.outputs.tags }}
           labels: ${{ steps.meta-be.outputs.labels }}
