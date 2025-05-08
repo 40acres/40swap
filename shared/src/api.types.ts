@@ -74,7 +74,6 @@ const swapResponseSchema = z.object({
     outputAmount: z.number(),
     createdAt: z.string(),
     outcome: swapOutcomesSchema.optional(),
-    unlockTx: z.string().optional(),
 });
 
 export const getSwapInResponseSchema = swapResponseSchema.extend({
