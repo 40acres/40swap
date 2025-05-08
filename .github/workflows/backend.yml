@@ -87,7 +87,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Docker meta
         id: meta-fe
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
@@ -106,7 +106,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
       - name: Build and push frontend Docker image
         id: build-and-push-frontend
-        uses: docker/build-push-action@v5.0.0
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: swap-frontend/docker/Dockerfile
