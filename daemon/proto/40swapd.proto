@@ -54,7 +54,8 @@ message SwapInRequest {
 message SwapInResponse {
   string swap_id = 1; // Unique identifier for the swap.
   uint64 amount_sats = 2; // Amount in satoshis.
-  string claim_address = 3; // Address to claim the funds.
+  string claim_address = 3; // Address to send the funds to.
+  string refund_address = 4; // Address where the funds will be refunded.
 }
 
 // Message definitions for SwapOut operation.

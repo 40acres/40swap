@@ -29,7 +29,13 @@ func (PreimageSerializer) Scan(ctx context.Context, field *schema.Field, dst ref
 		return fmt.Errorf("failed to cast preimage value: %v", dbValue)
 	}
 
-	preimagePointer := dst.Elem().FieldByName(field.Name)
+	var preimagePointer reflect.Value
+	if dst.Kind() == reflect.Ptr {
+		preimagePointer = dst.Elem().FieldByName(field.Name)
+	} else {
+		preimagePointer = dst.FieldByName(field.Name)
+	}
+
 	if preimageStr == "" {
 		preimagePointer.Set(reflect.Zero(field.FieldType)) // Ensure nil pointer
 
