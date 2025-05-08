@@ -23,7 +23,7 @@ func (d *Database) GetPendingSwapIns(ctx context.Context) ([]*models.SwapIn, err
 	swap := d.query.SwapIn
 
 	err := swap.WithContext(ctx).
-		Where(swap.Status.Eq(models.StatusDone)).
+		Where(swap.Status.Neq(models.StatusDone)).
 		Scan(&swapIns)
 
 	if err != nil {
