@@ -12,6 +12,8 @@ import {
 import { LocalSwapStorageService, PersistedSwapIn } from './LocalSwapStorageService.js';
 import { ECPairAPI } from 'ecpair';
 import { applicationContext } from './ApplicationContext.js';
+import * as liquid from 'liquidjs-lib';
+import * as ecc from 'tiny-secp256k1';
 
 export class SwapInService {
 
@@ -31,20 +33,57 @@ export class SwapInService {
         if (swap.status !== 'CONTRACT_EXPIRED') {
             throw new Error(`invalid state ${swap.status}`);
         }
-        const psbt = await this.getRefundPsbt(swap.swapId, address);
-        if (!this.isValidRefundTx(psbt, address)) {
-            throw new Error('Error building refund transactions');
+        let tx: Transaction | liquid.Transaction | null = null;
+        const psbtHex = await this.getRefundPsbtHex(swap.swapId, address);
+        if (swap.chain === 'BITCOIN') {
+            const psbt = Psbt.fromBase64(psbtHex, { network });
+            if (!this.isValidRefundTx(psbt, address)) {
+                throw new Error('Error building refund transactions');
+            }
+            signContractSpend({
+                psbt,
+                network,
+                key: this.ECPair.fromPrivateKey(refundPrivateKey),
+                preImage: Buffer.alloc(0),
+            });
+            if (psbt.getFeeRate() > 1000) {
+                throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
+            }
+            tx = psbt.extractTransaction();
+        } else if (swap.chain === 'LIQUID') {
+            const pset = liquid.Pset.fromBase64(psbtHex);
+            if (!this.isValidLiquidRefundTx(pset, address)) {
+                throw new Error('Error building refund transactions');
+            }
+            const inputIndex = 0;
+            const input = pset.inputs[inputIndex];
+            const sighashType = liquid.Transaction.SIGHASH_ALL;
+            const signature = liquid.script.signature.encode(
+                this.ECPair.fromPrivateKey(refundPrivateKey).sign(pset.getInputPreimage(inputIndex, sighashType)),
+                sighashType,
+            );
+            const signer = new liquid.Signer(pset);
+            signer.addSignature(
+                inputIndex,
+                {
+                    partialSig: {
+                        pubkey: this.ECPair.fromPrivateKey(refundPrivateKey).publicKey,
+                        signature,
+                    },
+                },
+                liquid.Pset.ECDSASigValidator(ecc),
+            );
+            const finalizer = new liquid.Finalizer(pset);
+            const stack = [signature, Buffer.from(''), input.witnessScript!];
+            finalizer.finalizeInput(inputIndex, () => {
+                return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
+            });
+            tx = liquid.Extractor.extract(pset);
+            console.log(tx.toHex());
         }
-        signContractSpend({
-            psbt,
-            network,
-            key: this.ECPair.fromPrivateKey(refundPrivateKey),
-            preImage: Buffer.alloc(0),
-        });
-        if (psbt.getFeeRate() > 1000) {
-            throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
+        if (tx == null) {
+            throw new Error('There was an error extracting the transaction');
         }
-        const tx = psbt.extractTransaction();
         await this.publishRefundTx(swap.swapId, tx);
     }
 
@@ -54,6 +93,14 @@ export class SwapInService {
             return false;
         }
         if (outs[0].address !== address) {
+            return false;
+        }
+        return true;
+    }
+
+    isValidLiquidRefundTx(pset: liquid.Pset, address: string): boolean {
+        const outs = pset.outputs;
+        if (outs.length !== 2) { // In liquid the fee output is also included
             return false;
         }
         return true;
@@ -87,19 +134,17 @@ export class SwapInService {
         return localSwap;
     }
 
-    private async getRefundPsbt(swapId: string, address: string): Promise<Psbt> {
-        const network = (await this.config).bitcoinNetwork;
+    private async getRefundPsbtHex(swapId: string, address: string): Promise<string> {
         const resp = await fetch(`/api/swap/in/${swapId}/refund-psbt?` + new URLSearchParams({
             address,
         }));
         if (resp.status >= 300) {
             throw new Error(`Unknown error getting refund psbt. ${await resp.text()}`);
         }
-        const psbt = Psbt.fromBase64(psbtResponseSchema.parse(await resp.json()).psbt, { network });
-        return psbt;
+        return psbtResponseSchema.parse(await resp.json()).psbt;
     }
 
-    private async publishRefundTx(swapId: string, tx: Transaction): Promise<void> {
+    private async publishRefundTx(swapId: string, tx: Transaction | liquid.Transaction): Promise<void> {
         const resp = await fetch(`/api/swap/in/${swapId}/refund-tx`, {
             method: 'POST',
             body: JSON.stringify({

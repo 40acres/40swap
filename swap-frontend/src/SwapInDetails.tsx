@@ -15,6 +15,8 @@ import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
+import * as liquid from 'liquidjs-lib';
+import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 
 export const SwapInDetails: Component = () => {
     const { swapInService, localSwapStorageService } = applicationContext;
@@ -40,12 +42,22 @@ export const SwapInDetails: Component = () => {
             return false;
         }
         const network = config()?.bitcoinNetwork ?? networks.bitcoin;
-        try {
-            address.toOutputScript(refundAddress(), network);
-            return false;
-        } catch (e) {
-            return true;
+        if (currentSwap()?.chain === 'BITCOIN') {
+            try {
+                address.toOutputScript(refundAddress(), network);
+                return false;
+            } catch (e) {
+                return true;
+            }
+        } else if (currentSwap()?.chain === 'LIQUID') {
+            try {
+                liquid.address.toOutputScript(refundAddress(), getLiquidNetworkFromBitcoinNetwork(network));
+                return false;
+            } catch (e) {
+                return true;
+            }
         }
+        return false;
     }
 
     async function startRefund(): Promise<void> {
@@ -210,7 +222,9 @@ export const SwapInDetails: Component = () => {
                     <Match when={s().status === 'CONTRACT_EXPIRED' && s().refundRequestDate == null}>
                         <div>
                             <Form.Group class="mb-3">
-                                <Form.Control type="text" placeholder="Enter bitcoin address to receive refund"
+                                <Form.Control 
+                                    type="text" 
+                                    placeholder={`Enter ${s().chain.toLowerCase()} address to receive refund`}
                                     value={refundAddress()}
                                     onChange={e => setRefundAddress(e.target.value)}
                                     onKeyUp={e => setRefundAddress(e.currentTarget.value)}
