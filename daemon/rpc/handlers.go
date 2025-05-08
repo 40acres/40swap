@@ -292,9 +292,6 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		return nil, err
 	}
 
-	outcome := swap.Outcome.String()
-	preimage := swap.PreImage.String()
-
 	res := &GetSwapInResponse{
 		Id:                 swap.SwapID,
 		Status:             rpcStatus,
@@ -302,12 +299,19 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		InputAmount:        money.Money(swap.AmountSats + swap.ServiceFeeSats + swap.OnchainFeeSats).ToBtc().InexactFloat64(), // nolint:gosec
 		LockTxId:           &swap.LockTxID,
-		Outcome:            &outcome,
 		OutputAmount:       money.Money(swap.AmountSats).ToBtc().InexactFloat64(), // nolint:gosec
 		RedeemScript:       swap.RedeemScript,
 		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight), // nolint:gosec
-		PreImage:           &preimage,
 		RefundTxId:         &swap.RefundTxID,
+	}
+
+	if swap.Outcome != nil {
+		outcome := swap.Outcome.String()
+		res.Outcome = &outcome
+	}
+	if swap.PreImage != nil {
+		preimage := swap.PreImage.String()
+		res.PreImage = &preimage
 	}
 
 	return res, nil
@@ -328,18 +332,20 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		return nil, err
 	}
 
-	outcome := swap.Outcome.String()
-
 	res := &GetSwapOutResponse{
 		Id:                 swap.SwapID,
 		Status:             rpcStatus,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight), // nolint:gosec
 		Invoice:            swap.PaymentRequest,
-		InputAmount:        money.Money(swap.AmountSats + swap.ServiceFeeSats + swap.OnchainFeeSats).ToBtc().InexactFloat64(), // nolint:gosec
-		OutputAmount:       money.Money(swap.AmountSats).ToBtc().InexactFloat64(),                                             // nolint:gosec
-		Outcome:            &outcome,
+		InputAmount:        money.Money(swap.AmountSats).ToBtc().InexactFloat64(),                       // nolint:gosec
+		OutputAmount:       money.Money(swap.AmountSats - swap.ServiceFeeSats).ToBtc().InexactFloat64(), // nolint:gosec
 		ClaimTxId:          &swap.TxID,
+	}
+
+	if swap.Outcome != nil {
+		outcome := swap.Outcome.String()
+		res.Outcome = &outcome
 	}
 
 	return res, nil
