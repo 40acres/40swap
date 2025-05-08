@@ -2,12 +2,16 @@ package bitcoin
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/psbt"
+	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -15,10 +19,6 @@ import (
 )
 
 func signInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHashType txscript.SigHashType, fetcher txscript.PrevOutputFetcher) ([]byte, error) {
-	if inputIndex < 0 || inputIndex >= len(packet.Inputs) {
-		return nil, fmt.Errorf("invalid input index: %d", inputIndex)
-	}
-
 	input := &packet.Inputs[inputIndex]
 
 	sigHashes := txscript.NewTxSigHashes(packet.UnsignedTx, fetcher)
@@ -135,6 +135,10 @@ func finalizePSBT(pkt *psbt.Packet) error {
 }
 
 func SignFinishExtractPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btcec.PrivateKey, preimage *lntypes.Preimage, inputIndex int) (*wire.MsgTx, error) {
+	if inputIndex < 0 || inputIndex >= len(pkt.Inputs) {
+		return nil, fmt.Errorf("invalid input index: %d", inputIndex)
+	}
+
 	input := &pkt.Inputs[inputIndex]
 
 	fetcher := txscript.NewCannedPrevOutputFetcher(
@@ -176,4 +180,141 @@ func SignFinishExtractPSBT(logger *log.Entry, pkt *psbt.Packet, privateKey *btce
 	}
 
 	return tx, nil
+}
+
+// Serializes a transaction into a hex string
+func SerializeTx(tx *wire.MsgTx) (string, error) {
+	txBuffer := bytes.NewBuffer(nil)
+	err := tx.Serialize(txBuffer)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	return hex.EncodeToString(txBuffer.Bytes()), nil
+}
+
+// ParsePrivateKey string into a btcec.PrivateKey
+func ParsePrivateKey(privKey string) (*btcec.PrivateKey, error) {
+	privateKeyBytes, err := hex.DecodeString(privKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode refund private key: %w", err)
+	}
+
+	// Deserialize the private key
+	privateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
+
+	return privateKey, nil
+}
+
+// PSBTHasValidOutputAddress checks if the PSBT is valid by comparing the
+// output address in the PSBT with the provided address.
+func PSBTHasValidOutputAddress(psbt *psbt.Packet, network lightning.Network, address string) bool {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+
+	outs := psbt.UnsignedTx.TxOut
+	if len(outs) != 1 {
+		return false
+	}
+	_, addrs, _, err := txscript.ExtractPkScriptAddrs(outs[0].PkScript, cfgnetwork)
+	if err != nil || len(addrs) != 1 {
+		return false
+	}
+
+	return addrs[0].EncodeAddress() == address
+}
+
+// IsValidOutpoint checks if the outpoint is valid by parsing it and checking the format.
+func IsValidOutpoint(outpoint string) bool {
+	_, err := wire.NewOutPointFromString(outpoint)
+
+	return err == nil
+}
+
+// ParseOutpoint parses an outpoint string in the format "txid:vout" and returns the txid and vout as separate values.
+func ParseOutpoint(outpoint string) (string, int, error) {
+	opt, err := wire.NewOutPointFromString(outpoint)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse outpoint: %w", err)
+	}
+	txid := opt.Hash.String()
+	intVOut := opt.Index
+
+	return txid, int(intVOut), nil
+}
+
+func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate, minRelayFee int64, network lightning.Network) (*psbt.Packet, error) {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+	prevOut, err := wire.NewOutPointFromString(outpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse outpoint: %w", err)
+	}
+
+	destinationAddr, err := btcutil.DecodeAddress(outputAddress, cfgnetwork)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode destination address: %w", err)
+	}
+
+	if len(spendingTxHex.TxOut) <= int(prevOut.Index) {
+		return nil, fmt.Errorf("invalid outpoint index: %d", prevOut.Index)
+	}
+
+	amount := spendingTxHex.TxOut[prevOut.Index].Value
+
+	tx := wire.NewMsgTx(2)
+
+	txIn := wire.NewTxIn(prevOut, nil, nil)
+	tx.AddTxIn(txIn)
+
+	// Create the output script from the address
+	outputScript, err := txscript.PayToAddrScript(destinationAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create output script: %w", err)
+	}
+
+	txOut := wire.NewTxOut(amount, outputScript)
+	tx.AddTxOut(txOut)
+
+	// Update fee
+	fee := feeRate * mempool.GetTxVirtualSize(btcutil.NewTx(tx))
+	if feeRate < 135 {
+		fee = minRelayFee
+	}
+
+	outputAmount := int64(amount) - fee
+	tx.TxOut[0].Value = outputAmount
+
+	pkt, err := psbt.NewFromUnsignedTx(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new PSBT: %w", err)
+	}
+
+	pkScript := spendingTxHex.TxOut[prevOut.Index].PkScript
+	prevTxOut := wire.NewTxOut(amount, pkScript)
+	pkt.Inputs[0].WitnessUtxo = prevTxOut
+
+	decodedLockScript, err := hex.DecodeString(lockScript)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode lock script: %w", err)
+	}
+
+	pkt.Inputs[0].WitnessScript = decodedLockScript
+
+	pkt.UnsignedTx.TxIn[0].Sequence = 4294967293 // locktime does not work without this
+
+	return pkt, nil
+}
+
+func GetOutputAddress(msgTx *wire.MsgTx, index int, network lightning.Network) (btcutil.Address, error) {
+	cfgnetwork := lightning.ToChainCfgNetwork(network)
+
+	pkScript := msgTx.TxOut[index].PkScript
+	_, addresses, _, err := txscript.ExtractPkScriptAddrs(pkScript, cfgnetwork)
+	if err != nil {
+		return nil, err
+	}
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no address found")
+	}
+
+	return addresses[0], nil
 }

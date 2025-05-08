@@ -11,6 +11,10 @@ export type Chain = z.infer<typeof chainSchema>;
 const SWAP_IN_STATUSES = [
     // happy path
     'CREATED',
+    // If the amount does not match the L2 invoice, mismatched payment statuses
+    'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED',
+    'CONTRACT_AMOUNT_MISMATCH',
+    // happy path
     'CONTRACT_FUNDED_UNCONFIRMED',
     'CONTRACT_FUNDED',
     'INVOICE_PAID',
@@ -61,6 +65,7 @@ export type SwapInRequest = z.infer<typeof swapInRequestSchema>;
 
 const swapResponseSchema = z.object({
     swapId: z.string(),
+    chain: chainSchema,
     contractAddress: z.string(),
     redeemScript: z.string(),
     timeoutBlockHeight: z.number(),

@@ -7,9 +7,11 @@ import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
-import { ECPair, waitFor, waitForChainSync, signLiquidPset } from './utils';
+import { ECPair, waitFor, waitForChainSync } from './utils';
 import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
+import * as liquid from 'liquidjs-lib';
+import { signLiquidPset } from '@40swap/shared';
 
 jest.setTimeout(2 * 60 * 1000);
 
@@ -78,7 +80,10 @@ describe('40Swap backend', () => {
         
         const claimAddress = await elements.getNewAddress();
         const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
-        const signedTx = signLiquidPset(claimPsbt.psbt, preImage.toString('hex'), claimKey);
+        const pset = liquid.Pset.fromBase64(claimPsbt.psbt);
+        signLiquidPset(pset, preImage.toString('hex'), claimKey);
+        const transaction = liquid.Extractor.extract(pset);
+        const signedTx = transaction.toHex();
         await backend.claimSwap(swap.swapId, signedTx);
         
         await elements.mine();
@@ -171,6 +176,78 @@ describe('40Swap backend', () => {
         // Send the input amount to the contract address
         await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount);
         await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        // Simulate passing the timeout block height
+        await bitcoind.mine(145);
+
+        // Verify Contract_EXPIRED status
+        await waitFor(async () => {
+            const swapIn = await backend.getSwapIn(swap.swapId);
+            return swapIn.status === 'CONTRACT_EXPIRED';
+        });
+
+        // Now request a refund
+        const refundPSBT = await backend.getRefundPsbt(swap.swapId, 'bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf');
+
+        // Sign the refund transaction
+        signContractSpend({
+            psbt: refundPSBT,
+            network: network,
+            key: ECPair.fromPrivateKey(refundKey.privateKey!),
+            preImage: Buffer.alloc(0),
+        });
+
+        expect(refundPSBT.getFeeRate()).toBeLessThan(1000);
+        const tx = refundPSBT.extractTransaction();
+
+        await backend.publishRefundTx(swap.swapId, tx);
+        // Wait for the refund to be confirmed
+        await bitcoind.mine(6);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+        const swapIn = await backend.getSwapIn(swap.swapId);
+        expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
+    });
+
+    it('should complete a swap in with liquid', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
+        let swap = await backend.createSwapIn({
+            chain: 'LIQUID',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+        });
+        expect(swap.status).toEqual<SwapInStatus>('CREATED');
+
+        await elements.sendToAddress(swap.contractAddress, swap.inputAmount);
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
+
+        swap = await backend.getSwapIn(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+        const invoice = await lndUser.lookupInvoice(rHash as Buffer);
+        expect(invoice.state).toEqual('SETTLED');
+    });
+
+    it('should refund mismatched payment after timeout block height', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        const swap = await backend.createSwapIn({
+            chain: 'BITCOIN',
+            invoice: paymentRequest!,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+            lockBlockDeltaIn: 144, // Minimum allowed value
+        });
+
+        // Send the input amount to the contract address a with a small extra amount to overpay (mismatched payment)
+        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount + 0.0001); 
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
+
+        // Wait for the mismatched payment to be confirmed
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'CONTRACT_AMOUNT_MISMATCH');
 
         // Simulate passing the timeout block height
         await bitcoind.mine(145);

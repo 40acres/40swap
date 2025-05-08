@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
@@ -24,16 +25,20 @@ type Server struct {
 	grpcServer      *grpc.Server
 	lightningClient lightning.Client
 	swapClient      swaps.ClientInterface
+	bitcoin         bitcoin.Client
+	minRelayFee     int64
 	network         Network
 }
 
-func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, network Network) *Server {
+func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInterface, lightningClient lightning.Client, bitcoin bitcoin.Client, minRelayFee int64, network Network) *Server {
 	svr := &Server{
 		Port:            port,
 		Repository:      repository,
 		grpcServer:      grpc.NewServer(),
 		swapClient:      swapClient,
 		lightningClient: lightningClient,
+		bitcoin:         bitcoin,
+		minRelayFee:     minRelayFee,
 		network:         network,
 	}
 
