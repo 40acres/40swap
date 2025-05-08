@@ -255,7 +255,7 @@ func TestStatus_SwapIn(t *testing.T) {
 		ContractAddress:    "dummy-contract-address",
 		CreatedAt:          time.Now(),
 		InputAmount:        decimal.NewFromFloat(100),
-		LockTx:             new(string),
+		LockTx:             nil,
 		Outcome:            "dummy-outcome",
 		OutputAmount:       decimal.NewFromFloat(90),
 		RedeemScript:       "dummy-redeem-script",
@@ -272,7 +272,6 @@ func TestStatus_SwapIn(t *testing.T) {
 	require.Equal(t, "dummy-contract-address", res.ContractAddress)
 	require.NotZero(t, res.CreatedAt)
 	require.Equal(t, 100.0, res.InputAmount)
-	require.NotNil(t, res.LockTx)
 	require.Equal(t, "dummy-outcome", *res.Outcome)
 	require.Equal(t, 90.0, res.OutputAmount)
 	require.Equal(t, "dummy-redeem-script", res.RedeemScript)
