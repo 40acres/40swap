@@ -27,13 +27,12 @@ export function getRelativePathFromDescriptor(descriptor: string): string {
     return match[1];
 }
 
-export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, getCltvExpiry: () => Promise<number>): Promise<number> {
+export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, cltvExpiry: number): Promise<number> {
     const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
     const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
     const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
-    const invoiceExpiry = await getCltvExpiry();
-    assert(invoiceExpiry > currentBitcoinHeight, `invoiceExpiry=${invoiceExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
-    return currentLiquidHeight + ((invoiceExpiry-currentBitcoinHeight)*ratio);
+    assert(cltvExpiry > currentBitcoinHeight, `invoiceExpiry=${cltvExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
+    return currentLiquidHeight + ((cltvExpiry-currentBitcoinHeight)*ratio);
 }
 
 export async function getLiquidBlockHeight(btcBlockHeight: number, nbxplorer: NbxplorerService): Promise<number> {

@@ -90,7 +90,8 @@ export class SwapOutRunner {
             this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             if (swap.chain === 'LIQUID') {
-                swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, this.getCltvExpiry);
+                const invoiceExpiry = await this.getCltvExpiry();
+                swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, invoiceExpiry);
                 swap.lockScript = reverseSwapScript(
                     swap.preImageHash, 
                     swap.counterpartyPubKey, 
