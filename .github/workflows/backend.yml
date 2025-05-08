@@ -87,7 +87,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Docker meta
         id: meta-fe
-        uses: docker/metadata-action@v5.0.0
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
@@ -136,7 +136,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
       - name: Build and push backend Docker image
         id: build-and-push-backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: server-backend/docker/Dockerfile
