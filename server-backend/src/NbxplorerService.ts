@@ -10,6 +10,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { FourtySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { Chain } from '@40swap/shared';
 
 const nbxplorerBalanceSchema = z.object({
     unconfirmed: z.number(),
@@ -145,7 +146,7 @@ const bitcoinTransactionEventSchema = nbxplorerBaseEvent.extend({
     }),
 });
 
-const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
+const bitcoinBlockEventSchema = nbxplorerBaseEvent.extend({
     type: z.literal('newblock'),
     data: z.object({
         height: z.number().int().positive(),
@@ -209,12 +210,15 @@ export type NBXplorerLiquidTransactionInput = z.infer<typeof liquidTransactionIn
 export type NBXplorerLiquidWalletTransaction = z.infer<typeof liquidTransactionEventSchema>['data'];
 export type NBXplorerBitcoinTransactionOutput = z.infer<typeof bitcoinTransactionOutput>;
 
-const liquidNbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
-const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, bitcoinTransactionEventSchema]);
-const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
-const nbxplorerTransactionEvent = z.union([bitcoinTransactionEventSchema, liquidTransactionEventSchema]);
+export const liquidNbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
+export const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [bitcoinBlockEventSchema, bitcoinTransactionEventSchema]);
+export const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
+export const nbxplorerTransactionEvent = z.union([bitcoinTransactionEventSchema, liquidTransactionEventSchema]);
+export const nbxplorerBlockEvent = z.union([bitcoinBlockEventSchema, liquidBlockEventSchema]);
 export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
 export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
+export type BitcoinBlockEvent = z.infer<typeof bitcoinBlockEventSchema>;
+export type BitcoinTransactionEvent = z.infer<typeof bitcoinTransactionEventSchema>;
 export type NBXplorerBlockEvent = z.infer<typeof nbxplorerBlockEvent>;
 export type NBXplorerNewTransactionEvent = z.infer<typeof nbxplorerTransactionEvent>;
 export type BitcoinEvent = z.infer<typeof bitcoinNbxplorerEvent>;
@@ -278,6 +282,16 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         private eventEmitter: EventEmitter2,
     ) {
         this.config = config.getOrThrow('nbxplorer', { infer: true });
+    }
+
+    getChainFromCryptoCode(cryptoCode: string): Chain {
+        if (cryptoCode === 'BTC') {
+            return 'BITCOIN';
+        }
+        if (cryptoCode === 'LBTC') {
+            return 'LIQUID';
+        }
+        throw new Error(`Unknown crypto code: ${cryptoCode}`);
     }
 
     getUrl(cryptoCode: string = 'btc'): string {
@@ -397,7 +411,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 await this.dataSource.transaction(async dbTx => {
                     await this.saveLastEventId(event.eventId, dbTx);
                     if (event.type === 'newblock' || event.type === 'newtransaction') {
-                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                        const cryptoCode = this.getChainFromCryptoCode('BTC'); // BTC events do not have a cryptoCode
+                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event, cryptoCode);
                     }
                 });
             }
@@ -418,7 +433,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                     await this.dataSource.transaction(async dbTx => {
                         await this.saveLastLiquidEventId(event.eventId, dbTx);
                         if (event.type === 'newblock' || event.type === 'newtransaction') {
-                            await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                            const cryptoCode = this.getChainFromCryptoCode(event.data.cryptoCode);
+                            await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event, cryptoCode);
                         }
                     });
                 } catch (e) {

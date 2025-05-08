@@ -7,7 +7,7 @@ import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
 import { address, payments, Transaction } from 'bitcoinjs-lib';
 import { buildContractSpendBasePsbt, buildTransactionWithFee, reverseSwapScript } from './bitcoin-utils.js';
-import { signContractSpend, SwapOutStatus, getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { signContractSpend, SwapOutStatus, getLiquidNetworkFromBitcoinNetwork, Chain } from '@40swap/shared';
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import { ECPairFactory } from 'ecpair';
@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { getLiquidCltvExpiry, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -90,7 +90,7 @@ export class SwapOutRunner {
             this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             if (swap.chain === 'LIQUID') {
-                swap.timeoutBlockHeight = await this.getLiquidCltvExpiry();
+                swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, this.getCltvExpiry);
                 swap.lockScript = reverseSwapScript(
                     swap.preImageHash, 
                     swap.counterpartyPubKey, 
@@ -153,15 +153,6 @@ export class SwapOutRunner {
         return invoice.htlcs[0].expiryHeight;
     }
 
-    private async getLiquidCltvExpiry(): Promise<number> {
-        const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
-        const currentLiquidHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-        const currentBitcoinHeight = (await this.nbxplorer.getNetworkStatus()).chainHeight;
-        const invoiceExpiry = await this.getCltvExpiry();
-        assert(invoiceExpiry > currentBitcoinHeight, `invoiceExpiry=${invoiceExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
-        return currentLiquidHeight + ((invoiceExpiry-currentBitcoinHeight)*ratio);
-    }
-
     private async waitForLightningPaymentIntent(): Promise<void> {
         const { swap } = this;
         let invoice: Invoice__Output|undefined;
@@ -182,8 +173,11 @@ export class SwapOutRunner {
         }
     }
 
-    async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
+    async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
         const { swap } = this;
+        if (swap.chain !== cryptoCode) {
+            return;
+        }
         const addressRegex = /ADDRESS:(.*)/;
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
@@ -280,8 +274,11 @@ export class SwapOutRunner {
     }
 
     // TODO refactor. This is very similar to SwapInRunner
-    async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
+    async processNewBlock(event: NBXplorerBlockEvent, cryptoCode: Chain): Promise<void> {
         const { swap } = this;
+        if (swap.chain !== cryptoCode) {
+            return;
+        }
         if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
@@ -337,7 +334,8 @@ export class SwapOutRunner {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
         const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
         const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!));
-        const psetTx = liquid.Extractor.extract(pset);
-        return psetTx;
+        const signature = psetBuilder.signPset(pset, Buffer.from(swap.unlockPrivKey), 0);
+        psetBuilder.finalizePset(pset, 0, signature);
+        return liquid.Extractor.extract(pset);
     }
 }
