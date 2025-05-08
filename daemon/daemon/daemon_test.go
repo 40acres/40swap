@@ -112,7 +112,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 			setup: func() {
 				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
 					Status:  models.StatusDone,
-					Outcome: outcomeRefunded.String(),
+					Outcome: outcomeRefunded,
 				}, nil)
 			},
 			req: models.SwapIn{
@@ -130,7 +130,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 			setup: func() {
 				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
 					Status:  models.StatusDone,
-					Outcome: outcomeExpired.String(),
+					Outcome: outcomeExpired,
 				}, nil)
 			},
 			req: models.SwapIn{
@@ -148,7 +148,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 			setup: func() {
 				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
 					Status:  models.StatusDone,
-					Outcome: outcomeSuccess.String(),
+					Outcome: outcomeSuccess,
 				}, nil)
 				lightningClient.EXPECT().MonitorPaymentReception(ctx, lightning.TestPaymentHash[:]).Return(hex.EncodeToString(lightning.TestPreimage[:]), nil)
 			},
