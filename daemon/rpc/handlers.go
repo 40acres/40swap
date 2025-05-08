@@ -132,7 +132,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
 		ServiceFeeSats:     serviceFeeSats.IntPart(),
-		OnChainFeeSats:     inputAmountSats.Sub(outputAmountSats).Sub(serviceFeeSats).IntPart(),
+		OnchainFeeSats:     inputAmountSats.Sub(outputAmountSats).Sub(serviceFeeSats).IntPart(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not save swap: %w", err)
@@ -277,9 +277,12 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		return nil, fmt.Errorf("swap id is required")
 	}
 
-	// Call API
-	swap, err := s.swapClient.GetSwapIn(ctx, req.Id)
+	swap, err := s.Repository.GetSwapIn(ctx, req.Id)
 	if err != nil {
+		if errors.Is(err, swaps.ErrSwapNotFound) {
+			return nil, fmt.Errorf("swap not found: %w", err)
+		}
+
 		return nil, fmt.Errorf("could not get swap in: %w", err)
 	}
 
@@ -288,16 +291,22 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		return nil, err
 	}
 
+	outcome := swap.Outcome.String()
+	preimage := swap.PreImage.String()
+
 	res := &GetSwapInResponse{
-		Id:                 swap.SwapId,
+		Id:                 swap.SwapID,
 		Status:             rpcStatus,
-		ContractAddress:    swap.ContractAddress,
+		ContractAddress:    swap.ClaimAddress,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
-		InputAmount:        swap.InputAmount.InexactFloat64(),
-		Outcome:            (*string)(&swap.Outcome),
-		OutputAmount:       swap.OutputAmount.InexactFloat64(),
+		InputAmount:        money.Money(swap.AmountSats + swap.ServiceFeeSats + swap.OnchainFeeSats).ToBtc().InexactFloat64(), // nolint:gosec
+		LockTxId:           &swap.LockTxID,
+		Outcome:            &outcome,
+		OutputAmount:       money.Money(swap.AmountSats).ToBtc().InexactFloat64(), // nolint:gosec
 		RedeemScript:       swap.RedeemScript,
-		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight), // nolint:gosec
+		PreImage:           &preimage,
+		RefundTxId:         &swap.RefundTxID,
 	}
 
 	return res, nil
@@ -308,8 +317,7 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		return nil, fmt.Errorf("swap id is required")
 	}
 
-	// Call API
-	swap, err := s.swapClient.GetSwapOut(ctx, req.Id)
+	swap, err := s.Repository.GetSwapOut(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("could not get swap out: %w", err)
 	}
@@ -319,15 +327,18 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		return nil, err
 	}
 
+	outcome := swap.Outcome.String()
+
 	res := &GetSwapOutResponse{
-		Id:                 swap.SwapId,
+		Id:                 swap.SwapID,
 		Status:             rpcStatus,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
-		TimeoutBlockHeight: swap.TimeoutBlockHeight,
-		Invoice:            swap.Invoice,
-		InputAmount:        swap.InputAmount.InexactFloat64(),
-		OutputAmount:       swap.OutputAmount.InexactFloat64(),
-		Outcome:            (*string)(&swap.Outcome),
+		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight), // nolint:gosec
+		Invoice:            swap.PaymentRequest,
+		InputAmount:        money.Money(swap.AmountSats + swap.ServiceFeeSats + swap.OnchainFeeSats).ToBtc().InexactFloat64(), // nolint:gosec
+		OutputAmount:       money.Money(swap.AmountSats).ToBtc().InexactFloat64(),                                             // nolint:gosec
+		Outcome:            &outcome,
+		ClaimTxId:          &swap.TxID,
 	}
 
 	return res, nil
