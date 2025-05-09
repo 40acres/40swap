@@ -235,9 +235,14 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 
 	log.Info("Swap created: ", swap.SwapId)
 
+	amountSats, err := money.NewFromBtc(swap.InputAmount)
+	if err != nil {
+		return nil, fmt.Errorf("error converting amount to BTC: %w", err)
+	}
+
 	return &SwapOutResponse{
 		SwapId:     swap.SwapId,
-		AmountSats: uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec
+		AmountSats: uint64(amountSats), // nolint:gosec
 	}, nil
 }
 
@@ -289,8 +294,7 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		ContractAddress:    swap.ContractAddress,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		InputAmount:        swap.InputAmount.InexactFloat64(),
-		LockTx:             swap.LockTx,
-		Outcome:            &swap.Outcome,
+		Outcome:            (*string)(&swap.Outcome),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
 		TimeoutBlockHeight: swap.TimeoutBlockHeight,
@@ -323,6 +327,7 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		Invoice:            swap.Invoice,
 		InputAmount:        swap.InputAmount.InexactFloat64(),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
+		Outcome:            (*string)(&swap.Outcome),
 	}
 
 	return res, nil
