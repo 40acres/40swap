@@ -16,6 +16,7 @@ export class ConfigurationController {
             minimumAmount: this.config.getOrThrow('swap.minimumAmount', { infer: true }),
             maximumAmount: this.config.getOrThrow('swap.maximumAmount', { infer: true }),
             mempoolDotSpaceUrl: this.config.getOrThrow('mempoolBlockExplorer.url', { infer: true }),
+            esploraUrl: this.config.getOrThrow('elements.esploraUrl', { infer: true }),
         };
     }
 }
