@@ -21,7 +21,7 @@ func NewConnection(host string, port uint32) *grpc.ClientConn {
 }
 
 func NewRPCClient(host string, port uint32) SwapServiceClient {
-	conn := NewConnection("localhost", port)
+	conn := NewConnection(host, port)
 	client := NewSwapServiceClient(conn)
 
 	return client
