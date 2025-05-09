@@ -13,45 +13,98 @@
 ## Instructions
 
 1. Install all the dependencies from the root folder
+
 ```bash
 npm install --workspaces
 ```
-2. Start services with docker compose 
+
+2. Start services with docker compose
+
 ```bash
 cd server-backend/dev
 docker compose up
 ```
+
 3. Initialize blockchain and lightning nodes
+
 ```bash
 server-backend/dev/nodes-setup.sh
 ```
+
 4. Build shared module
+
 ```bash
 cd shared
 npm run build
 ```
+
 5. Start backend
+
 ```bash
 cd server-backend
 npm run start:dev
 ```
+
 6. Start frontend
+
 ```bash
 cd swap-frontend
 npm run start:dev
 ```
+
 7. Open http://localhost:7080 in your browser
 8. You can check the API's' Swagger at http://localhost:7081/docs
 
 ## Testing
 
 By sourcing [`server-backend/dev/dev-aliases.sh`](server-backend/dev/dev-aliases.sh) you can get access to some useful commands, e.g.:
+
 ```bash
 source server-backend/dev/dev-aliases.sh
 # mine N blocks
 40swap-bitcoin-cli -generate $N
-# pay lightning invoice from user node      
+# pay lightning invoice from user node
 40swap-user-lncli payinvoice $INVOICE
 # send bitcoins to adddress
 40swap-bitcoin-cli -named sendtoaddress address=$ADDR amount=$AMOUNT fee_rate=25
 ```
+
+## Code Formatting
+
+This project uses Prettier and ESLint for consistent code formatting and linting.
+
+### Available Commands
+
+You can use the following npm scripts from the root directory:
+
+```bash
+# Format all code
+npm run format
+
+# Check code formatting without making changes
+npm run format:check
+
+# Run linting
+npm run lint
+
+# Automatically fix linting issues
+npm run lint:fix
+```
+
+Alternatively, you can use the Just commands:
+
+```bash
+# Format code
+just format
+
+# Check code formatting
+just check-format
+
+# Run linter
+just lint
+
+# Check linting
+just check-lint
+```
+
+VS Code will also respect our formatting settings if you're using the editor's built-in formatting capabilities.
