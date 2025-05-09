@@ -13,6 +13,7 @@ import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js
 import { SwapService } from './SwapService.js';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { 
+    getLiquidNetworkFromBitcoinNetwork,
     GetSwapInResponse,
     getSwapInResponseSchema,
     PsbtResponse,
@@ -21,6 +22,9 @@ import {
     swapInRequestSchema,
     txRequestSchema,
 } from '@40swap/shared';
+import { LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { LiquidService } from './LiquidService.js';
+import * as liquid from 'liquidjs-lib';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -38,6 +42,7 @@ export class SwapInController {
         private dataSource: DataSource,
         private bitcoinConfig: BitcoinConfigurationDetails,
         private bitcoinService: BitcoinService,
+        private liquidService: LiquidService,
         private swapService: SwapService,
     ) {}
 
@@ -54,19 +59,29 @@ export class SwapInController {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
         }
-        try {
-            address.toOutputScript(outputAddress, this.bitcoinConfig.network);
-        } catch (e) {
-            throw new BadRequestException(`invalid address ${outputAddress}`);
-        }
         const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
+        try {
+            if (swap.chain === 'BITCOIN') {
+                address.toOutputScript(outputAddress, this.bitcoinConfig.network);
+            } else if (swap.chain === 'LIQUID') {
+                liquid.address.toOutputScript(outputAddress, getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network));
+            }
+        } catch (e) {
+            throw new BadRequestException(`invalid address ${outputAddress}`);
+        }
         assert(swap.lockTx != null);
-        const lockTx = Transaction.fromBuffer(swap.lockTx);
-        const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
-        return { psbt: refundPsbt.toBase64() };
+        if (swap.chain === 'BITCOIN') {
+            const lockTx = Transaction.fromBuffer(swap.lockTx);
+            const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
+            return { psbt: refundPsbt.toBase64() };
+        } else if (swap.chain === 'LIQUID') {
+            const refundPsbt = await this.buildLiquidRefundPsbt(swap, outputAddress);
+            return { psbt: refundPsbt.toBase64() };
+        }
+        throw new BadRequestException('invalid chain');
     }
 
     @Post('/:id/refund-tx')
@@ -78,14 +93,19 @@ export class SwapInController {
         }
         assert(swap.lockTx != null);
         try {
-            const lockTx = Transaction.fromBuffer(swap.lockTx);
-            const refundTx = Transaction.fromHex(txRequest.tx);
-            if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
-                throw new BadRequestException('invalid refund tx');
+            if (swap.chain === 'BITCOIN') {
+                const lockTx = Transaction.fromBuffer(swap.lockTx);
+                const refundTx = Transaction.fromHex(txRequest.tx);
+                if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                    throw new BadRequestException('invalid refund tx');
+                }
+                await this.nbxplorer.broadcastTx(refundTx);
+            } else if (swap.chain === 'LIQUID') {
+                const refundTx = liquid.Transaction.fromHex(txRequest.tx);
+                await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
             }
-            await this.nbxplorer.broadcastTx(refundTx);
         } catch (e) {
-            throw new BadRequestException('invalid bitcoin tx');
+            throw new BadRequestException('invalid tx');
         }
     }
 
@@ -140,5 +160,17 @@ export class SwapInController {
                 return psbt;
             }
         );
+    }
+
+    async buildLiquidRefundPsbt(swap: SwapIn, outputAddress: string): Promise<liquid.Pset> {
+        const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, {
+            xpub: this.liquidService.xpub,
+            rpcUrl: this.liquidService.configurationDetails.rpcUrl,
+            rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
+            rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
+        }, network);
+        const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!), outputAddress);
+        return pset;
     }
 }
