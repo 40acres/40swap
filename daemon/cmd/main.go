@@ -115,12 +115,6 @@ func main() {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("40SWAPD_LNDCONNECT")),
 			},
-			&cli.StringFlag{
-				Name:  "mempool-url",
-				Usage: "Mempool url to use for tx inspection",
-				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("MEMPOOL_URL")),
-			},
 			&grpcPort,
 			&serverUrl,
 			&tlsCert,
