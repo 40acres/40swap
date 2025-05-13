@@ -148,6 +148,35 @@ func (m *MempoolSpace) GetRecommendedFees(ctx context.Context, speed bitcoin.Spe
 	return fees[string(speed)], nil
 }
 
+func (m *MempoolSpace) GetFeeFromTxId(ctx context.Context, txId string) (int64, error) {
+	req, err := m.makeRequest(ctx, "/tx/"+txId, "GET", nil)
+	if err != nil {
+		return 0, err
+	}
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return 0, fmt.Errorf("failed to get transaction from mempool: %s", resp.Status)
+	}
+
+	var txInfo struct {
+		Fee int64 `json:"fee"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&txInfo)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decode transaction info: %w", err)
+	}
+	// Get the fee from the transaction info
+	onchainFees := txInfo.Fee
+
+	return onchainFees, nil
+}
+
 func (m *MempoolSpace) makeRequest(ctx context.Context, path string, method string, body *string) (*http.Request, error) {
 	var req *http.Request
 	var err error

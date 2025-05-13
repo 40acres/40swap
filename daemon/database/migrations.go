@@ -278,6 +278,33 @@ func DropClaimTxForSwapIns() *gormigrate.Migration {
 	}
 }
 
+func AddLockTxIdToSwapIn() *gormigrate.Migration {
+	const ID = "8_add_lock_tx_id_to_swap_in"
+
+	type swapIn struct {
+		LockTxID     string
+		RefundAmount uint64
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().AddColumn(&swapIn{}, "LockTxID"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().AddColumn(&swapIn{}, "RefundAmount")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().DropColumn(&swapIn{}, "LockTxID"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().DropColumn(&swapIn{}, "RefundAmount")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
@@ -286,6 +313,7 @@ var migrations = []*gormigrate.Migration{
 	AddPreimageTxIdTimeoutBlockHeightToSwapOut(),
 	ChangeNameClaimPubkey(),
 	DropClaimTxForSwapIns(),
+	AddLockTxIdToSwapIn(),
 }
 
 type Migrator struct {

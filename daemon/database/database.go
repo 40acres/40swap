@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/40acres/40swap/daemon/database/gen"
 	"github.com/40acres/40swap/daemon/database/models"
 	log "github.com/sirupsen/logrus"
 
@@ -36,6 +37,7 @@ type Database struct {
 	port     uint32
 	dataPath string
 	orm      *gorm.DB
+	query    *gen.Query
 }
 
 func New(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
@@ -93,6 +95,7 @@ func New(username, password, database string, port uint32, dataPath, host string
 		return nil, nil, fmt.Errorf("could not get GORM: %w", err)
 	}
 	db.orm = orm
+	db.query = gen.Use(orm)
 
 	return &db, close, nil
 }

@@ -216,7 +216,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, c.Int("minrelayfee"), network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, lnClient, rpc.ToLightningNetworkType(network))
+					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network))
 					if err != nil {
 						return err
 					}
