@@ -21,4 +21,5 @@ type Client interface {
 	PostRefund(ctx context.Context, tx string) error
 	GetTxFromOutpoint(ctx context.Context, outpoint string) (*wire.MsgTx, error)
 	GetRecommendedFees(ctx context.Context, speed Speed) (int64, error)
+	GetFeeFromTxId(ctx context.Context, txId string) (int64, error)
 }
