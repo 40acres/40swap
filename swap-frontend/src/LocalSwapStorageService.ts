@@ -51,10 +51,29 @@ export class LocalSwapStorageService {
                 console.error('PERSISTED DATA ERROR', error);
             }
         }
-        this.db = idb.openDB<FourtySwapDbSchema>('40swap', 1, {
-            upgrade(db) {
-                const store = db.createObjectStore('swap', { keyPath: 'swapId' });
-                store.createIndex('by-created-at', 'createdAt', { unique: false });
+        this.db = idb.openDB<FourtySwapDbSchema>('40swap', 2, {
+            upgrade(db, oldVersion, newVersion, transaction) {
+                const store = db.objectStoreNames.contains('swap')
+                    ? transaction.objectStore('swap')
+                    : db.createObjectStore('swap', { keyPath: 'swapId' });
+        
+                if (oldVersion < 1) {
+                    store.createIndex('by-created-at', 'createdAt', { unique: false });
+                }
+        
+                if (oldVersion < 2) {
+                    const index = store.index('by-created-at');
+                    index.getAll().then((swaps: (PersistedSwapIn | PersistedSwapOut)[]) => {
+                        for (const swap of swaps) {
+                            if (!swap.chain) {
+                                swap.chain = 'BITCOIN';
+                                store.put(swap);
+                            }
+                        }
+                    }).catch(err => {
+                        console.error('Migration failed', err);
+                    });
+                }
             },
         });
     }

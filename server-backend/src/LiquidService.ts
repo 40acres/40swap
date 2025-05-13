@@ -13,6 +13,7 @@ const LiquidConfigurationDetailsSchema = z.object({
         password: z.string(),
     }),
     xpub: z.string(),
+    esploraUrl: z.string(),
 });
 
 export type LiquidConfigurationDetails = z.infer<typeof LiquidConfigurationDetailsSchema>;
@@ -71,7 +72,7 @@ export class LiquidService implements OnApplicationBootstrap  {
     private readonly logger = new Logger(LiquidService.name);
     private readonly rpcUrl: string;
     private readonly rpcAuth: {username: string, password: string};
-    
+
     constructor(
         private nbxplorer: NbxplorerService,
         @Inject('ELEMENTS_CONFIG') private elementsConfig: FourtySwapConfiguration['elements'],
@@ -86,6 +87,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             rpcUrl: this.rpcUrl,
             rpcAuth: this.rpcAuth,
             xpub: this.xpub,
+            esploraUrl: this.elementsConfig.esploraUrl,
         });
     }
     

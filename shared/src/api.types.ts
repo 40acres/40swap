@@ -103,6 +103,7 @@ export const frontendConfigurationSchema = z.object({
     minimumAmount: z.number(),
     maximumAmount: z.number(),
     mempoolDotSpaceUrl: z.string().url(),
+    esploraUrl: z.string().url(),
 });
 export type FrontendConfiguration = z.infer<typeof frontendConfigurationSchema>;
 export type FrontendConfigurationServer = z.input<typeof frontendConfigurationSchema>;

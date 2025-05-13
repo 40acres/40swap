@@ -105,6 +105,7 @@ elements:
   rpcUsername: 40swap
   rpcPassword: pass
   xpub: $xpub
+  esploraUrl: http://localhost:35000
 EOM
 
 echo "$xpub_config" > ../server-backend/dev/40swap.elements.yml
