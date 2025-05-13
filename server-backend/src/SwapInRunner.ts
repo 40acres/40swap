@@ -14,7 +14,7 @@ import { address, Transaction } from 'bitcoinjs-lib';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
-import { getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
+import { Chain, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import moment from 'moment';
@@ -22,7 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
-import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { getBitcoinBlockHeightFromLiquidValue, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -103,7 +103,12 @@ export class SwapInRunner {
         if (status === 'CONTRACT_FUNDED') {
             try {
                 const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
-                this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
+                if (this.swap.chain === 'BITCOIN') {
+                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
+                } else if (this.swap.chain === 'LIQUID') {
+                    const cltvLiquidLimit = await getBitcoinBlockHeightFromLiquidValue(cltvLimit, this.nbxplorer);
+                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLiquidLimit);
+                }
             } catch (e) {
                 // we don't do anything, just let the contract expire and handle it as a refund
                 this.logger.error(`The lightning payment failed after retries (id=${this.swap.id})`, e);
@@ -133,8 +138,11 @@ export class SwapInRunner {
         }
     }
 
-    async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
+    async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
         const { swap } = this;
+        if (swap.chain !== cryptoCode) {
+            return;
+        }
         const addressRegex = /ADDRESS:(.*)/;
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
@@ -245,9 +253,12 @@ export class SwapInRunner {
         }
     }
 
-    async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
-        this.logger.debug(`Processing new block ${event.data.height} (swap=${this.swap})`);
+    async processNewBlock(event: NBXplorerBlockEvent, cryptoCode: Chain): Promise<void> {
         const { swap } = this;
+        if (swap.chain !== cryptoCode) {
+            return;
+        }
+        this.logger.debug(`Processing new block ${event.data.height} (swap=${this.swap})`);
         if ((swap.status === 'CONTRACT_FUNDED' || swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' || swap.status === 'CONTRACT_AMOUNT_MISMATCH')
             && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
