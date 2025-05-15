@@ -13,9 +13,9 @@ import { FrontendConfiguration, getLiquidNetworkFromBitcoinNetwork, getSwapInInp
 import Fa from 'solid-fa';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
-import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetSelector } from './components/AssetSelector.jsx';
 import { Asset } from './controllers/AssetController.js';
+import * as liquid from 'liquidjs-lib';
 
 
 type FormData = {
@@ -163,7 +163,11 @@ export const SwapForm: Component = () => {
 
     function validateLiquidAddress(address: string, conf: FrontendConfiguration): void {
         try {
-            toOutputScriptLiquid(address, getLiquidNetworkFromBitcoinNetwork(conf.bitcoinNetwork));
+            const network = getLiquidNetworkFromBitcoinNetwork(conf.bitcoinNetwork);
+            // toOutputScriptLiquid(address, network);
+            const decoded = liquid.address.fromConfidential(address);
+            const unconfidential = decoded.unconfidentialAddress;
+            liquid.address.toOutputScript(unconfidential, network);
             setFormErrors('payload', false);
         } catch (e) {
             setFormErrors('payload', true);
