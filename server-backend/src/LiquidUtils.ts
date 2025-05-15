@@ -9,6 +9,8 @@ import assert from 'node:assert';
 import BIP32Factory from 'bip32';
 import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
+import { blindPset as sharedBlindPset } from '@40swap/shared';
+
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -84,14 +86,18 @@ export abstract class LiquidPSETBuilder {
     }
 
     addOutput(
-        updater: liquid.Updater, amount: number, script?: Buffer | undefined, blindingKey?: Buffer | undefined
+        updater: liquid.Updater, 
+        amount: number, 
+        script?: Buffer | undefined, 
+        blindingKey?: Buffer | undefined,
+        blinderIndex?: number | undefined
     ): void {
         const changeOutput = new liquid.CreatorOutput(
             this.network.assetHash,
             amount,
             script ?? undefined,
-            // TODO: Add blinding key
-            // blindingKey !== undefined ? blindingKey : undefined,
+            blindingKey,
+            blinderIndex
         );
         updater.addOutputs([changeOutput]);
     }
@@ -161,6 +167,12 @@ export abstract class LiquidPSETBuilder {
             outputValue,
             witnessUtxo,
         };
+    }
+
+    async blindPset(pset: liquid.Pset, utxos: {
+        blindingPrivateKey: Buffer;
+    }[]): Promise<void> {
+        return sharedBlindPset(pset, utxos);
     }
 }
 
@@ -269,13 +281,18 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
         // Calculate output amount and fee
         const feeAmount = await this.getCommissionAmount();
         const outputAmount = outputValue - feeAmount;
+
         
         // Add output
         const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
-        this.addOutput(updater, outputAmount, outputScript);
+        const outputBlinderIndex = 0;
+        this.addOutput(updater, outputAmount, outputScript, undefined, outputBlinderIndex);
         
         // Add fee output - required for Liquid
-        this.addOutput(updater, feeAmount);
+        const feeBlinderIndex = 1;
+        this.addOutput(updater, feeAmount, undefined, undefined, feeBlinderIndex);
+
+        // Blinding this pset is a client side operation
 
         return pset;
     }
