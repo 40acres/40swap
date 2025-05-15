@@ -19,7 +19,7 @@ import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
-import { payments as liquidPayments } from 'liquidjs-lib';
+import { payments as liquidPayments, address as liquidAddress } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 import { getLiquidBlockHeight } from './LiquidUtils.js';
@@ -97,17 +97,21 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             sweepAddress = await this.lnd.getNewAddress();
         } else if (request.chain === 'LIQUID') {
             const liquidNetworkToUse = getLiquidNetworkFromBitcoinNetwork(network);
-            address = liquidPayments.p2wsh({
+            const response = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true });
+            sweepAddress = response.address;
+            const blindkey = liquidAddress.fromConfidential(sweepAddress).blindingKey;
+            const payment = liquidPayments.p2wsh({
                 network: liquidNetworkToUse,
                 redeem: {
                     output: lockScript,
                     network: liquidNetworkToUse,
                 },
-                blindkey: undefined, // TODO: add blinding key
-            }).address;
-            assert(address);
-            await this.nbxplorer.trackAddress(address, 'lbtc');
-            sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
+                blindkey,
+            });
+            assert(payment.confidentialAddress);
+            assert(payment.address);
+            address = payment.confidentialAddress;
+            await this.nbxplorer.trackAddress(payment.address, 'lbtc');
         }
         assert(address);
         assert(sweepAddress);
