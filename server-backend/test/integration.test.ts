@@ -374,7 +374,7 @@ describe('40Swap backend', () => {
                 lockBlockDelta: {
                     minIn: 144,
                     in: 432,
-                    out: 20,
+                    out: 144,
                 },
             },
             lnd: {
