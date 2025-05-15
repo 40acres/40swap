@@ -8,7 +8,7 @@ import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { BackendRestClient } from './BackendRestClient';
 import { ECPair, waitFor, waitForChainSync } from './utils';
-import { networks } from 'bitcoinjs-lib';
+import { networks, Psbt } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
 import * as liquid from 'liquidjs-lib';
 import { signLiquidPset } from '@40swap/shared';
@@ -278,6 +278,51 @@ describe('40Swap backend', () => {
         await waitFor(async () => (await backend.getSwapIn(swap.swapId)).status === 'DONE');
         const swapIn = await backend.getSwapIn(swap.swapId);
         expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
+    });
+
+    it('should complete a swap out and verify funds received', async () => {
+        const randomBytes = crypto.randomBytes(32);
+        const preImage = Buffer.from(randomBytes);
+        const preImageHash = crypto.createHash('sha256').update(preImage).digest();
+        const claimKey = ECPair.makeRandom();
+
+        // Create the swap out
+        let swap = await backend.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            claimPubKey: claimKey.publicKey.toString('hex'),
+            preImageHash: preImageHash.toString('hex'),
+        });
+        expect(swap.status).toEqual('CREATED');
+
+        // Pay the Lightning invoice
+        lndUser.sendPayment(swap.invoice);
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        // Confirm the contract funding
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
+
+        // Claim the funds
+        const claimAddress = await lndUser.newAddress(); 
+        const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
+        const psbt = Psbt.fromBase64(claimPsbt.psbt); 
+        signContractSpend({
+            psbt,
+            network: network,
+            key: ECPair.fromPrivateKey(claimKey.privateKey!),
+            preImage: preImage,
+        });
+        const transaction = psbt.extractTransaction();  
+        await backend.claimSwap(swap.swapId, transaction.toHex());
+
+        // Mine a block to confirm the claim
+        await bitcoind.mine();
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'DONE');
+
+        // Verify the swap outcome
+        swap = await backend.getSwapOut(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
     async function setUpComposeEnvironment(): Promise<void> {
