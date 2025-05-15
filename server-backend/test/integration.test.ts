@@ -280,7 +280,7 @@ describe('40Swap backend', () => {
         expect(swapIn.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
-    it('should complete a swap out and verify funds received', async () => {
+    it('should complete a swap out', async () => {
         const randomBytes = crypto.randomBytes(32);
         const preImage = Buffer.from(randomBytes);
         const preImageHash = crypto.createHash('sha256').update(preImage).digest();
