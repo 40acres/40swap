@@ -1,7 +1,6 @@
 import { 
     NBXplorerBlockEvent, 
     NBXplorerBitcoinTransactionOutput, 
-    NBXplorerLiquidTransactionOutput, 
     NBXplorerNewTransactionEvent, 
     NbxplorerService,
 } from './NbxplorerService.js';
@@ -14,7 +13,7 @@ import { address, Transaction } from 'bitcoinjs-lib';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
-import { Chain, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
+import { Chain, findUnblindableOutputs, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import moment from 'moment';
@@ -23,7 +22,6 @@ import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
 import { getBitcoinBlockHeightFromLiquidValue, LiquidClaimPSETBuilder } from './LiquidUtils.js';
-
 const ECPair = ECPairFactory(ecc);
 
 export class SwapInRunner {
@@ -147,13 +145,25 @@ export class SwapInRunner {
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
             const txAddress = match[1];
-            if (swap.contractAddress === txAddress) {
-                if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {
-                    await this.processContractFundingTx(event);
-                } else {
-                    await this.processContractSpendingTx(event);
+            if (swap.chain === 'BITCOIN') {
+                if (swap.contractAddress === txAddress) {
+                    if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {
+                        await this.processContractFundingTx(event);
+                    } else {
+                        await this.processContractSpendingTx(event);
+                    }
+                }
+            } else if (swap.chain === 'LIQUID') {
+                const confidentialAddress = liquid.address.fromConfidential(swap.contractAddress);
+                if (confidentialAddress.unconfidentialAddress === txAddress) {
+                    if (event.data.outputs.find(o => o.address === confidentialAddress.unconfidentialAddress) != null) {
+                        await this.processContractFundingTx(event);
+                    } else {
+                        await this.processContractSpendingTx(event);
+                    }
                 }
             }
+
         }
     }
 
@@ -162,17 +172,34 @@ export class SwapInRunner {
 
         const { swap } = this;
         // TODO: the output is also found by buildClaimTx(), needs refactor
-        const output = event.data.outputs.find(o => o.address === swap.contractAddress);
+        let output = null;
+        if (swap.chain === 'BITCOIN') {
+            output = event.data.outputs.find(o => o.address === swap.contractAddress);
+        } else if (swap.chain === 'LIQUID') {
+            const confidentialAddress = liquid.address.fromConfidential(swap.contractAddress);
+            output = event.data.outputs.find(o => o.address === confidentialAddress.unconfidentialAddress);
+        }
         assert(output != null, 'There was a problem finding the output');
         
         // Handle both Bitcoin and Liquid outputs by checking if it's a Liquid transaction
         const isLiquidTx = 'cryptoCode' in event.data && event.data.cryptoCode === 'LBTC';
-        const outputValue = isLiquidTx
-            ? new Decimal((output as NBXplorerLiquidTransactionOutput).value.value)
+        if (isLiquidTx) {
+            const tx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
+            const unblindableOutputs = await findUnblindableOutputs(tx, swap.unlockPrivKey);
+            if (unblindableOutputs.length > 0) {
+                output = unblindableOutputs[0];
+            } else {
+                this.logger.warn(`Could not unblind any outputs (id=${this.swap.id})`);
+                return;
+            }
+        }
+        const outputValue =  isLiquidTx
+            ? new Decimal((output as liquid.confidential.UnblindOutputResult).value)
             : new Decimal((output as NBXplorerBitcoinTransactionOutput).value);
             
         const receivedAmount = new Decimal(outputValue).div(1e8);
-        // Handle mismatched payment by checking if the received amount is different than the expected amount, if so, this is considered a failed swap but will be processed until contract is expired to be able to be refunded by the sender
+        // Handle mismatched payment by checking if the received amount is different than the expected amount, if so, 
+        // this is considered a failed swap but will be processed until contract is expired to be able to be refunded by the sender
         if (!receivedAmount.equals(swap.inputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.warn(`Contract amount mismatch. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
@@ -203,7 +230,7 @@ export class SwapInRunner {
 
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
-        assert(swap.lockTx != null);
+        assert(swap.lockTx != null, 'There was a problem finding the lock transaction');
         let unlockTx: Transaction | liquid.Transaction | null = null;
         let isPayingToExternalAddress = false;
         let isSpendingFromContract = false;

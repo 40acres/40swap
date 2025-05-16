@@ -97,17 +97,23 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             sweepAddress = await this.lnd.getNewAddress();
         } else if (request.chain === 'LIQUID') {
             const liquidNetworkToUse = getLiquidNetworkFromBitcoinNetwork(network);
-            address = liquidPayments.p2wsh({
+            const response = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true });
+            sweepAddress = response.address;
+            // const blindingKeyPair = ECPair.makeRandom({ network: liquidNetworkToUse });
+            // const blindingPrivKey = blindingKeyPair.privateKey!;
+            // const blindingPubKey = blindingKeyPair.publicKey;
+            const payment = liquidPayments.p2wsh({
                 network: liquidNetworkToUse,
                 redeem: {
                     output: lockScript,
                     network: liquidNetworkToUse,
                 },
-                blindkey: undefined, // TODO: add blinding key
-            }).address;
-            assert(address);
-            await this.nbxplorer.trackAddress(address, 'lbtc');
-            sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
+                blindkey: claimKey.publicKey,
+            });
+            assert(payment.confidentialAddress);
+            assert(payment.address);
+            address = payment.confidentialAddress;
+            await this.nbxplorer.trackAddress(payment.address, 'lbtc');
         }
         assert(address);
         assert(sweepAddress);
