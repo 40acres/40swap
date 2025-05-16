@@ -10,6 +10,8 @@ import BIP32Factory from 'bip32';
 import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
 import { blindPset as sharedBlindPset } from '@40swap/shared';
+import secp256k1Module from '@vulpemventures/secp256k1-zkp';
+
 
 
 const bip32 = BIP32Factory(ecc);
@@ -75,9 +77,10 @@ export abstract class LiquidPSETBuilder {
 
     abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
-    async getCommissionAmount(): Promise<number> {
+    async getCommissionAmount(pset: liquid.Pset | undefined = undefined): Promise<number> {
+        const txVBytes = pset ? pset.unsignedTx().virtualSize() : 1;
         const mempoolInfo = await this.liquidService.getMempoolInfo();
-        return mempoolInfo.minrelaytxfee * 1e8;
+        return Math.ceil(txVBytes * mempoolInfo.minrelaytxfee * 1e8);
     }
 
     addInput(pset: liquid.Pset, txId: string, inputIndex: number,  sequence: number): void {
@@ -92,14 +95,14 @@ export abstract class LiquidPSETBuilder {
         blindingKey?: Buffer | undefined,
         blinderIndex?: number | undefined
     ): void {
-        const changeOutput = new liquid.CreatorOutput(
+        const output = new liquid.CreatorOutput(
             this.network.assetHash,
             amount,
             script ?? undefined,
             blindingKey,
             blinderIndex
         );
-        updater.addOutputs([changeOutput]);
+        updater.addOutputs([output]);
     }
 
     signIndex(
@@ -133,26 +136,26 @@ export abstract class LiquidPSETBuilder {
         });
     }
 
-    getContractVoutInfo(
-        spendingTx: liquid.Transaction, contractAddress: string, network: liquid.networks.Network
-    ): {
+    async getContractVoutInfo(
+        spendingTx: liquid.Transaction, contractAddress: string, network: liquid.networks.Network, blindingPrivKey: Buffer
+    ): Promise<{
         contractOutputIndex: number;
         outputValue: number;
         witnessUtxo: liquid.TxOutput;
-    } {
+    }> {
         let outputValue = 0;
         let contractOutputIndex = -1;
         let witnessUtxo: liquid.TxOutput | null = null;
         
         for (let i = 0; i < spendingTx.outs.length; i++) {
             try {
+                const secp = await (secp256k1Module as unknown as { default: () => Promise<liquid.Secp256k1Interface> }).default();
+                const confidential = new liquid.confidential.Confidential(secp);
                 const outputScript = spendingTx.outs[i].script;
                 const outputAddress = liquid.address.fromOutputScript(outputScript, network);
-                if (outputAddress === contractAddress) {
+                if (outputAddress === liquid.address.fromConfidential(contractAddress).unconfidentialAddress) {
                     contractOutputIndex = i;
-                    outputValue = Buffer.isBuffer(spendingTx.outs[i].value) 
-                        ? Number(Buffer.from(spendingTx.outs[i].value).reverse().readBigUInt64LE(0))
-                        : Number(spendingTx.outs[i].value);
+                    outputValue = Number(confidential.unblindOutputWithKey(spendingTx.outs[i], blindingPrivKey).value);
                     witnessUtxo = spendingTx.outs[i];
                     break;
                 }
@@ -169,10 +172,10 @@ export abstract class LiquidPSETBuilder {
         };
     }
 
-    async blindPset(pset: liquid.Pset, utxos: {
+    async blindPset(pset: liquid.Pset, utxosKeys: {
         blindingPrivateKey: Buffer;
     }[]): Promise<void> {
-        return sharedBlindPset(pset, utxos);
+        return sharedBlindPset(pset, utxosKeys);
     }
 }
 
@@ -263,8 +266,8 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
     async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, destinationAddress: string,): Promise<liquid.Pset> {
         // Find the contract vout info
-        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(
-            spendingTx, swap.contractAddress!, this.network
+        const { contractOutputIndex, outputValue, witnessUtxo } = await this.getContractVoutInfo(
+            spendingTx, swap.contractAddress!, this.network, swap.unlockPrivKey!
         );
         
         // Create a new pset
@@ -278,21 +281,24 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
         updater.addInWitnessUtxo(psetInputIndex, witnessUtxo);
         updater.addInWitnessScript(psetInputIndex, swap.lockScript!);
         
-        // Calculate output amount and fee
-        const feeAmount = await this.getCommissionAmount();
-        const outputAmount = outputValue - feeAmount;
-
-        
-        // Add output
-        const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
+        // Add emulated outputs to be able to know the virtual size
+        const dummyFee = 0;
         const outputBlinderIndex = 0;
-        this.addOutput(updater, outputAmount, outputScript, undefined, outputBlinderIndex);
-        
-        // Add fee output - required for Liquid
-        const feeBlinderIndex = 1;
-        this.addOutput(updater, feeAmount, undefined, undefined, feeBlinderIndex);
+        const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
+        const blindingPublicKey = ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey;
+        this.addOutput(updater, outputValue, outputScript, blindingPublicKey, outputBlinderIndex);        
+        this.addOutput(updater, dummyFee);
 
-        // Blinding this pset is a client side operation
+        // Update the pset to remove the emulated outputs and add the real outputs
+        updater.pset.outputs = [];
+        const feeAmount = await this.getCommissionAmount(pset);
+        const outputAmount = outputValue - feeAmount;
+        this.addOutput(updater, outputAmount, outputScript, blindingPublicKey, outputBlinderIndex);        
+        this.addOutput(updater, feeAmount);
+
+        // Blinding pset
+        const utxosKeys = [{blindingPrivateKey: swap.unlockPrivKey!}];
+        await this.blindPset(pset, utxosKeys);
 
         return pset;
     }
@@ -302,8 +308,8 @@ export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
 
     async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, outputAddress: string | null = null): Promise<liquid.Pset> {
         // Find the contract vout info
-        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(
-            spendingTx, swap.contractAddress!, this.network
+        const { contractOutputIndex, outputValue, witnessUtxo } = await this.getContractVoutInfo(
+            spendingTx, swap.contractAddress!, this.network, swap.unlockPrivKey!
         );
         
         // Create a new pset

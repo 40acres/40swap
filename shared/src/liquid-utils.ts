@@ -51,26 +51,54 @@ export function signLiquidPset(pset: liquid.Pset, preImage: string, key: ECPairI
  * Blinds the given PSET using the input UTXO data and output blinding pubkeys.
  * Only blinds outputs that are not fee outputs.
  */
-export async function blindPset(pset: liquid.Pset, utxos: {
+export async function blindPset(pset: liquid.Pset, utxosKeys: {
     blindingPrivateKey: Buffer;
 }[]): Promise<void> {
     const secp = await (secp256k1Module as unknown as {default: () => Promise<liquid.Secp256k1Interface>}).default();
     const zkpGenerator = new liquid.ZKPGenerator(
         secp,
-        liquid.ZKPGenerator.WithBlindingKeysOfInputs(utxos.map((utxo) => utxo.blindingPrivateKey!))
+        liquid.ZKPGenerator.WithBlindingKeysOfInputs(utxosKeys.map((utxoKey) => utxoKey.blindingPrivateKey!))
     );
     const zkpValidator = new liquid.ZKPValidator(secp as liquid.Secp256k1Interface);
-    const outputBlindingArgs = zkpGenerator.blindOutputs(
-        pset,
-        liquid.Pset.ECCKeysGenerator(secp.ecc),
-    );
-
-    const blinder = new liquid.Blinder(
-        pset,
-        zkpGenerator.unblindInputs(pset),
-        zkpValidator,
-        zkpGenerator,
-    );
-
+    const outputsToBlind = pset.outputs
+        .map((_, i) => i)
+        .filter(i => pset.outputs[i]?.script?.length);
+    const keysGenerator = liquid.Pset.ECCKeysGenerator(secp.ecc);
+    const outputBlindingArgs = zkpGenerator.blindOutputs(pset, keysGenerator, outputsToBlind);
+    const ownedInputs = zkpGenerator.unblindInputs(pset);
+    const blinder = new liquid.Blinder(pset, ownedInputs, zkpValidator, zkpGenerator);
     blinder.blindLast({ outputBlindingArgs });
+}
+
+/**
+ * Unblinds the given output using the given blinding key.
+ * Returns the unblinded output value and the blinding factor.
+ */
+export async function unblindOutput(output: liquid.TxOutput, blindingKey: Buffer): Promise<liquid.confidential.UnblindOutputResult> {
+    const secp = await (secp256k1Module as unknown as { default: () => Promise<liquid.Secp256k1Interface> }).default();
+    const confidential = new liquid.confidential.Confidential(secp);
+    try {
+        return confidential.unblindOutputWithKey(output, blindingKey);
+    } catch (e) {
+        throw new Error(`Unblinding failed: ${e instanceof Error ? e.message : e}`);
+    }
+}
+
+export async function findUnblindableOutputs(tx: liquid.Transaction, privKey: Buffer): Promise<liquid.confidential.UnblindOutputResult[]> {
+    const secp = await (secp256k1Module as unknown as { default: () => Promise<liquid.Secp256k1Interface> }).default();
+    const confidential = new liquid.confidential.Confidential(secp);
+
+    const results = await Promise.allSettled(
+        tx.outs.map(out => {
+            try {
+                return Promise.resolve(confidential.unblindOutputWithKey(out, privKey));
+            } catch (e) {
+                return Promise.reject(e);
+            }
+        })
+    );
+
+    return results
+        .filter((r): r is PromiseFulfilledResult<liquid.confidential.UnblindOutputResult> => r.status === 'fulfilled')
+        .map(r => r.value);
 }

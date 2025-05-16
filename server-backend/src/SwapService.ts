@@ -19,7 +19,7 @@ import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
-import { payments as liquidPayments, address as liquidAddress } from 'liquidjs-lib';
+import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 import { getLiquidBlockHeight } from './LiquidUtils.js';
@@ -99,14 +99,16 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             const liquidNetworkToUse = getLiquidNetworkFromBitcoinNetwork(network);
             const response = await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true });
             sweepAddress = response.address;
-            const blindkey = liquidAddress.fromConfidential(sweepAddress).blindingKey;
+            // const blindingKeyPair = ECPair.makeRandom({ network: liquidNetworkToUse });
+            // const blindingPrivKey = blindingKeyPair.privateKey!;
+            // const blindingPubKey = blindingKeyPair.publicKey;
             const payment = liquidPayments.p2wsh({
                 network: liquidNetworkToUse,
                 redeem: {
                     output: lockScript,
                     network: liquidNetworkToUse,
                 },
-                blindkey,
+                blindkey: claimKey.publicKey,
             });
             assert(payment.confidentialAddress);
             assert(payment.address);
