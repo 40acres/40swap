@@ -101,8 +101,9 @@ export class SwapInController {
                 }
                 await this.nbxplorer.broadcastTx(refundTx);
             } else if (swap.chain === 'LIQUID') {
-                const refundTx = liquid.Transaction.fromHex(txRequest.tx);
-                await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
+                const pset = liquid.Pset.fromBase64(txRequest.tx);
+                const tx = liquid.Extractor.extract(pset);
+                await this.nbxplorer.broadcastTx(tx, 'lbtc');
             }
         } catch (e) {
             throw new BadRequestException('invalid tx');
@@ -171,7 +172,8 @@ export class SwapInController {
             rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
             esploraUrl: this.liquidService.configurationDetails.esploraUrl,
         }, network);
-        const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!), outputAddress);
+        const tx = liquid.Transaction.fromBuffer(swap.lockTx!);
+        const pset = await psetBuilder.getPset(swap, tx, outputAddress);
         return pset;
     }
 }

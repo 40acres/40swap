@@ -62,7 +62,10 @@ export async function blindPset(pset: liquid.Pset, utxosKeys: {
     const zkpValidator = new liquid.ZKPValidator(secp as liquid.Secp256k1Interface);
     const outputsToBlind = pset.outputs
         .map((_, i) => i)
-        .filter(i => pset.outputs[i]?.script?.length);
+        .filter(i => {
+            const script = pset.outputs[i]?.script;
+            return script && Buffer.isBuffer(script) && script.length > 0;
+        });
     const keysGenerator = liquid.Pset.ECCKeysGenerator(secp.ecc);
     const outputBlindingArgs = zkpGenerator.blindOutputs(pset, keysGenerator, outputsToBlind);
     const ownedInputs = zkpGenerator.unblindInputs(pset);

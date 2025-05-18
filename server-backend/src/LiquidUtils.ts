@@ -324,6 +324,10 @@ export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
 
         // Add required outputs
         await this.addRequiredOutputs(swap, updater, outputValue, outputAddress);
+
+        // Blinding pset
+        const utxosKeys = [{blindingPrivateKey: swap.unlockPrivKey!}];
+        await this.blindPset(pset, utxosKeys);
         
         return pset;
     }
@@ -344,16 +348,20 @@ export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
     }
 
     async addRequiredOutputs(swap: SwapOut | SwapIn, updater: liquid.Updater, outputValue: number, outputAddress: string | null = null): Promise<void> {
-        // Calculate output amount and fee
-        const feeAmount = await this.getCommissionAmount();
-        const outputAmount = outputValue - feeAmount;
-        
-        // Add output
+        // Add dummy outputs to emulate the virtual size
+        const dummyFee = 0;
         const destinationAddress = outputAddress ?? swap.sweepAddress!;
         const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
-        this.addOutput(updater, outputAmount, outputScript);
-        
-        // Add fee output - required for Liquid
+        const blindingPublicKey = ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey;
+        this.addOutput(updater, outputValue, outputScript);
+        this.addOutput(updater, dummyFee);
+
+        // Update the pset to remove the emulated outputs and add the real outputs
+        const feeAmount = await this.getCommissionAmount(updater.pset);
+        const outputAmount = outputValue - feeAmount;
+        updater.pset.outputs = [];
+        updater.pset.globals.outputCount = 0;
+        this.addOutput(updater, outputAmount, outputScript, blindingPublicKey, 0);
         this.addOutput(updater, feeAmount);
     }
 

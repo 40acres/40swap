@@ -1,4 +1,4 @@
-import { Psbt, Transaction } from 'bitcoinjs-lib';
+import { Psbt } from 'bitcoinjs-lib';
 import {
     Chain,
     FrontendConfiguration,
@@ -33,7 +33,7 @@ export class SwapInService {
         if (swap.status !== 'CONTRACT_EXPIRED') {
             throw new Error(`invalid state ${swap.status}`);
         }
-        let tx: Transaction | liquid.Transaction | null = null;
+        let tx: string | null = null;
         const psbtHex = await this.getRefundPsbtHex(swap.swapId, address);
         if (swap.chain === 'BITCOIN') {
             const psbt = Psbt.fromBase64(psbtHex, { network });
@@ -49,20 +49,24 @@ export class SwapInService {
             if (psbt.getFeeRate() > 1000) {
                 throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
             }
-            tx = psbt.extractTransaction();
+            tx = psbt.extractTransaction().toHex();
         } else if (swap.chain === 'LIQUID') {
+            console.log('psbtHex', psbtHex);
             const pset = liquid.Pset.fromBase64(psbtHex);
+            console.log('pset', pset);
             if (!this.isValidLiquidRefundTx(pset, address)) {
                 throw new Error('Error building refund transactions');
             }
             const inputIndex = 0;
             const input = pset.inputs[inputIndex];
             const sighashType = liquid.Transaction.SIGHASH_ALL;
+            console.log('input', input);
             const signature = liquid.script.signature.encode(
                 this.ECPair.fromPrivateKey(refundPrivateKey).sign(pset.getInputPreimage(inputIndex, sighashType)),
                 sighashType,
             );
             const signer = new liquid.Signer(pset);
+            console.log('pset', pset);
             signer.addSignature(
                 inputIndex,
                 {
@@ -78,8 +82,8 @@ export class SwapInService {
             finalizer.finalizeInput(inputIndex, () => {
                 return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
             });
-            tx = liquid.Extractor.extract(pset);
-            console.log(tx.toHex());
+            // tx = liquid.Extractor.extract(pset);
+            tx = pset.toBase64();
         }
         if (tx == null) {
             throw new Error('There was an error extracting the transaction');
@@ -144,11 +148,11 @@ export class SwapInService {
         return psbtResponseSchema.parse(await resp.json()).psbt;
     }
 
-    private async publishRefundTx(swapId: string, tx: Transaction | liquid.Transaction): Promise<void> {
+    private async publishRefundTx(swapId: string, tx: string): Promise<void> {
         const resp = await fetch(`/api/swap/in/${swapId}/refund-tx`, {
             method: 'POST',
             body: JSON.stringify({
-                tx: tx.toHex(),
+                tx,
             } satisfies TxRequest),
             headers: {
                 'content-type': 'application/json',
