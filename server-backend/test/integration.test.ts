@@ -342,6 +342,7 @@ describe('40Swap backend', () => {
                 rpcUrl: 'http://elements:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
+                rpcWallet: 'main',
                 esploraUrl: 'http://localhost:3000',
                 xpub,
             },
