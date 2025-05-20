@@ -252,8 +252,14 @@ export class SwapInRunner {
             unlockTx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
             isPayingToExternalAddress = event.data.outputs.length === 0;
             isSpendingFromContract = unlockTx.ins.find(i => i.hash.equals(liquid.Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
-            const sweepScript = liquid.address.toOutputScript(swap.sweepAddress, network);
-            isPayingToSweepAddress = unlockTx.outs.some(o => o.script.equals(sweepScript));
+            const sweepScript = liquid.address.fromConfidential(swap.sweepAddress).unconfidentialAddress;
+            isPayingToSweepAddress = unlockTx.outs.some(o => {
+                try {
+                    return address.fromOutputScript(o.script, network) === sweepScript;
+                } catch (e) {
+                    return false;
+                }
+            });
         }
 
         assert(unlockTx != null, 'There was a problem building the unlock transaction');

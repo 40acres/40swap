@@ -53,21 +53,21 @@ export function signLiquidPset(pset: liquid.Pset, preImage: string, key: ECPairI
  */
 export async function blindPset(pset: liquid.Pset, utxosKeys: {
     blindingPrivateKey: Buffer;
-}[]): Promise<void> {
+}[], outputsToBlind: number[] | null = null): Promise<void> {
     const secp = await (secp256k1Module as unknown as {default: () => Promise<liquid.Secp256k1Interface>}).default();
     const zkpGenerator = new liquid.ZKPGenerator(
         secp,
         liquid.ZKPGenerator.WithBlindingKeysOfInputs(utxosKeys.map((utxoKey) => utxoKey.blindingPrivateKey!))
     );
     const zkpValidator = new liquid.ZKPValidator(secp as liquid.Secp256k1Interface);
-    const outputsToBlind = pset.outputs
+    const outputs = outputsToBlind ?? pset.outputs
         .map((_, i) => i)
         .filter(i => {
             const script = pset.outputs[i]?.script;
             return script && Buffer.isBuffer(script) && script.length > 0;
         });
     const keysGenerator = liquid.Pset.ECCKeysGenerator(secp.ecc);
-    const outputBlindingArgs = zkpGenerator.blindOutputs(pset, keysGenerator, outputsToBlind);
+    const outputBlindingArgs = zkpGenerator.blindOutputs(pset, keysGenerator, outputs);
     const ownedInputs = zkpGenerator.unblindInputs(pset);
     const blinder = new liquid.Blinder(pset, ownedInputs, zkpValidator, zkpGenerator);
     blinder.blindLast({ outputBlindingArgs });

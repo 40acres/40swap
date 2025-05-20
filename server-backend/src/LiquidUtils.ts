@@ -174,8 +174,8 @@ export abstract class LiquidPSETBuilder {
 
     async blindPset(pset: liquid.Pset, utxosKeys: {
         blindingPrivateKey: Buffer;
-    }[]): Promise<void> {
-        return sharedBlindPset(pset, utxosKeys);
+    }[], outputsToBlind: number[] | null = null): Promise<void> {
+        return sharedBlindPset(pset, utxosKeys, outputsToBlind);
     }
 }
 
@@ -184,13 +184,14 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     async getPset(
         amount: number, 
         contractAddress: string, 
-        blindingKey: Buffer, 
+        keyPair: ECPairInterface, 
         timeoutBlockHeight: number
     ): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
+        const dummyFee = 0;
         const totalAmount = amount + commision;
         const amountInFloat = new Decimal(totalAmount).div(1e8);
-        const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
+        let { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
 
         // Create a new pset
         const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
@@ -200,10 +201,26 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         await this.addInputs(utxos, pset, updater);
 
         // Add required outputs (claim, change, fee) to pset
-        await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, blindingKey);
+        await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, keyPair.publicKey);
 
-        // TODO: Blind pset
-        // await this.blindPset(utxos, pset, blindingKey);
+        const newCommission = await this.getCommissionAmount(pset);
+        if (newCommission > commision) {
+            updater.pset.outputs = [];
+            updater.pset.globals.outputCount = 0;
+            if (totalInputValue - amount - newCommission < 0) {
+                updater.pset.inputs = [];
+                updater.pset.globals.inputCount = 0;
+                const result = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
+                utxos = result.utxos;
+                totalInputValue = result.totalInputValue;
+                await this.addInputs(utxos, pset, updater);
+            }
+            await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, keyPair.publicKey);
+        }
+
+        // Blind pset must be done after with RPC for these utxos
+        // const utxosKeys = [{blindingPrivateKey: keyPair.privateKey!}];
+        // await this.blindPset(pset, utxosKeys, [0,1]);
 
         return pset;
     }
@@ -242,13 +259,13 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     ): Promise<void> {
         // Add claim output to pset
         const claimOutputScript = liquid.address.toOutputScript(contractAddress, this.network);
-        this.addOutput(updater, getLiquidNumber(amount), claimOutputScript, blindingKey);
+        this.addOutput(updater, getLiquidNumber(amount), claimOutputScript, blindingKey, 0);
 
         // Add change output to pset
         const changeAddress = await this.liquidService.getNewAddress();
         const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
-        this.addOutput(updater, changeAmount, changeOutputScript, blindingKey);
+        this.addOutput(updater, changeAmount, changeOutputScript);
 
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);
@@ -291,6 +308,7 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
 
         // Update the pset to remove the emulated outputs and add the real outputs
         updater.pset.outputs = [];
+        updater.pset.globals.outputCount = 0;
         const feeAmount = await this.getCommissionAmount(pset);
         const outputAmount = outputValue - feeAmount;
         this.addOutput(updater, outputAmount, outputScript, blindingPublicKey, outputBlinderIndex);        

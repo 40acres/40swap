@@ -19,7 +19,7 @@ import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
-import { payments as liquidPayments } from 'liquidjs-lib';
+import { payments as liquidPayments, address as liquidAddress } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 import { getLiquidBlockHeight } from './LiquidUtils.js';
@@ -161,6 +161,9 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
         }
         assert(sweepAddress, 'Could not create sweep address for requested chain');
+        // const keyPair = ECPair.makeRandom();
+        // const blindingKey = keyPair.publicKey;
+        // const confidentialAddress = liquidAddress.toConfidential(sweepAddress, blindingKey);
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const invoice = await this.lnd.addHodlInvoice({

@@ -5,7 +5,7 @@
     },
     "[typescript]": {
         "editor.formatOnSave": false,
-        "editor.defaultFormatter": null
+        "editor.defaultFormatter": "vscode.typescript-language-features"
     },
     "editor.formatOnSave": false,
     "json.format.enable": false,
