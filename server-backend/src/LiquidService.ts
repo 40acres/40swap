@@ -175,16 +175,6 @@ export class LiquidService implements OnApplicationBootstrap  {
         return z.string().parse(address);
     }
 
-    /**
-     * Gets the unconfidential address for a given address. This is needed to blind tx in liquid.
-     * @param address The address to get the unconfidential address for.
-     * @returns The unconfidential address.
-     */
-    async getUnconfidentialAddress(address: string): Promise<string> {
-        const addressInfo = await this.callRPC('getaddressinfo', [address]);
-        return z.string().parse((addressInfo as { unconfidential: string }).unconfidential);
-    }
-
     async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
         const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]);
         return liquid.Transaction.fromBuffer(Buffer.from(z.string().parse(hexTx), 'hex'));
