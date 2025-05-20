@@ -218,10 +218,6 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
             await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, keyPair.publicKey);
         }
 
-        // Blind pset must be done after with RPC for these utxos
-        // const utxosKeys = [{blindingPrivateKey: keyPair.privateKey!}];
-        // await this.blindPset(pset, utxosKeys, [0,1]);
-
         return pset;
     }
 

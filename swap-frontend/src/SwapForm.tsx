@@ -164,7 +164,6 @@ export const SwapForm: Component = () => {
     function validateLiquidAddress(address: string, conf: FrontendConfiguration): void {
         try {
             const network = getLiquidNetworkFromBitcoinNetwork(conf.bitcoinNetwork);
-            // toOutputScriptLiquid(address, network);
             const decoded = liquid.address.fromConfidential(address);
             const unconfidential = decoded.unconfidentialAddress;
             liquid.address.toOutputScript(unconfidential, network);

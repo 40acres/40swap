@@ -21,7 +21,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
-import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { getBitcoinBlockHeightFromLiquidValue, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 const ECPair = ECPairFactory(ecc);
 
 export class SwapInRunner {
@@ -99,22 +99,22 @@ export class SwapInRunner {
         this.logger.log(`Swap in changed to status ${status} (id=${this.swap.id})`);
         
         if (status === 'CONTRACT_FUNDED') {
-            // try {
-            //     const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
-            //     if (this.swap.chain === 'BITCOIN') {
-            //         this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
-            //     } else if (this.swap.chain === 'LIQUID') {
-            //         const cltvLiquidLimit = await getBitcoinBlockHeightFromLiquidValue(cltvLimit, this.nbxplorer);
-            //         this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLiquidLimit);
-            //     }
-            // } catch (e) {
-            //     // we don't do anything, just let the contract expire and handle it as a refund
-            //     this.logger.error(`The lightning payment failed after retries (id=${this.swap.id})`, e);
-            //     return;
-            // }
-            // this.swap.status = 'INVOICE_PAID';
-            // this.swap = await this.repository.save(this.swap);
-            // this.onStatusChange('INVOICE_PAID');
+            try {
+                const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
+                if (this.swap.chain === 'BITCOIN') {
+                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
+                } else if (this.swap.chain === 'LIQUID') {
+                    const cltvLiquidLimit = await getBitcoinBlockHeightFromLiquidValue(cltvLimit, this.nbxplorer);
+                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLiquidLimit);
+                }
+            } catch (e) {
+                // we don't do anything, just let the contract expire and handle it as a refund
+                this.logger.error(`The lightning payment failed after retries (id=${this.swap.id})`, e);
+                return;
+            }
+            this.swap.status = 'INVOICE_PAID';
+            this.swap = await this.repository.save(this.swap);
+            this.onStatusChange('INVOICE_PAID');
         } else if (status === 'INVOICE_PAID') {
             let claimTx: Transaction | liquid.Transaction | null = null;
             if (this.swap.chain === 'BITCOIN') {
@@ -198,8 +198,7 @@ export class SwapInRunner {
             : new Decimal((output as NBXplorerBitcoinTransactionOutput).value);
             
         const receivedAmount = new Decimal(outputValue).div(1e8);
-        // Handle mismatched payment by checking if the received amount is different than the expected amount, if so, 
-        // this is considered a failed swap but will be processed until contract is expired to be able to be refunded by the sender
+        // Handle mismatched payment by checking if the received amount is different than the expected amount, if so, this is considered a failed swap but will be processed until contract is expired to be able to be refunded by the sender
         if (!receivedAmount.equals(swap.inputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.warn(`Contract amount mismatch. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);

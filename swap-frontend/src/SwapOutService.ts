@@ -57,7 +57,7 @@ export class SwapOutService {
             }
             signLiquidPset(pset, preImage, this.ECPair.fromPrivateKey(Buffer.from(claimKey, 'hex')));
             const claimTx = liquid.Extractor.extract(pset);
-            // await this.publishClaimTx(swap.swapId, claimTx);
+            await this.publishClaimTx(swap.swapId, claimTx);
         }
     }
 
