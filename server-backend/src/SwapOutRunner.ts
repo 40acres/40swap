@@ -102,7 +102,7 @@ export class SwapOutRunner {
                 const p2wsh = liquid.payments.p2wsh({
                     redeem: { output: swap.lockScript, network },
                     network,
-                    blindkey: ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey,
+                    blindkey: ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey,
                 });
                 assert(p2wsh.address != null);
                 assert(p2wsh.confidentialAddress != null);
@@ -113,7 +113,7 @@ export class SwapOutRunner {
                 const pset = await psetBuilder.getPset(
                     swap.outputAmount.mul(1e8).toNumber(), 
                     p2wsh.address, 
-                    ECPair.fromPrivateKey(swap.unlockPrivKey),
+                    ECPair.fromPrivateKey(swap.blindingPrivKey!),
                     swap.timeoutBlockHeight
                 );
                 const psetTx = await psetBuilder.getTx(pset);
@@ -222,7 +222,7 @@ export class SwapOutRunner {
             assert(output != null);
 
             const tx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
-            const unblindableOutputs = await findUnblindableOutputs(tx, swap.unlockPrivKey);
+            const unblindableOutputs = await findUnblindableOutputs(tx, swap.blindingPrivKey!);
             if (unblindableOutputs.length > 0) {
                 const unblindedOutput = unblindableOutputs[0];
                 output = {

@@ -185,7 +185,7 @@ export class SwapInRunner {
         const isLiquidTx = 'cryptoCode' in event.data && event.data.cryptoCode === 'LBTC';
         if (isLiquidTx) {
             const tx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
-            const unblindableOutputs = await findUnblindableOutputs(tx, swap.unlockPrivKey);
+            const unblindableOutputs = await findUnblindableOutputs(tx, swap.blindingPrivKey!);
             if (unblindableOutputs.length > 0) {
                 output = unblindableOutputs[0];
             } else {
