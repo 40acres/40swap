@@ -181,26 +181,23 @@ export abstract class LiquidPSETBuilder {
 
 export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 
-    async getPset(
-        amount: number, 
-        contractAddress: string, 
-        keyPair: ECPairInterface, 
-        timeoutBlockHeight: number
-    ): Promise<liquid.Pset> {
+    async getPset(swap: SwapIn | SwapOut, contractAddress: string): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
+        const amount = swap.outputAmount.mul(1e8).toNumber();
         const totalAmount = amount + commision;
         const amountInFloat = new Decimal(totalAmount).div(1e8);
         let { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
 
         // Create a new pset
-        const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
+        const pset = liquid.Creator.newPset({locktime: swap.timeoutBlockHeight});
         const updater = new liquid.Updater(pset);
 
         // Add inputs to pset
         await this.addInputs(utxos, pset, updater);
 
         // Add required outputs (claim, change, fee) to pset
-        await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, keyPair.publicKey);
+        const blindingPublicKey = ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey;
+        await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, blindingPublicKey);
 
         const newCommission = await this.getCommissionAmount(pset);
         if (newCommission > commision) {
@@ -214,8 +211,11 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
                 totalInputValue = result.totalInputValue;
                 await this.addInputs(utxos, pset, updater);
             }
-            await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, keyPair.publicKey);
+            await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, blindingPublicKey);
         }
+
+        const utxosKeys = [{blindingPrivateKey: swap.blindingPrivKey!}];
+        await this.blindPset(pset, utxosKeys, [0]);
 
         return pset;
     }
@@ -259,6 +259,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // Add change output to pset
         const changeAddress = await this.liquidService.getNewAddress();
         const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
+        // const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
         this.addOutput(updater, changeAmount, changeOutputScript);
 

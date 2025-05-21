@@ -110,12 +110,7 @@ export class SwapOutRunner {
                 this.swap = await this.repository.save(swap);
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
-                const pset = await psetBuilder.getPset(
-                    swap.outputAmount.mul(1e8).toNumber(), 
-                    p2wsh.address, 
-                    ECPair.fromPrivateKey(swap.blindingPrivKey!),
-                    swap.timeoutBlockHeight
-                );
+                const pset = await psetBuilder.getPset(swap, p2wsh.address);
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else if (swap.chain === 'BITCOIN') {

@@ -47,6 +47,30 @@ const MempoolInfoSchema = z.object({
     unbroadcastcount: z.number(),
 });
 
+const AddressInfoSchema = z.object({
+    address: z.string(),
+    scriptPubKey: z.string(),
+    ismine: z.boolean(),
+    solvable: z.boolean(),
+    desc: z.string(),
+    parent_desc: z.string(),
+    iswatchonly: z.boolean(),
+    isscript: z.boolean(),
+    iswitness: z.boolean(),
+    witness_version: z.number().optional(),
+    witness_program: z.string().optional(),
+    pubkey: z.string().optional(),
+    confidential: z.string().optional(),
+    confidential_key: z.string().optional(),
+    unconfidential: z.string().optional(),
+    ischange: z.boolean(),
+    timestamp: z.number().optional(),
+    hdkeypath: z.string().optional(),
+    hdseedid: z.string().optional(),
+    hdmasterfingerprint: z.string().optional(),
+    labels: z.array(z.string()).optional(),
+});
+
 const WalletProcessPsbtResultSchema = z.object({
     complete: z.boolean(),
     psbt: z.string(),
@@ -63,6 +87,7 @@ export type FinalizedPsbtResult = z.infer<typeof FinalizedPsbtResultSchema>;
 
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
+export type AddressInfo = z.infer<typeof AddressInfoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap  {
@@ -175,6 +200,11 @@ export class LiquidService implements OnApplicationBootstrap  {
         return z.string().parse(address);
     }
 
+    async getAddressInfo(address: string): Promise<AddressInfo> {
+        const addressInfo = await this.callRPC('getaddressinfo', [address]);
+        return AddressInfoSchema.parse(addressInfo);
+    }
+
     async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
         const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]);
         return liquid.Transaction.fromBuffer(Buffer.from(z.string().parse(hexTx), 'hex'));
@@ -190,7 +220,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL'])
         );
         if (!result.complete) {
-            throw new Error('Could not process PSET');
+            throw new Error(`Could not process PSET: ${psetBase64}`);
         }
         const processedPset = liquid.Pset.fromBase64(result.psbt);
         if (!processedPset.isComplete()) {
