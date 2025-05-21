@@ -101,8 +101,7 @@ export class SwapInController {
                 }
                 await this.nbxplorer.broadcastTx(refundTx);
             } else if (swap.chain === 'LIQUID') {
-                const pset = liquid.Pset.fromBase64(txRequest.tx);
-                const tx = liquid.Extractor.extract(pset);
+                const tx = liquid.Transaction.fromHex(txRequest.tx);
                 await this.nbxplorer.broadcastTx(tx, 'lbtc');
             }
         } catch (e) {

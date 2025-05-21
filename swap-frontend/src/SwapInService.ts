@@ -78,9 +78,7 @@ export class SwapInService {
             finalizer.finalizeInput(inputIndex, () => {
                 return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
             });
-            // TODO: Refactor this
-            // tx = liquid.Extractor.extract(pset);
-            tx = pset.toBase64();
+            tx = liquid.Extractor.extract(pset).toHex();
         }
         if (tx == null) {
             throw new Error('There was an error extracting the transaction');
