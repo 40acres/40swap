@@ -297,7 +297,8 @@ describe('40Swap backend', () => {
         compose = await composeDef.up(['lnd-lsp', 'elements']);
 
         lndLsp = await Lnd.fromContainer(compose.getContainer('40swap_lnd_lsp'));
-        elements = new Elements(compose.getContainer('40swap_elements'));
+        const elementsWalletName = 'main';
+        elements = new Elements(compose.getContainer('40swap_elements'), elementsWalletName);
         // Initialize Elements wallet and get xpub
         await elements.startDescriptorWallet();
         await elements.mine(101);
@@ -346,6 +347,7 @@ describe('40Swap backend', () => {
                 rpcUrl: 'http://elements:18884',
                 rpcUsername: '40swap',
                 rpcPassword: 'pass',
+                rpcWallet: elementsWalletName,
                 esploraUrl: 'http://localhost:3000',
                 xpub,
             },

@@ -9,6 +9,7 @@ import { z } from 'zod';
 const LiquidConfigurationDetailsSchema = z.object({
     rpcUrl: z.string(),
     rpcAuth: z.object({
+        wallet: z.string(),
         username: z.string(),
         password: z.string(),
     }),
@@ -96,7 +97,7 @@ export class LiquidService implements OnApplicationBootstrap  {
     public readonly xpub: string;
     private readonly logger = new Logger(LiquidService.name);
     private readonly rpcUrl: string;
-    private readonly rpcAuth: {username: string, password: string};
+    private readonly rpcAuth: {username: string, password: string, wallet: string};
 
     constructor(
         private nbxplorer: NbxplorerService,
@@ -107,8 +108,10 @@ export class LiquidService implements OnApplicationBootstrap  {
         this.rpcAuth = {
             username: this.elementsConfig.rpcUsername,
             password: this.elementsConfig.rpcPassword,
+            wallet: this.elementsConfig.rpcWallet,
         };
         this.configurationDetails = LiquidConfigurationDetailsSchema.parse({
+            wallet: this.elementsConfig.rpcWallet,
             rpcUrl: this.rpcUrl,
             rpcAuth: this.rpcAuth,
             xpub: this.xpub,
@@ -127,10 +130,10 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
+    async callRPC(method: string, params: unknown[] = [], wallet: string = this.rpcAuth.wallet): Promise<unknown> {
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
-            const response = await fetch(this.rpcUrl, {
+            const response = await fetch(`${this.rpcUrl}/wallet/${wallet}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
