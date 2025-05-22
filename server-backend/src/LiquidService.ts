@@ -130,10 +130,10 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async callRPC(method: string, params: unknown[] = [], wallet: string = this.rpcAuth.wallet): Promise<unknown> {
+    async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
-            const response = await fetch(`${this.rpcUrl}/wallet/${wallet}`, {
+            const response = await fetch(`${this.rpcUrl}/wallet/${this.rpcAuth.wallet}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
