@@ -14,7 +14,7 @@ export function sleep(ms = 1000): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function waitFor(fn: () => Promise<boolean>, maxIterations = 6, delay = 5000): Promise<void> {
+export async function waitFor(fn: () => Promise<boolean>, maxIterations = 3, delay = 5000): Promise<void> {
     for (let i = 0; i < maxIterations; i++) {
         try {
             const res = await fn();
