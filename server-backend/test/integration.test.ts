@@ -119,11 +119,15 @@ describe('40Swap backend', () => {
         
         // Mine enough blocks to reach the timeout height
         const currentHeight = await elements.getBlockHeight();
-        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+        const blocksToMine = timeoutBlockHeight - currentHeight;
         
         // Mine blocks to trigger expiration
         await elements.mine(blocksToMine);
-        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_EXPIRED');
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
+        await elements.mine();
+        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'DONE');
+        swap = await backend.getSwapOut(swap.swapId);
+        expect(swap.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
     it('should complete a swap in with custom lockBlockDeltaIn', async () => {

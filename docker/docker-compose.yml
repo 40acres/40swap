@@ -127,7 +127,7 @@ services:
       NBXPLORER_BTCRPCPASSWORD: "pass"
       NBXPLORER_MAXGAPSIZE: 400
       NBXPLORER_MINGAPSIZE: 300
-      NBXPLORER_LBTCRPCURL: http://elements:18884/
+      NBXPLORER_LBTCRPCURL: http://elements:18884/wallet/main
       NBXPLORER_LBTCNODEENDPOINT: elements:18886
       NBXPLORER_LBTCRPCUSER: "40swap"
       NBXPLORER_LBTCRPCPASSWORD: "pass"
@@ -136,6 +136,7 @@ services:
       - "bitcoind-data:/root/.bitcoin"
     links:
       - bitcoind
+      - elements
   rtl-user:
     profiles: ["rtl"]
     container_name: 40swap_rtl_user
