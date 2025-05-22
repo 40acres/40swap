@@ -64,6 +64,7 @@ export const configSchema = z.object({
         rpcUrl: z.string().url(),
         rpcUsername: z.string(),
         rpcPassword: z.string(),
+        rpcWallet: z.string(),
         esploraUrl: z.string().url(),
     }),
 });
