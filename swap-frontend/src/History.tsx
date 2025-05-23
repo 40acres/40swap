@@ -13,51 +13,29 @@ import moment from 'moment';
 import { Chain } from '@40swap/shared';
 
 const SwapTypeComponent: Component<{ type: SwapType, chain: Chain }> = (props) => {
-    let from, to;
-    
-    if (props.type === 'in') {
-        // Swap in: Bitcoin/Liquid -> Lightning
-        from = props.chain === 'LIQUID' ? liquidIcon : bitcoinIcon;
-        to = lightningIcon;
-    } else {
-        // Swap out: Lightning -> Bitcoin/Liquid
-        from = lightningIcon;
-        to = props.chain === 'LIQUID' ? liquidIcon : bitcoinIcon;
-    }
-
     const baseSize = 14;
-
-    const getFromSize = () => {
-        if (props.type === 'in') {
-            return props.chain === 'LIQUID' ? baseSize + 4 : baseSize;
-        } else {
-            return baseSize;
-        }
-    };
-
-    const getToSize = () => {
-        if (props.type === 'in') {
-            return baseSize;
-        } else {
-            return props.chain === 'LIQUID' ? baseSize + 4 : baseSize;
-        }
-    };
+    const liquidSize = baseSize + 4;
+    const isSwapIn = props.type === 'in';
+    const isLiquid = props.chain === 'LIQUID';
+    
+    // Determine icons based on swap type
+    const onchainIcon = isLiquid ? liquidIcon : bitcoinIcon;
+    const from = isSwapIn ? onchainIcon : lightningIcon;
+    const to = isSwapIn ? lightningIcon : onchainIcon;
+    
+    // Determine sizes - Liquid icon needs to be larger
+    const fromSize = isSwapIn && isLiquid ? liquidSize : baseSize;
+    const toSize = !isSwapIn && isLiquid ? liquidSize : baseSize;
+    
+    // Determine alt text descriptions
+    const fromChain = isSwapIn ? (isLiquid ? 'Liquid' : 'Bitcoin') : 'Lightning';
+    const toChain = isSwapIn ? 'Lightning' : (isLiquid ? 'Liquid' : 'Bitcoin');
 
     return (
         <div class="d-flex align-items-center gap-1">
-            <img 
-                src={from} 
-                alt={`From ${props.type === 'in' ? (props.chain === 'LIQUID' ? 'Liquid' : 'Bitcoin') : 'Lightning'}`} 
-                width={getFromSize()} 
-                height={getFromSize()} 
-            />
+            <img src={from} alt={`From ${fromChain}`} width={fromSize} height={fromSize} />
             <img src={swapIcon} alt="Swap" width={baseSize} height={baseSize} />
-            <img 
-                src={to} 
-                alt={`To ${props.type === 'in' ? 'Lightning' : (props.chain === 'LIQUID' ? 'Liquid' : 'Bitcoin')}`} 
-                width={getToSize()} 
-                height={getToSize()} 
-            />
+            <img src={to} alt={`To ${toChain}`} width={toSize} height={toSize} />
         </div>
     );
 };
