@@ -45,7 +45,8 @@ $small-font-size: .80em;
   overflow: hidden;
   transform: translate3d(0, 0, 0);
 
-  &::after {
+  // Aplicamos el efecto ripple por defecto
+  &:not(.no-ripple)::after {
     content: "";
     display: block;
     position: absolute;
@@ -62,7 +63,7 @@ $small-font-size: .80em;
     transition: transform .5s, opacity 1s;
   }
 
-  &:active::after {
+  &:not(.no-ripple):active::after {
     transform: scale(0, 0);
     opacity: 0.3;
     transition: 0s;
