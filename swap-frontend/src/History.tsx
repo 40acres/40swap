@@ -13,15 +13,54 @@ import moment from 'moment';
 import { Chain } from '@40swap/shared';
 
 const SwapTypeComponent: Component<{ type: SwapType, chain: Chain }> = (props) => {
-    const from = props.type === 'in' ? bitcoinIcon : lightningIcon;
-    let to = props.type === 'in' ? lightningIcon : bitcoinIcon;
-    if (props.chain === 'LIQUID') {
-        to = liquidIcon;
+    let from, to;
+    
+    if (props.type === 'in') {
+        // Swap in: Bitcoin/Liquid -> Lightning
+        from = props.chain === 'LIQUID' ? liquidIcon : bitcoinIcon;
+        to = lightningIcon;
+    } else {
+        // Swap out: Lightning -> Bitcoin/Liquid
+        from = lightningIcon;
+        to = props.chain === 'LIQUID' ? liquidIcon : bitcoinIcon;
     }
 
-    return <><img src={from} /> <img src={swapIcon} /> <img src={to} /></>;
-};
+    const baseSize = 14;
 
+    const getFromSize = () => {
+        if (props.type === 'in') {
+            return props.chain === 'LIQUID' ? baseSize + 4 : baseSize;
+        } else {
+            return baseSize;
+        }
+    };
+
+    const getToSize = () => {
+        if (props.type === 'in') {
+            return baseSize;
+        } else {
+            return props.chain === 'LIQUID' ? baseSize + 4 : baseSize;
+        }
+    };
+
+    return (
+        <div class="d-flex align-items-center gap-1">
+            <img 
+                src={from} 
+                alt={`From ${props.type === 'in' ? (props.chain === 'LIQUID' ? 'Liquid' : 'Bitcoin') : 'Lightning'}`} 
+                width={getFromSize()} 
+                height={getFromSize()} 
+            />
+            <img src={swapIcon} alt="Swap" width={baseSize} height={baseSize} />
+            <img 
+                src={to} 
+                alt={`To ${props.type === 'in' ? 'Lightning' : (props.chain === 'LIQUID' ? 'Liquid' : 'Bitcoin')}`} 
+                width={getToSize()} 
+                height={getToSize()} 
+            />
+        </div>
+    );
+};
 
 export const History: Component = () => {
     const { localSwapStorageService } = applicationContext;
