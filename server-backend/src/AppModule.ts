@@ -114,7 +114,12 @@ import { HealthController } from './HealthController.js';
         {
             inject: [ConfigService],
             useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {
-                return configService.getOrThrow('elements', { infer: true });
+                try {
+                    return configService.get('elements', { infer: true });
+                } catch (error) {
+                    console.log('Elements configuration not found. Liquid functionality will be disabled.');
+                    return undefined;
+                }
             },
             provide: 'ELEMENTS_CONFIG',
         },

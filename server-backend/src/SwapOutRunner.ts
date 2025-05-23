@@ -37,7 +37,7 @@ export class SwapOutRunner {
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
         private swapConfig: FourtySwapConfiguration['swap'],
-        private elementsConfig: FourtySwapConfiguration['elements'],
+        private elementsConfig?: FourtySwapConfiguration['elements'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;

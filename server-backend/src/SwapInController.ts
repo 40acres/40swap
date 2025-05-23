@@ -164,6 +164,8 @@ export class SwapInController {
 
     async buildLiquidRefundPsbt(swap: SwapIn, outputAddress: string): Promise<liquid.Pset> {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+        assert(this.liquidService.configurationDetails != null, 'liquid is not available');
+        assert(this.liquidService.xpub != null, 'liquid is not available');
         const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, {
             xpub: this.liquidService.xpub,
             rpcUrl: this.liquidService.configurationDetails.rpcUrl,

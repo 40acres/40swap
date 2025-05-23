@@ -273,15 +273,29 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
     private readonly logger = new Logger(NbxplorerService.name);
     private readonly config: FourtySwapConfiguration['nbxplorer'];
+    private readonly elementsConfig?: FourtySwapConfiguration['elements'];
     private eventProcessingPromise?: Promise<unknown>;
     private shutdownRequested = false;
+    private isLiquidEnabled = false;
 
     constructor(
-        config: ConfigService<FourtySwapConfiguration>,
+        private configService: ConfigService<FourtySwapConfiguration>,
         private dataSource: DataSource,
         private eventEmitter: EventEmitter2,
     ) {
-        this.config = config.getOrThrow('nbxplorer', { infer: true });
+        this.config = configService.getOrThrow('nbxplorer', { infer: true });
+        try {
+            this.elementsConfig = configService.get('elements', { infer: true });
+            this.isLiquidEnabled = !!this.elementsConfig;
+            if (this.isLiquidEnabled) {
+                this.logger.log('Liquid functionality is enabled. Will process liquid events.');
+            } else {
+                this.logger.log('Liquid functionality is disabled. Will not process liquid events.');
+            }
+        } catch (error) {
+            this.logger.warn('Elements configuration not found. Liquid functionality will be disabled.');
+            this.isLiquidEnabled = false;
+        }
     }
 
     getChainFromCryptoCode(cryptoCode: string): Chain {
@@ -422,6 +436,11 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
 
     async processLiquidEvents(): Promise<void> {
+        if (!this.isLiquidEnabled) {
+            this.logger.log('Liquid functionality is disabled. Skipping liquid events processing.');
+            return;
+        }
+        
         while (!this.shutdownRequested) {
             const lastEventId = await this.getLastLiquidEventId();
             const events = await this.getLiquidEvents({ lastEventId });
@@ -518,14 +537,29 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 });
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
+            
+            // Check if the response is successful
+            if (!response.ok) {
+                this.logger.warn(`Failed to fetch liquid events: ${response.status} ${response.statusText}`);
+                return [];
+            }
+            
             const responseJson = await response.json();
+            
+            // Check if the response is an array
+            if (!Array.isArray(responseJson)) {
+                this.logger.warn('Liquid events response is not an array, possibly due to disabled Liquid functionality');
+                return [];
+            }
+            
             return liquidNbxplorerEvent.array().parse(responseJson);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
                 return [];
             }
-            throw e;
+            this.logger.error(`Error fetching liquid events: ${e.message || e}`);
+            return [];
         }
     }
 
@@ -581,10 +615,14 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     onApplicationBootstrap(): void {
-        this.eventProcessingPromise = Promise.all([
-            this.processBitcoinEvents(),
-            this.processLiquidEvents(),
-        ]);
+        if (this.isLiquidEnabled) {
+            this.eventProcessingPromise = Promise.all([
+                this.processBitcoinEvents(),
+                this.processLiquidEvents(),
+            ]);
+        } else {
+            this.eventProcessingPromise = this.processBitcoinEvents();
+        }
     }
 
     onApplicationShutdown(): Promise<unknown> {
