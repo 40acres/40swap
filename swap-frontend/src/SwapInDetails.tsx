@@ -6,11 +6,11 @@ import { A, useParams } from '@solidjs/router';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { QrCode } from './QrCode.js';
-import bitcoinLogo from '/assets/bitcoin-logo.svg';
-import successImage from '/assets/success-image.png';
-import failureImage from '/assets/failure-image.png';
-import lockOpenImage from '/assets/lock-open.svg';
-import liquidLogo from '/assets/liquid-logo.svg';
+import bitcoinLogo from '/bitcoin-logo.svg?url';
+import successImage from '/success-image.png?url';
+import failureImage from '/failure-image.png?url';
+import lockOpenImage from '/lock-open.svg?url';
+import liquidLogo from '/liquid-logo.svg?url';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
@@ -67,8 +67,10 @@ export const SwapInDetails: Component = () => {
             return;
         }
         try {
+            toast.loading('Processing refund request...', { duration: 3000 });
             await swapInService.getRefund(swap, refundAddress());
             await localSwapStorageService.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
+            toast.success('Refund request initiated successfully');
             refetch();
         } catch (e) {
             console.error(e);
@@ -210,11 +212,17 @@ export const SwapInDetails: Component = () => {
                             <QrCode data={bip21Address()} image={bitcoinLogo}/>
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
-                            <a href={bip21Address()} class="btn btn-primary" role="button">Pay</a>
-                            <Button onclick={() => navigator.clipboard.writeText(s().inputAmount.toString())}>
+                            <a href={bip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Bitcoin wallet')}>Pay</a>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().inputAmount.toString());
+                                toast.success('Amount copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy amount
                             </Button>
-                            <Button onclick={() => navigator.clipboard.writeText(s().contractAddress.toString())}>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().contractAddress.toString());
+                                toast.success('Address copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy address
                             </Button>
                         </div>
@@ -224,11 +232,17 @@ export const SwapInDetails: Component = () => {
                             <QrCode data={liquidBip21Address()} image={liquidLogo}/>
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
-                            <a href={liquidBip21Address()} class="btn btn-primary" role="button">Pay</a>
-                            <Button onclick={() => navigator.clipboard.writeText(s().inputAmount.toString())}>
+                            <a href={liquidBip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Liquid wallet')}>Pay</a>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().inputAmount.toString());
+                                toast.success('Amount copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy amount
                             </Button>
-                            <Button onclick={() => navigator.clipboard.writeText(s().contractAddress.toString())}>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().contractAddress.toString());
+                                toast.success('Address copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy address
                             </Button>
                         </div>
@@ -253,12 +267,12 @@ export const SwapInDetails: Component = () => {
                     </Match>
                 </Switch>
                 <Show when={s().contractAddress && s().chain === 'BITCOIN'}>
-                    <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`}>
+                    <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`} target="_blank">
                         <img src={lockOpenImage} class="me-2" />Open lockup address
                     </a>
                 </Show>
                 <Show when={s().contractAddress && s().chain === 'LIQUID'}>
-                    <a class="action-link" href={`${config()?.esploraUrl}/address/${s().contractAddress}`}>
+                    <a class="action-link" href={`${config()?.esploraUrl}/address/${s().contractAddress}`} target="_blank">
                         <img src={lockOpenImage} class="me-2" />Open lockup address
                     </a>
                 </Show>

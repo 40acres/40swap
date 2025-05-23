@@ -1,6 +1,6 @@
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { Form } from 'solid-bootstrap';
-import flipImg from '/assets/flip.png';
+import flipImg from '/flip.png?url';
 import { currencyFormat, SwapType } from './utils.js';
 import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';

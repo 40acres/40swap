@@ -1,6 +1,6 @@
 import { Component, createSignal } from 'solid-js';
 import { Container, Nav, Navbar, Offcanvas } from 'solid-bootstrap';
-import logo from '/assets/brand.svg';
+import logo from '/brand.svg?url';
 import { useBeforeLeave } from '@solidjs/router';
 import { NavLinks } from './NavLinks.js';
 
