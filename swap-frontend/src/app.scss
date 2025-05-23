@@ -2,19 +2,19 @@
 
 @font-face {
   font-family: Degular;
-  src: url("assets/degular-font/Degular-Regular.otf") format("opentype");
+  src: url("/degular-font/Degular-Regular.otf") format("opentype");
 }
 
 @font-face {
   font-family: Degular;
   font-weight: bold;
-  src: url("assets/degular-font/Degular-Bold.otf") format("opentype");
+  src: url("/degular-font/Degular-Bold.otf") format("opentype");
 }
 
 @font-face {
   font-family: Degular;
   font-weight: 500;
-  src: url("assets/degular-font/Degular-Medium.otf") format("opentype");
+  src: url("/degular-font/Degular-Medium.otf") format("opentype");
 }
 
 $font-family-sans-serif: "IBM Plex Sans Condensed", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !default;
