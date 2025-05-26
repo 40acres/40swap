@@ -1,7 +1,7 @@
-import { LiquidService, RPCUtxo } from './LiquidService.js';
+import { InputUtxoInfo, LiquidService } from './LiquidService.js';
+import { NBXplorerUtxosResponse, NbxplorerService } from './NbxplorerService.js';
 import { FourtySwapConfiguration } from './configuration';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
-import { NbxplorerService } from './NbxplorerService';
 import { SwapOut } from './entities/SwapOut';
 import * as liquid from 'liquidjs-lib';
 import * as ecc from 'tiny-secp256k1';
@@ -11,8 +11,6 @@ import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
 import { blindPset as sharedBlindPset } from '@40swap/shared';
 import secp256k1Module from '@vulpemventures/secp256k1-zkp';
-
-
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -29,6 +27,12 @@ export function getRelativePathFromDescriptor(descriptor: string): string {
         throw new Error('Invalid descriptor format');
     }
     return match[1];
+}
+
+export function getFingerprintFromXpub(xpub: string, network: liquid.networks.Network): string {
+    const bip32Xpub =  bip32.fromBase58(xpub, network);
+    const fingerprint = bip32Xpub.fingerprint.toString();
+    return fingerprint;
 }
 
 export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, cltvExpiry: number): Promise<number> {
@@ -180,13 +184,70 @@ export abstract class LiquidPSETBuilder {
 }
 
 export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
+    
+    /**
+     * Gets UTXOs from NBXplorer service
+     * @param xpub The extended public key
+     * @param cryptoCode The crypto code (e.g., 'lbtc')
+     * @returns The UTXOs response from NBXplorer
+     */
+    private async getNbxplorerUtxos(xpub: string, cryptoCode: string = 'lbtc'): Promise<NBXplorerUtxosResponse> {
+        // Call NBXplorer through LiquidService
+        return await this.liquidService.getUtxosFromNbxplorer(xpub, cryptoCode);
+    }
+
+    /**
+     * Gets UTXOs for a specific amount, similar to getConfirmedUtxosAndInputValueForAmount
+     * but using NBXplorer service
+     * @param amount The amount in BTC/L-BTC format
+     * @returns An object with the selected UTXOs and total input value
+     */
+    private async getUtxosForAmount(amount: Decimal): Promise<{ utxos: InputUtxoInfo[], totalInputValue: number }> {
+        // Get confirmed utxos
+        const utxosResponse = await this.getNbxplorerUtxos(this.liquidService.xpub, 'lbtc');
+        const confirmedUtxos = utxosResponse.confirmed.utxOs;
+        if (confirmedUtxos.length === 0) {
+            throw new Error('No confirmed UTXOs found');
+        }
+
+        // Initialize variables
+        let totalInputValue = 0;
+        const utxos: InputUtxoInfo[] = [];
+        const sortedUtxos = [...confirmedUtxos].sort((a, b) => b.value - a.value);
+        const amountInSatoshis = amount.mul(1e8).toNumber();
+    
+        // Select UTXOs until we have enough to cover the amount
+        for (const utxo of sortedUtxos) {
+            utxos.push({
+                txid: utxo.transactionHash,
+                vout: utxo.index,
+                keyPath: utxo.keyPath,
+            });
+            
+            totalInputValue += utxo.value;
+            
+            // Check if we have enough funds
+            if (totalInputValue >= amountInSatoshis) {
+                break;
+            }
+        }
+        
+        // Verify we have enough funds
+        if (totalInputValue < amountInSatoshis) {
+            throw new Error(`Insufficient funds, required ${amount} but only ${new Decimal(totalInputValue).div(1e8)} available`);
+        }
+        
+        return { utxos, totalInputValue };
+    }
 
     async getPset(swap: SwapIn | SwapOut, contractAddress: string): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
         const amount = swap.outputAmount.mul(1e8).toNumber();
         const totalAmount = amount + commision;
         const amountInFloat = new Decimal(totalAmount).div(1e8);
-        let { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
+        
+        // Get UTXOs and total input value using our helper method
+        let { utxos, totalInputValue } = await this.getUtxosForAmount(amountInFloat);
 
         // Create a new pset
         const pset = liquid.Creator.newPset({locktime: swap.timeoutBlockHeight});
@@ -199,6 +260,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const blindingPublicKey = ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey;
         await this.addRequiredOutputs(amount, totalInputValue, commision, updater, contractAddress, blindingPublicKey);
 
+        // Rebuild pset if final commission is higher than initial one
         const newCommission = await this.getCommissionAmount(pset);
         if (newCommission > commision) {
             updater.pset.outputs = [];
@@ -206,9 +268,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
             if (totalInputValue - amount - newCommission < 0) {
                 updater.pset.inputs = [];
                 updater.pset.globals.inputCount = 0;
-                const result = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
-                utxos = result.utxos;
-                totalInputValue = result.totalInputValue;
+                ({ utxos, totalInputValue } = await this.getUtxosForAmount(amountInFloat));
                 await this.addInputs(utxos, pset, updater);
             }
             await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, blindingPublicKey);
@@ -220,24 +280,23 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         return pset;
     }
 
-    async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
+    async addInputs(utxos: InputUtxoInfo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
         await Promise.all(utxos.map(async (utxo, i) => {
             const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub);
             const witnessUtxo = liquidTx.outs[utxo.vout];
             this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
             updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
             updater.addInWitnessUtxo(i, witnessUtxo);
-            const relativePath = getRelativePathFromDescriptor(utxo.desc);
             try {
                 const node = bip32.fromBase58(this.liquidService.xpub, this.network);
-                const childNode = node.derivePath(relativePath);
+                const childNode = node.derivePath(utxo.keyPath);
                 updater.addInBIP32Derivation(i, {
                     masterFingerprint: Buffer.from(node.fingerprint),
                     pubkey: Buffer.from(childNode.publicKey),
-                    path: relativePath,
+                    path: utxo.keyPath,
                 });
             } catch (error) {
-                throw new Error(`Failed to derive path ${relativePath}: ${error}`);
+                throw new Error(`Failed to derive path ${utxo.keyPath}: ${error}`);
             }
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
@@ -257,11 +316,13 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         this.addOutput(updater, getLiquidNumber(amount), claimOutputScript, blindingKey, 0);
 
         // Add change output to pset
-        const changeAddress = await this.liquidService.getNewAddress();
-        const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
-        // const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
-        this.addOutput(updater, changeAmount, changeOutputScript);
+        const changeAddress = await this.liquidService.getNewAddress();
+        const addressInfo = await this.liquidService.getAddressInfo(changeAddress);
+
+        const blindingPubkey = Buffer.from(addressInfo.confidential_key!, 'hex');
+        const changeOutputScript = liquid.address.toOutputScript(addressInfo.confidential!, this.network);
+        this.addOutput(updater, changeAmount, changeOutputScript, blindingPubkey, 0);
 
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);

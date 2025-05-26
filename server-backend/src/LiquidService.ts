@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FourtySwapConfiguration } from './configuration.js';
-import { NbxplorerService } from './NbxplorerService.js';
+import { NbxplorerService, NBXplorerUtxosResponse } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import Decimal from 'decimal.js';
 import * as liquid from 'liquidjs-lib';
@@ -16,8 +16,6 @@ const LiquidConfigurationDetailsSchema = z.object({
     xpub: z.string(),
     esploraUrl: z.string(),
 });
-
-export type LiquidConfigurationDetails = z.infer<typeof LiquidConfigurationDetailsSchema>;
 
 const RPCUtxoSchema = z.object({
     txid: z.string(),
@@ -77,15 +75,21 @@ const WalletProcessPsbtResultSchema = z.object({
     psbt: z.string(),
 });
 
-export type WalletProcessPsbtResult = z.infer<typeof WalletProcessPsbtResultSchema>;
+const InputUtxoInfoSchema = z.object({
+    txid: z.string(),
+    vout: z.number(),
+    keyPath: z.string(),
+});
 
 const FinalizedPsbtResultSchema = z.object({
     hex: z.string(),
     complete: z.boolean(),
 });
 
+export type LiquidConfigurationDetails = z.infer<typeof LiquidConfigurationDetailsSchema>;
+export type InputUtxoInfo = z.infer<typeof InputUtxoInfoSchema>;
+export type WalletProcessPsbtResult = z.infer<typeof WalletProcessPsbtResultSchema>;
 export type FinalizedPsbtResult = z.infer<typeof FinalizedPsbtResultSchema>;
-
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
 export type AddressInfo = z.infer<typeof AddressInfoSchema>;
@@ -202,13 +206,17 @@ export class LiquidService implements OnApplicationBootstrap  {
         const address = await this.callRPC('getnewaddress');
         return z.string().parse(address);
     }
+    
+    async getUtxosFromNbxplorer(xpub: string, cryptoCode: string = 'lbtc'): Promise<NBXplorerUtxosResponse> {
+        return await this.nbxplorer.getUtxos(xpub, cryptoCode);
+    }
 
     async getAddressInfo(address: string): Promise<AddressInfo> {
         const addressInfo = await this.callRPC('getaddressinfo', [address]);
         return AddressInfoSchema.parse(addressInfo);
     }
 
-    async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
+    async getUtxoTx(utxo: InputUtxoInfo, xpub: string): Promise<liquid.Transaction> {
         const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]);
         return liquid.Transaction.fromBuffer(Buffer.from(z.string().parse(hexTx), 'hex'));
     }

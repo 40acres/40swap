@@ -303,6 +303,11 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return nbxplorerBalanceSchema.parse(response);
     }
 
+    async getUtxos(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerUtxosResponse> {
+        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/utxos`)).json();
+        return nbxplorerUtxosResponseSchema.parse(response);
+    }
+
     async track(xpub: string, cryptoCode: string = 'btc'): Promise<void> {
         const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}`, { method: 'POST' });
         if (response.status >= 300) {
