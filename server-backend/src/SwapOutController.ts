@@ -11,9 +11,9 @@ import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import {
-    GetSwapOutResponse,
+    GetSwapOutResponse, getSwapOutResponseSchema,
     PsbtResponse,
     psbtResponseSchema,
     signContractSpend,
@@ -27,7 +27,7 @@ const ECPair = ECPairFactory(ecc);
 
 class SwapOutRequestDto extends createZodDto(swapOutRequestSchema) {}
 class TxRequestDto extends createZodDto(txRequestSchema) {}
-class GetSwapOutResponseDto extends createZodDto(swapOutRequestSchema) {}
+class GetSwapOutResponseDto extends createZodDto(getSwapOutResponseSchema) {}
 class PsbtResponseDto extends createZodDto(psbtResponseSchema) {}
 
 @Controller('/swap/out')
@@ -44,7 +44,8 @@ export class SwapOutController {
     ) {}
 
     @Post()
-    @ApiCreatedResponse({description: 'Create a swap out', type: GetSwapOutResponseDto})
+    @ApiOperation({ description: 'Creates a swap-out (lightning to chain)' })
+    @ApiCreatedResponse({ description: 'The swap-out was correctly created', type: GetSwapOutResponseDto })
     async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
         const swap = await this.swapService.createSwapOut(request);
         return this.mapToResponse(swap);
@@ -52,7 +53,9 @@ export class SwapOutController {
 
 
     @Get('/:id')
-    @ApiOkResponse({description: 'Get a swap out', type: GetSwapOutResponseDto})
+    @ApiOperation({ description: 'Gets current status of a swap-out.' })
+    @ApiParam({ name: 'id', required: true, description: 'The swap-out ID.'})
+    @ApiOkResponse({ type: GetSwapOutResponseDto })
     async getSwap(@Param('id') id: string): Promise<GetSwapOutResponse> {
         const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
         if (swap === null) {
@@ -63,7 +66,9 @@ export class SwapOutController {
 
 
     @Post('/:id/claim')
-    @ApiCreatedResponse({description: 'Claim a swap out'})
+    @ApiOperation({ description: 'Broadcasts a claim transaction.' })
+    @ApiParam({ name: 'id', required: true, description: 'The swap-out ID to claim.'})
+    @ApiCreatedResponse({ description: 'The tx was broadcast' })
     async claimSwap(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
         const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
         if (swap === null) {
@@ -96,7 +101,10 @@ export class SwapOutController {
     }
 
     @Get('/:id/claim-psbt')
-    @ApiOkResponse({description: 'Get a claim PSBT', type: PsbtResponseDto})
+    @ApiOperation({ description: 'Obtains an unsigned PSBT to claim the swap-out.' })
+    @ApiQuery({ name: 'address', required: true, description: 'The address to claim to.'})
+    @ApiParam({ name: 'id', required: true, description: 'The swap-out ID to claim.'})
+    @ApiOkResponse({ type: PsbtResponseDto })
     async getClaimPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
