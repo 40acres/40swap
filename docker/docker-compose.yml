@@ -131,6 +131,8 @@ services:
       NBXPLORER_LBTCNODEENDPOINT: elements:18886
       NBXPLORER_LBTCRPCUSER: "40swap"
       NBXPLORER_LBTCRPCPASSWORD: "pass"
+      NBXPLORER_LBTCACCOUNTKEYPATH: "m/84'/177'/0'"
+      NBXPLORER_LBTCMASTERBLINDINGKEYPATH: "m/86'/177'/0'"
     volumes:
       - "nbxplorer-data:/datadir"
       - "bitcoind-data:/root/.bitcoin"

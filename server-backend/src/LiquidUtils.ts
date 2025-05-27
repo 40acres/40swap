@@ -275,7 +275,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         }
 
         const utxosKeys = [{blindingPrivateKey: swap.blindingPrivKey!}];
-        await this.blindPset(pset, utxosKeys, [0]);
+        await this.blindPset(pset, utxosKeys, [0, 1]);
 
         return pset;
     }

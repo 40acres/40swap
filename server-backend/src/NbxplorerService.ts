@@ -345,6 +345,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         // we should probably fix it in nbxplorer itself
 
         if (response.status >= 300) {
+            console.log(tx.toHex());
             throw new Error('nbxplorer threw an when broadcasting a transaction');
         }
     }
