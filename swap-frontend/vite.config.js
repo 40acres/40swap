@@ -5,6 +5,8 @@ import wasm from 'vite-plugin-wasm';
 import devtools from 'solid-devtools/vite';
 import mkcert from 'vite-plugin-mkcert';
 import inject from '@rollup/plugin-inject';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
 
 export default defineConfig({
     root: 'src',
@@ -16,6 +18,7 @@ export default defineConfig({
             autoname: true,
         }),
         mkcert(),
+        nodePolyfills(),
     ],
     server: {
         https: true,

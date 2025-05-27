@@ -79,6 +79,7 @@ export const History: Component = () => {
                     <tr>
                         <th>Type</th>
                         <th>Id</th>
+                        <th>Chain</th>
                         <th>Date</th>
                         <th>Actions</th>
                     </tr>
@@ -88,6 +89,7 @@ export const History: Component = () => {
                         <tr>
                             <td><SwapTypeComponent type={s.type} chain={s.chain} /></td>
                             <td><A href={`/swap/${s.type}/${s.swapId}`}>{s.swapId}</A></td>
+                            <td>{s.chain}</td>
                             <td>{new Date(s.createdAt).toLocaleString()}</td>
                             <td><span onClick={() => setSwapToDelete(s.swapId)}><Fa icon={faTrash} /></span></td>
                         </tr>

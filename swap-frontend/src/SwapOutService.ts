@@ -142,7 +142,7 @@ export class SwapOutService {
         }
     }
 
-    private async postSwap(amount: number, claimPubKey: Buffer, preImageHash: Buffer, chain: 'BITCOIN' | 'LIQUID'): Promise<GetSwapOutResponse> {
+    private async postSwap(amount: number, claimPubKey: Buffer, preImageHash: Buffer, chain: Chain): Promise<GetSwapOutResponse> {
         const resp = await fetch('/api/swap/out', {
             method: 'POST',
             body: JSON.stringify({

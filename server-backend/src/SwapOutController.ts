@@ -165,6 +165,8 @@ export class SwapOutController {
             rpcUrl: this.liquidService.configurationDetails.rpcUrl,
             rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
             rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
+            rpcWallet: this.liquidService.configurationDetails.rpcAuth.wallet,
+            esploraUrl: this.liquidService.configurationDetails.esploraUrl,
         }, liquidNetwork);
         const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
         return await psetBuilder.getPset(swap, lockTx, destinationAddress);

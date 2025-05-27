@@ -1,4 +1,4 @@
-import { getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import { Chain, getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -22,6 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { getLiquidBlockHeight } from './LiquidUtils.js';
 
 
 const ECPair = ECPairFactory(ecc);
@@ -75,7 +76,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (lockBlockDeltaIn < this.swapConfig.lockBlockDelta.minIn) {
             throw new BadRequestException(`lockBlockDeltaIn must be at least ${this.swapConfig.lockBlockDelta.minIn} blocks`);
         }
-        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
+        let timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
+        if (request.chain === 'LIQUID') {
+            timeoutBlockHeight = await getLiquidBlockHeight(timeoutBlockHeight, this.nbxplorer);
+        }
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
         const lockScript = swapScript(
@@ -204,14 +208,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     @OnEvent('nbxplorer.newblock')
-    private async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event));
+    private async processNewBlock(event: NBXplorerBlockEvent, cryptoCode: Chain): Promise<void> {
+        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event, cryptoCode));
         await Promise.all(promises);
     }
 
     @OnEvent('nbxplorer.newtransaction')
-    private async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewTransaction(event));
+    private async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
+        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewTransaction(event, cryptoCode));
         await Promise.all(promises);
     }
 

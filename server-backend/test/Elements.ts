@@ -3,10 +3,11 @@ import { StartedGenericContainer } from 'testcontainers/build/generic-container/
 export class Elements {
     constructor(
         private container: StartedGenericContainer,
+        private walletName: string = 'main',
     ) {}
 
     async mine(blocks = 3): Promise<void> {
-        const res = await this.container.exec(`elements-cli -chain=liquidregtest -generate ${blocks}`);
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -generate ${blocks}`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
@@ -14,7 +15,7 @@ export class Elements {
     }
 
     async sendToAddress(address: string, amount: number): Promise<void> {
-        const res = await this.container.exec(`elements-cli -chain=liquidregtest -named sendtoaddress address=${address} amount=${amount} fee_rate=25`);
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -named sendtoaddress address=${address} amount=${amount} fee_rate=25`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
@@ -22,7 +23,7 @@ export class Elements {
     }
 
     async getNewAddress(): Promise<string> {
-        const res = await this.container.exec('elements-cli -chain=liquidregtest getnewaddress');
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} getnewaddress`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
@@ -30,7 +31,7 @@ export class Elements {
     }
 
     async getXpub(): Promise<string> {
-        const res = await this.container.exec('elements-cli -chain=liquidregtest listdescriptors');
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} listdescriptors`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
@@ -47,22 +48,16 @@ export class Elements {
     }
 
     async startDescriptorWallet(): Promise<void> {
-        // First unload the wallet
-        await this.container.exec('elements-cli -chain=liquidregtest unloadwallet ""');
-        
-        // Remove original wallet files
-        await this.container.exec('rm -r -f /home/elements/.elements/liquidregtest/wallets/*');
-        
         // Create a new wallet
         // eslint-disable-next-line quotes
-        const res = await this.container.exec(`elements-cli -chain=liquidregtest createwallet  false false  false true true false`);
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest createwallet ${this.walletName} false false  false true true false`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
     }
 
     async getBlockHeight(): Promise<number> {
-        const res = await this.container.exec('elements-cli -chain=liquidregtest getblockcount');
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} getblockcount`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
