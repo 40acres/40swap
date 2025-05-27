@@ -12,7 +12,7 @@ export default defineConfig({
     root: 'src',
     plugins: [
         solidPlugin(),
-        pluginChecker({typescript: true}),
+        pluginChecker({ typescript: true }),
         wasm(),
         devtools({
             autoname: true,
@@ -33,6 +33,9 @@ export default defineConfig({
         port: 7080,
         proxy: {
             '/api': {
+                target: 'http://localhost:7081',
+            },
+            '/docs': {
                 target: 'http://localhost:7081',
             },
         },
