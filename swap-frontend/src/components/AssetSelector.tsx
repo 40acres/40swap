@@ -37,7 +37,7 @@ export const AssetSelector: Component<AssetSelectorProps> = (props) => {
                 <Dropdown>
                     <Dropdown.Toggle 
                         variant="light" 
-                        class="d-flex align-items-center gap-2 border-0 p-2"
+                        class="d-flex align-items-center gap-2 border-0 p-2 no-ripple"
                         disabled={props.disabled}
                     >
                         <img 

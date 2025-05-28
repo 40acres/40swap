@@ -20,6 +20,13 @@ export default defineConfig({
         mkcert(),
         nodePolyfills(),
     ],
+    css: {
+        preprocessorOptions: {
+            scss: {
+                silenceDeprecations: ['color-functions', 'mixed-decls'], // These are Bootstrap-side warnings
+            },
+        },
+    },
     server: {
         https: true,
         host: '0.0.0.0',
