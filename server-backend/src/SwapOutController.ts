@@ -167,6 +167,8 @@ export class SwapOutController {
     }
 
     async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {
+        assert(this.liquidService.xpub != null, 'liquid is not available');
+        assert(this.liquidService.configurationDetails != null, 'liquid is not available');
         const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
         const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, {
             xpub: this.liquidService.xpub,

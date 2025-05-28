@@ -12,13 +12,15 @@ export class ConfigurationController {
 
     @Get()
     public async getConfiguration(): Promise<FrontendConfigurationServer> {
+        const elementsConfig = this.config.get('elements');
+        
         return {
             bitcoinNetwork: this.config.getOrThrow('bitcoin.network', { infer: true }),
             feePercentage: this.config.getOrThrow('swap.feePercentage', { infer: true }),
             minimumAmount: this.config.getOrThrow('swap.minimumAmount', { infer: true }),
             maximumAmount: this.config.getOrThrow('swap.maximumAmount', { infer: true }),
             mempoolDotSpaceUrl: this.config.getOrThrow('mempoolBlockExplorer.url', { infer: true }),
-            esploraUrl: this.config.getOrThrow('elements.esploraUrl', { infer: true }),
+            esploraUrl: elementsConfig?.esploraUrl || '',
         };
     }
 }
