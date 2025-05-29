@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
 import { Chain, SwapOutcome } from '@40swap/shared';
@@ -52,6 +52,6 @@ export class Swap {
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date;
 
-    @CreateDateColumn({ type: 'timestamptz' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     modifiedAt!: Date;
 }

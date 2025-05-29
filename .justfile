@@ -99,3 +99,7 @@ elements-cli *cmd:
 [working-directory: 'server-backend']
 test-igtest-backend: build-shared 
     npm run build && npm run test
+
+[working-directory: 'docs']
+build-docs:
+    docker run -v ./:/book peaceiris/mdbook:v0.4.40 build
