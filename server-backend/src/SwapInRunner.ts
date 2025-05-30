@@ -22,7 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
-import { getBitcoinBlockHeightFromLiquidValue, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -102,12 +102,12 @@ export class SwapInRunner {
         
         if (status === 'CONTRACT_FUNDED') {
             try {
-                const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
                 if (this.swap.chain === 'BITCOIN') {
+                    const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
                     this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
                 } else if (this.swap.chain === 'LIQUID') {
-                    const cltvLiquidLimit = await getBitcoinBlockHeightFromLiquidValue(cltvLimit, this.nbxplorer);
-                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLiquidLimit);
+                    const cltvLimit = this.swap.timeoutBlockHeight - (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight;
+                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
                 }
             } catch (e) {
                 // we don't do anything, just let the contract expire and handle it as a refund

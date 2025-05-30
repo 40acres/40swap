@@ -35,23 +35,6 @@ export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, cltvExpir
     return currentLiquidHeight + ((cltvExpiry-currentBitcoinHeight)*ratio);
 }
 
-export async function getLiquidBlockHeight(btcBlockHeight: number, nbxplorer: NbxplorerService): Promise<number> {
-    // Each Bitcoin block is worth 10 Liquid blocks (10min - 1min)
-    const ratio = 10;
-    const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-    const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
-    // Calculate the offset from the current Bitcoin height, then apply the ratio
-    return currentLiquidHeight + ((btcBlockHeight - currentBitcoinHeight) * ratio);
-}
-
-export async function getBitcoinBlockHeightFromLiquidValue(liquidBlockHeight: number, nbxplorer: NbxplorerService): Promise<number> {
-    // Each Bitcoin block is worth 10 Liquid blocks (10min - 1min)
-    const ratio = 10;
-    const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-    const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
-    return currentBitcoinHeight + ((liquidBlockHeight - currentLiquidHeight) / ratio);
-}
-
 export abstract class LiquidPSETBuilder {
     public signatures: Buffer[] = [];
     protected liquidService: LiquidService;
