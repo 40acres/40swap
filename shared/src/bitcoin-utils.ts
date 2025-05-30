@@ -1,4 +1,4 @@
-import { Network, payments, Psbt, script, Signer, Transaction } from 'bitcoinjs-lib';
+import { Network, payments, Psbt, script, Signer, Transaction,  } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
 
 export function signContractSpend({ psbt, preImage, key, network }: {
