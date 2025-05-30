@@ -35,6 +35,11 @@ export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, cltvExpir
     return currentLiquidHeight + ((cltvExpiry-currentBitcoinHeight)*ratio);
 }
 
+export function liquidBlockToBitcoinBlocks(blocks: number): number {
+    const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
+    return blocks / ratio;
+}
+
 export abstract class LiquidPSETBuilder {
     public signatures: Buffer[] = [];
     protected liquidService: LiquidService;

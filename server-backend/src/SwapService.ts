@@ -82,7 +82,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         let timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
         if (request.chain === 'LIQUID') {
             assert(this.liquidService.xpub != null, 'liquid is not available');
-            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + lockBlockDeltaIn;
+            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + (lockBlockDeltaIn * 10);
         }
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
