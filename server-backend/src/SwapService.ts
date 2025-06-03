@@ -22,7 +22,6 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
-import { getLiquidBlockHeight } from './LiquidUtils.js';
 
 
 const ECPair = ECPairFactory(ecc);
@@ -83,7 +82,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         let timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
         if (request.chain === 'LIQUID') {
             assert(this.liquidService.xpub != null, 'liquid is not available');
-            timeoutBlockHeight = await getLiquidBlockHeight(timeoutBlockHeight, this.nbxplorer);
+            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + (lockBlockDeltaIn * 10);
         }
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
