@@ -34,9 +34,9 @@ export class SwapInService {
             throw new Error(`invalid state ${swap.status}`);
         }
         let tx: Transaction | liquid.Transaction | null = null;
-        const psbtHex = await this.getRefundPsbtHex(swap.swapId, address);
+        const psbtBase64 = await this.getRefundPsbt(swap.swapId, address);
         if (swap.chain === 'BITCOIN') {
-            const psbt = Psbt.fromBase64(psbtHex, { network });
+            const psbt = Psbt.fromBase64(psbtBase64, { network });
             if (!this.isValidRefundTx(psbt, address)) {
                 throw new Error('Error building refund transactions');
             }
@@ -51,7 +51,7 @@ export class SwapInService {
             }
             tx = psbt.extractTransaction();
         } else if (swap.chain === 'LIQUID') {
-            const pset = liquid.Pset.fromBase64(psbtHex);
+            const pset = liquid.Pset.fromBase64(psbtBase64);
             if (!this.isValidLiquidRefundTx(pset, address)) {
                 throw new Error('Error building refund transactions');
             }
@@ -134,7 +134,7 @@ export class SwapInService {
         return localSwap;
     }
 
-    private async getRefundPsbtHex(swapId: string, address: string): Promise<string> {
+    private async getRefundPsbt(swapId: string, address: string): Promise<string> {
         const resp = await fetch(`/api/swap/in/${swapId}/refund-psbt?` + new URLSearchParams({
             address,
         }));

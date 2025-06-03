@@ -15,11 +15,11 @@ async function bootstrap(): Promise<void> {
     app.setGlobalPrefix('api');
     const swaggerConfig = new DocumentBuilder()
         .setTitle('40Swap')
-        .setDescription('40Swap API description')
+        .setDescription('The 40Swap REST API')
         .setVersion('1.0')
         .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('docs', app, document);
+    SwaggerModule.setup('api/docs', app, document);
     await app.listen(port);
 }
 

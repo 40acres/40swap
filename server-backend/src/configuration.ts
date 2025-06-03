@@ -64,8 +64,9 @@ export const configSchema = z.object({
         rpcUrl: z.string().url(),
         rpcUsername: z.string(),
         rpcPassword: z.string(),
+        rpcWallet: z.string(),
         esploraUrl: z.string().url(),
-    }),
+    }).optional(),
 });
 
 export type FourtySwapConfiguration = z.infer<typeof configSchema>;
@@ -89,9 +90,33 @@ export default (): FourtySwapConfiguration => {
         const elementsDevFileContent = fs.readFileSync(elementsDevFilePath).toString();
         elementsDevConfig = yaml.load(elementsDevFileContent) as object;
     }
-    return configSchema.parse({
+    // Define a type for the elements configuration to avoid using 'any'
+    type ElementsConfig = {
+        xpub?: string | null;
+        rpcUrl?: string | null;
+        rpcUsername?: string | null;
+        rpcPassword?: string | null;
+        rpcWallet?: string | null;
+        esploraUrl?: string | null;
+    };
+
+    // Clean up any null elements configuration
+    const mergedConfig: Record<string, unknown> & { elements?: ElementsConfig } = {
         ...config,
         ...lightningDevConfig,
         ...elementsDevConfig,
-    });
+    };
+    
+    // If elements exists but has null values, remove the entire elements object
+    if (mergedConfig.elements && 
+        (mergedConfig.elements.xpub === null || 
+         mergedConfig.elements.rpcUrl === null || 
+         mergedConfig.elements.rpcUsername === null || 
+         mergedConfig.elements.rpcPassword === null || 
+         mergedConfig.elements.rpcWallet === null || 
+         mergedConfig.elements.esploraUrl === null)) {
+        delete mergedConfig.elements;
+    }
+    
+    return configSchema.parse(mergedConfig);
 };

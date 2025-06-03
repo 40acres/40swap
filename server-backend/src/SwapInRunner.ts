@@ -22,7 +22,7 @@ import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
-import { getBitcoinBlockHeightFromLiquidValue, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { liquidBlocksToBitcoinBlocks, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -40,7 +40,7 @@ export class SwapInRunner {
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
         private swapConfig: FourtySwapConfiguration['swap'],
-        private elementsConfig: FourtySwapConfiguration['elements'],
+        private elementsConfig?: FourtySwapConfiguration['elements'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -102,12 +102,16 @@ export class SwapInRunner {
         
         if (status === 'CONTRACT_FUNDED') {
             try {
-                const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - 6;
+                const oneHourDifference = 6; // Ensure the cltv is lower enoght than swap expiry
                 if (this.swap.chain === 'BITCOIN') {
+                    const cltvLimit = this.swap.timeoutBlockHeight - (await this.bitcoinService.getBlockHeight()) - oneHourDifference;
                     this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLimit);
                 } else if (this.swap.chain === 'LIQUID') {
-                    const cltvLiquidLimit = await getBitcoinBlockHeightFromLiquidValue(cltvLimit, this.nbxplorer);
-                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, cltvLiquidLimit);
+                    const liquidBitcoinRatio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
+                    const liquidDifference = oneHourDifference * liquidBitcoinRatio;
+                    const currentLiquidHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight;
+                    const cltvLimit = this.swap.timeoutBlockHeight - currentLiquidHeight - liquidDifference;
+                    this.swap.preImage = await this.retrySendPayment(this.swap.invoice, liquidBlocksToBitcoinBlocks(cltvLimit));
                 }
             } catch (e) {
                 // we don't do anything, just let the contract expire and handle it as a refund

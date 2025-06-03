@@ -35,21 +35,9 @@ export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, cltvExpir
     return currentLiquidHeight + ((cltvExpiry-currentBitcoinHeight)*ratio);
 }
 
-export async function getLiquidBlockHeight(btcBlockHeight: number, nbxplorer: NbxplorerService): Promise<number> {
-    // Each Bitcoin block is worth 10 Liquid blocks (10min - 1min)
-    const ratio = 10;
-    const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-    const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
-    // Calculate the offset from the current Bitcoin height, then apply the ratio
-    return currentLiquidHeight + ((btcBlockHeight - currentBitcoinHeight) * ratio);
-}
-
-export async function getBitcoinBlockHeightFromLiquidValue(liquidBlockHeight: number, nbxplorer: NbxplorerService): Promise<number> {
-    // Each Bitcoin block is worth 10 Liquid blocks (10min - 1min)
-    const ratio = 10;
-    const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-    const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
-    return currentBitcoinHeight + ((liquidBlockHeight - currentLiquidHeight) / ratio);
+export function liquidBlocksToBitcoinBlocks(blocks: number): number {
+    const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
+    return Math.floor(blocks / ratio);
 }
 
 export abstract class LiquidPSETBuilder {
@@ -195,14 +183,14 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 
     async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
         await Promise.all(utxos.map(async (utxo, i) => {
-            const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub);
+            const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub!);
             const witnessUtxo = liquidTx.outs[utxo.vout];
             this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
             updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
             updater.addInWitnessUtxo(i, witnessUtxo);
             const relativePath = getRelativePathFromDescriptor(utxo.desc);
             try {
-                const node = bip32.fromBase58(this.liquidService.xpub, this.network);
+                const node = bip32.fromBase58(this.liquidService.xpub!, this.network);
                 const childNode = node.derivePath(relativePath);
                 updater.addInBIP32Derivation(i, {
                     masterFingerprint: Buffer.from(node.fingerprint),

@@ -3,6 +3,9 @@ import { Nav } from 'solid-bootstrap';
 
 export const NavLinks: Component = () => <>
     <Nav.Item>
+        <Nav.Link href="/docs/" target="docs">Docs</Nav.Link>
+    </Nav.Item>
+    <Nav.Item>
         <Nav.Link link href="/">Swap</Nav.Link>
     </Nav.Item>
     <Nav.Item>

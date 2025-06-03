@@ -2,14 +2,14 @@ import { Component, createEffect, createMemo, createResource, Match, Show, Switc
 import { Button, Table } from 'solid-bootstrap';
 import { applicationContext } from './ApplicationContext.js';
 import { A, useParams } from '@solidjs/router';
-import successImage from './assets/success-image.png';
-import lightningLogo from './assets/lightning-logo.svg';
+import successImage from '/success-image.png?url';
+import lightningLogo from '/lightning-logo.svg?url';
 import { QrCode } from './QrCode.js';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
-import failureImage from './assets/failure-image.png';
+import failureImage from '/failure-image.png?url';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
 
@@ -155,8 +155,11 @@ export const SwapOutDetails: Component = () => {
                             <QrCode data={lightningLink()} image={lightningLogo}/>
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
-                            <a href={lightningLink()} class="btn btn-primary" role="button">Pay</a>
-                            <Button onclick={() => navigator.clipboard.writeText(s().invoice)}>
+                            <a href={lightningLink()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening lightning wallet')}>Pay</a>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().invoice);
+                                toast.success('Invoice copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy invoice
                             </Button>
                         </div>
