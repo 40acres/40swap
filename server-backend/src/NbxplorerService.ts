@@ -464,8 +464,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.logger.log('Liquid event listener stopped');
     }
 
-    private lastEventId = 0;
-
     private async getLastEventId(): Promise<number> {
         const applicationStateRepo = this.dataSource.getRepository(ApplicationState);
         const lastEventId = (await applicationStateRepo.findOne({ where: { key: STATE_KEY } }))?.value as number ?? 0;

@@ -15,14 +15,14 @@ export class ApplicationContext {
 
     get config(): Promise<FrontendConfiguration> {
         if (this._config == null) {
-            // eslint-disable-next-line no-async-promise-executor
-            this._config = new Promise<FrontendConfiguration>(async (resolve, reject) => {
-                const response = await fetch('/api/configuration');
-                if (response.status >= 300) {
-                    reject(new Error('error fetching configuration'));
-                }
-                resolve(frontendConfigurationSchema.parse(await response.json()));
-            });
+            this._config = fetch('/api/configuration')
+                .then(response => {
+                    if (response.status >= 300) {
+                        return Promise.reject(new Error('error fetching configuration'));
+                    }
+                    return response.json();
+                })
+                .then(value => frontendConfigurationSchema.parse(value));
         }
         return this._config;
     }
