@@ -148,7 +148,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
-            this.elementsConfig,
             this.liquidService,
         );
         this.runAndMonitor(swap, runner);
@@ -205,7 +204,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
-            this.elementsConfig,
             this.liquidService,
         );
         this.runAndMonitor(swap, runner);
@@ -251,7 +249,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.nbxplorer,
                 this.lnd,
                 this.swapConfig,
-                this.elementsConfig,
                 this.liquidService,
             ) : new SwapOutRunner(
                 swap,
@@ -261,7 +258,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.nbxplorer,
                 this.lnd,
                 this.swapConfig,
-                this.elementsConfig,
                 this.liquidService,
             );
             this.logger.log(`Resuming swap (id=${swap.id})`);
