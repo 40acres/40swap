@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import Decimal from 'decimal.js';
@@ -77,7 +77,7 @@ export class LiquidService implements OnApplicationBootstrap  {
 
     constructor(
         private nbxplorer: NbxplorerService,
-        @Inject('ELEMENTS_CONFIG') private elementsConfig: FourtySwapConfiguration['elements'] | undefined,
+        @Inject('ELEMENTS_CONFIG') private elementsConfig: FortySwapConfiguration['elements'] | undefined,
     ) {
         if (!this.elementsConfig) {
             this.logger.warn('Elements configuration not provided. Liquid functionality will be disabled.');

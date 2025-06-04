@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
 import fetch from 'node-fetch';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 
 const recommendedFeesResponseSchema = z.object({
     fastestFee: z.number().positive(),
@@ -16,9 +16,9 @@ export type RecommendedFeesResponse = z.infer<typeof recommendedFeesResponseSche
 @Injectable()
 export class MempoolDotSpaceService {
     private readonly logger = new Logger(MempoolDotSpaceService.name);
-    private readonly config: FourtySwapConfiguration['mempoolBlockExplorer'];
+    private readonly config: FortySwapConfiguration['mempoolBlockExplorer'];
 
-    constructor(config: ConfigService<FourtySwapConfiguration>) {
+    constructor(config: ConfigService<FortySwapConfiguration>) {
         this.config = config.getOrThrow('mempoolBlockExplorer', { infer: true });
     }
 

@@ -14,7 +14,7 @@ import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import Decimal from 'decimal.js';
 import moment from 'moment/moment.js';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
@@ -36,8 +36,8 @@ export class SwapOutRunner {
         private bitcoinService: BitcoinService,
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
-        private swapConfig: FourtySwapConfiguration['swap'],
-        private elementsConfig?: FourtySwapConfiguration['elements'],
+        private swapConfig: FortySwapConfiguration['swap'],
+        private elementsConfig?: FortySwapConfiguration['elements'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;

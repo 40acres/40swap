@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { clearTimeout } from 'timers';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, EntityManager } from 'typeorm';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Chain } from '@40swap/shared';
@@ -272,14 +272,14 @@ const LIQUID_STATE_KEY = 'NBXplorer.lastLiquidEventId';
 export class NbxplorerService implements OnApplicationBootstrap, OnApplicationShutdown {
 
     private readonly logger = new Logger(NbxplorerService.name);
-    private readonly config: FourtySwapConfiguration['nbxplorer'];
-    private readonly elementsConfig?: FourtySwapConfiguration['elements'];
+    private readonly config: FortySwapConfiguration['nbxplorer'];
+    private readonly elementsConfig?: FortySwapConfiguration['elements'];
     private eventProcessingPromise?: Promise<unknown>;
     private shutdownRequested = false;
     private isLiquidEnabled = false;
 
     constructor(
-        private configService: ConfigService<FourtySwapConfiguration>,
+        private configService: ConfigService<FortySwapConfiguration>,
         private dataSource: DataSource,
         private eventEmitter: EventEmitter2,
     ) {
@@ -457,7 +457,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                         }
                     });
                 } catch (e) {
-                    console.log('event', event);
                     this.logger.error('Error processing liquid event', e);
                 }
             }

@@ -21,7 +21,7 @@ const persistedSwapOutSchema = getSwapOutResponseSchema.extend({
 });
 export type PersistedSwapOut = z.infer<typeof persistedSwapOutSchema>;
 
-export interface FourtySwapDbSchema extends DBSchema {
+export interface FortySwapDbSchema extends DBSchema {
     'swap': {
         key: string,
         value: PersistedSwapIn | PersistedSwapOut,
@@ -35,7 +35,7 @@ export type PersistedSwapKey = Pick<PersistedSwapIn | PersistedSwapOut, 'type' |
 
 export class LocalSwapStorageService {
 
-    private db: Promise<IDBPDatabase<FourtySwapDbSchema>>;
+    private db: Promise<IDBPDatabase<FortySwapDbSchema>>;
 
     constructor() {
         if (navigator.storage && navigator.storage.persist) {
@@ -51,7 +51,7 @@ export class LocalSwapStorageService {
                 console.error('PERSISTED DATA ERROR', error);
             }
         }
-        this.db = idb.openDB<FourtySwapDbSchema>('40swap', 2, {
+        this.db = idb.openDB<FortySwapDbSchema>('40swap', 2, {
             upgrade(db, oldVersion, newVersion, transaction) {
                 const store = db.objectStoreNames.contains('swap')
                     ? transaction.objectStore('swap')
