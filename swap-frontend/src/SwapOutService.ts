@@ -64,18 +64,15 @@ export class SwapOutService {
         if (outs.length !== 1) {
             return false;
         }
-        if (outs[0].address !== address) {
-            return false;
-        }
-        return true;
+        return outs[0].address === address;
+
     }
 
     isValidLiquidClaimTx(pset: liquid.Pset, address: string): boolean {
         const outs = pset.outputs;
-        if (outs.length !== 2) { // In liquid the fee output is also included
-            return false;
-        }
-        return true;
+        // TODO verify that the non-fee output pays to the right address
+        return outs.length === 2; // In liquid the fee output is also included
+
     }
 
     async getSwap(id: string): Promise<PersistedSwapOut> {
