@@ -31,9 +31,9 @@ export class SwapOutService {
         }
         const { claimKey, preImage, sweepAddress } = localDetails;
         const network = (await this.config).bitcoinNetwork;
-        const psbtHex = (await this.client.out.getClaimPsbt(swap.swapId, sweepAddress)).psbt;
+        const psbtBase64 = (await this.client.out.getClaimPsbt(swap.swapId, sweepAddress)).psbt;
         if (swap.chain === 'BITCOIN') {
-            const psbt = Psbt.fromHex(psbtHex, { network });
+            const psbt = Psbt.fromBase64(psbtBase64, { network });
             if (!this.isValidClaimTx(psbt, sweepAddress)) {
                 throw new Error('Error building refund transactions');
             }
@@ -49,7 +49,7 @@ export class SwapOutService {
             const claimTx = psbt.extractTransaction();
             await this.client.out.publishClaimTx(swap.swapId, claimTx.toHex());
         } else if (swap.chain === 'LIQUID') {
-            const pset = liquid.Pset.fromBase64(psbtHex);
+            const pset = liquid.Pset.fromBase64(psbtBase64);
             if (!this.isValidLiquidClaimTx(pset, sweepAddress)) {
                 throw new Error('Error building refund transactions');
             }
