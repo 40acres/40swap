@@ -5,11 +5,13 @@ import { SwapOut } from './entities/SwapOut';
 import * as liquid from 'liquidjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import assert from 'node:assert';
+import BIP32Factory from 'bip32';
 import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
 import { blindPset as sharedBlindPset } from '@40swap/shared';
 import secp256k1Module from '@vulpemventures/secp256k1-zkp';
 
+const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
 
 export function getLiquidNumber(amount: number): number {
@@ -188,7 +190,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const updater = new liquid.Updater(pset);
 
         // Add inputs to pset and collect blinding keys
-        const utxosBlindingKeys = await this.addInputs(utxos, pset, updater);
+        await this.addInputs(utxos, pset, updater);
 
         // Add required outputs (claim, change, fee) to pset
         const blindingPublicKey = ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey;
@@ -211,7 +213,6 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 
         // Combine all blinding keys: UTXOs + swap blinding key
         const allBlindingKeys = [
-            ...utxosBlindingKeys,
             { blindingPrivateKey: swap.blindingPrivKey! },
         ];
         await this.blindPset(pset, allBlindingKeys);
@@ -219,42 +220,28 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         return pset;
     }
 
-    async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<{ blindingPrivateKey: Buffer }[]> {
-        const utxosBlindingKeys: { blindingPrivateKey: Buffer }[] = [];
-        
+    async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
         await Promise.all(utxos.map(async (utxo, i) => {
             const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub);
             const witnessUtxo = liquidTx.outs[utxo.vout];
             this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
             updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
             updater.addInWitnessUtxo(i, witnessUtxo);
-            
+            const relativePath = getRelativePathFromDescriptor(utxo.desc);
             try {
-                // Derive blinding key using SLIP77 directly from the script
-                // This ensures consistency with NBXplorer's derivation method
-                const script = witnessUtxo.script;
-                const blindingKey = await this.liquidService.deriveBlindingKey(script);
-                
-                if (blindingKey) {
-                    utxosBlindingKeys.push({ blindingPrivateKey: blindingKey });
-                } else {
-                    // Fallback to Elements Core's confidential key if SLIP77 derivation fails
-                    const utxoAddress = liquid.address.fromOutputScript(script, this.network);
-                    const addressInfo = await this.liquidService.getAddressInfo(utxoAddress);
-                    
-                    if (addressInfo.confidential_key) {
-                        const fallbackKey = Buffer.from(addressInfo.confidential_key, 'hex');
-                        utxosBlindingKeys.push({ blindingPrivateKey: fallbackKey });
-                    }
-                }
+                const node = bip32.fromBase58(this.liquidService.xpub, this.network);
+                const childNode = node.derivePath(relativePath);
+                updater.addInBIP32Derivation(i, {
+                    masterFingerprint: Buffer.from(node.fingerprint),
+                    pubkey: Buffer.from(childNode.publicKey),
+                    path: relativePath,
+                });
             } catch (error) {
-                throw new Error(`Failed to derive blinding key for UTXO ${utxo.txid}:${utxo.vout}: ${error}`);
+                throw new Error(`Failed to derive path ${relativePath}: ${error}`);
             }
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
         });
-
-        return utxosBlindingKeys;
     }
     
     async addRequiredOutputs(

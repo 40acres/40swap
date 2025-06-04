@@ -317,39 +317,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    /**
-     * Track a derived address with its keyPath for NBXplorer compatibility
-     * This allows NBXplorer to properly derive blinding keys for Liquid addresses
-     * @param address The address to track
-     * @param keyPath The derivation path (e.g., "m/0/9999/123")
-     * @param xpub The xpub to associate the address with
-     * @param cryptoCode The cryptocurrency code
-     */
-    async trackDerivedAddress(address: string, keyPath: string, xpub: string, cryptoCode: string = 'lbtc'): Promise<void> {
-        // First ensure the xpub is tracked
-        await this.track(xpub, cryptoCode);
-        
-        // Tell NBXplorer about this specific derived address
-        // This uses the derivation scheme endpoint which handles blinding properly
-        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/addresses/${address}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                // Include keyPath information for proper derivation
-                keyPath: keyPath,
-                feature: 'Custom', // Mark as custom to distinguish from normal wallet addresses
-            }),
-        });
-        
-        if (response.status >= 300) {
-            this.logger.warn('Failed to track derived address via derivation scheme, falling back to simple address tracking');
-            // Fallback to simple address tracking if derivation scheme tracking fails
-            await this.trackAddress(address, cryptoCode);
-        } else {
-            this.logger.log(`✅ Successfully tracked derived address: ${address} at path ${keyPath}`);
-        }
-    }
-
     async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
         change?: boolean,
         reserve?: boolean,
@@ -423,35 +390,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
             throw new Error(`nbxplorer threw an error when fetching a transaction: ${txId}`);
         }
         return response.json() as Promise<NBXplorerLiquidWalletTransaction>;
-    }
-
-    /**
-     * Generates a new hot wallet by making a POST request to the /derivations endpoint
-     * @param params Configuration for the hot wallet generation
-     * @param cryptoCode The cryptocurrency code (default: 'btc')
-     * @returns The generated hot wallet information
-     */
-    async generateHotWallet(params: {
-        wordList: string;
-        wordCount: number;
-        scriptPubKeyType: 'Segwit' | 'SegwitP2SH' | 'Legacy';
-        importKeysToRPC?: boolean;
-        savePrivateKeys?: boolean;
-        additionalOptions?: Record<string, string | number | boolean | null>;
-    }, cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
-        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(params),
-        });
-
-        if (response.status >= 300) {
-            throw new Error(`nbxplorer threw an error when generating a hot wallet: ${await response.text()}`);
-        }
-
-        return nbxplorerHotWalletSchema.parse(await response.json());
     }
 
     private abortController?: AbortController;

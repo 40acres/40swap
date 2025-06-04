@@ -91,28 +91,25 @@ export class SwapOutRunner {
             if (swap.chain === 'LIQUID') {
                 const invoiceExpiry = await this.getCltvExpiry();
                 swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, invoiceExpiry);
-                
-                // 🔧 NEW LOGIC: Use derived key from xpub for NBXplorer compatibility
-                const contractInfo = this.liquidService.getContractAddress(
-                    swap.id.toString(), // Use swap ID as unique contract identifier
-                    swap.preImageHash,
-                    swap.counterpartyPubKey,
+                swap.lockScript = reverseSwapScript(
+                    swap.preImageHash, 
+                    swap.counterpartyPubKey, 
+                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
                     swap.timeoutBlockHeight
                 );
-                
-                // Store the derived contract information
-                swap.unlockPrivKey = contractInfo.privateKey;
-                swap.lockScript = contractInfo.lockScript;
-                swap.contractAddress = contractInfo.confidentialAddress;
-                
+                const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+                const p2wsh = liquid.payments.p2wsh({
+                    redeem: { output: swap.lockScript, network },
+                    network,
+                    blindkey: ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey,
+                });
+                assert(p2wsh.address != null);
+                assert(p2wsh.confidentialAddress != null);
+                swap.contractAddress = p2wsh.confidentialAddress;
                 this.swap = await this.repository.save(swap);
-                
-                // 🎯 KEY: Track the contract address with NBXplorer
-                await this.nbxplorer.trackAddress(contractInfo.address, 'lbtc');
-                
-                const network = this.liquidService.getNetwork();
+                await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.liquidService, network);
-                const pset = await psetBuilder.getPset(swap, contractInfo.address);
+                const pset = await psetBuilder.getPset(swap, p2wsh.address);
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else if (swap.chain === 'BITCOIN') {
