@@ -112,6 +112,7 @@ export class SwapOutRunner {
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
                 const pset = await psetBuilder.getPset(swap, p2wsh.address);
                 const psetTx = await psetBuilder.getTx(pset);
+                await psetBuilder.broadcastTx(psetTx);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else if (swap.chain === 'BITCOIN') {
                 swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;

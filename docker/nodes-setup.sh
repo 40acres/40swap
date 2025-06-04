@@ -89,10 +89,35 @@ EOM
 echo "$dev_config" > ../server-backend/dev/40swap.lightning.yml
 
 # Liquid setup:
-docker exec -it 40swap_elements elements-cli -chain=liquidregtest createwallet "main" false false "" false true true false
-address=$(docker exec -i 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main getnewaddress | tr -d '\r\n' | xargs)
-docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main generatetoaddress 101 $address
-xpub=$(docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main listdescriptors | jq -r '.descriptors[] | select(.desc | startswith("wpkh(")) | select(.internal==false) | .desc' | sed -E 's/.*\]([^\/]+)\/.*/\1/')
+
+# Call the derivations endpoint and process the response to import the wallet
+echo "Calling derivations endpoint to generate wallet..."
+response=$(curl -s -X POST http://localhost:32838/v1/cryptos7lbtc/derivations \
+  -H "Content-Type: application/json" \
+  -d '{
+  "wordList": "English",
+  "wordCount": 12,
+  "scriptPubKeyType": "Segwit",
+  "importKeysToRPC": true,
+  "savePrivateKeys": true,
+  "additionalOptions": {
+      "slip77": "a1d24c4cacaec89d404c54c03901c5dbbb0703a90858bec6ed86dc89e4804098"
+  }
+}')
+wallet_name='main'
+
+# Extract the necessary information from the response
+account_key_path=$(echo $response | jq -r '.accountKeyPath')
+master_hd_key=$(echo $response | jq -r '.masterHdKey')
+master_blinding_key=$(echo $response | jq -r '.additionalData.slip77')
+
+# Call import-wallet.sh with the extracted information
+echo "Importing wallet with name '$wallet_name'..."
+./import-wallet.sh "$account_key_path" "$master_hd_key" "$master_blinding_key" "$wallet_name"
+
+address=$(docker exec -i 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=$wallet_name getnewaddress | tr -d '\r\n' | xargs)
+docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=$wallet_name generatetoaddress 101 $address
+xpub=$(docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=$wallet_name listdescriptors | jq -r '.descriptors[] | select(.desc | startswith("wpkh(")) | select(.internal==false) | .desc' | sed -E 's/.*\]([^\/]+)\/.*/\1/')
 
 set the xpub of the liquid wallet
 read -r -d '' xpub_config << EOM
@@ -102,7 +127,7 @@ elements:
   rpcUrl: http://localhost:18884
   rpcUsername: 40swap
   rpcPassword: pass
-  rpcWallet: main
+  rpcWallet: $wallet_name
   xpub: $xpub
   esploraUrl: http://localhost:35000
 EOM

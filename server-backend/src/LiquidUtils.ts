@@ -11,11 +11,13 @@ import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
 import { blindPset as sharedBlindPset } from '@40swap/shared';
 import secp256k1Module from '@vulpemventures/secp256k1-zkp';
+import { SLIP77Factory } from 'slip77';
 
 
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
+const SLIP77 = SLIP77Factory(ecc);
 
 export function getLiquidNumber(amount: number): number {
     return liquid.ElementsValue.fromNumber(amount).number;
@@ -215,7 +217,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         }
 
         const utxosKeys = [{blindingPrivateKey: swap.blindingPrivKey!}];
-        await this.blindPset(pset, utxosKeys, [0]);
+        await this.blindPset(pset, utxosKeys);
 
         return pset;
     }
@@ -259,13 +261,20 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // Add change output to pset
         const changeAddress = await this.liquidService.getNewAddress();
         const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
-        // const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
-        this.addOutput(updater, changeAmount, changeOutputScript);
+        const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
+        // const changeKey = Buffer.from(changeAddressInfo.confidential_key!, 'hex');
+        // this.addOutput(updater, changeAmount, changeOutputScript, changeKey, 0);
+        const masterHexBlindingKey = 'a1d24c4cacaec89d404c54c03901c5dbbb0703a90858bec6ed86dc89e4804098';
+        const masterBlindingKey = SLIP77.fromMasterBlindingKey(masterHexBlindingKey);
+        const changeBlindingKey = masterBlindingKey.derive(changeAddressInfo.hdkeypath!);
+        const changeBlindingPrivateKey = changeBlindingKey.privateKey!;
+        this.addOutput(updater, changeAmount, changeOutputScript, changeBlindingPrivateKey, 0);
 
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);
         this.addOutput(updater, feeAmount);
+
     }
 
     async getTx(pset: liquid.Pset): Promise<liquid.Transaction> {

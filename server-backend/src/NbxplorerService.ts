@@ -391,6 +391,35 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         return response.json() as Promise<NBXplorerLiquidWalletTransaction>;
     }
 
+    /**
+     * Generates a new hot wallet by making a POST request to the /derivations endpoint
+     * @param params Configuration for the hot wallet generation
+     * @param cryptoCode The cryptocurrency code (default: 'btc')
+     * @returns The generated hot wallet information
+     */
+    async generateHotWallet(params: {
+        wordList: string;
+        wordCount: number;
+        scriptPubKeyType: 'Segwit' | 'SegwitP2SH' | 'Legacy';
+        importKeysToRPC?: boolean;
+        savePrivateKeys?: boolean;
+        additionalOptions?: Record<string, string | number | boolean | null>;
+    }, cryptoCode: string = 'btc'): Promise<nbxplorerHotWallet> {
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+        });
+
+        if (response.status >= 300) {
+            throw new Error(`nbxplorer threw an error when generating a hot wallet: ${await response.text()}`);
+        }
+
+        return nbxplorerHotWalletSchema.parse(await response.json());
+    }
+
     private abortController?: AbortController;
     private liquidAbortController?: AbortController;    
 
