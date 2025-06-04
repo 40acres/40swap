@@ -189,7 +189,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const pset = liquid.Creator.newPset({locktime: swap.timeoutBlockHeight});
         const updater = new liquid.Updater(pset);
 
-        // Add inputs to pset and collect blinding keys
+        // Add inputs to pset
         await this.addInputs(utxos, pset, updater);
 
         // Add required outputs (claim, change, fee) to pset
@@ -211,11 +211,8 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
             await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, blindingPublicKey);
         }
 
-        // Combine all blinding keys: UTXOs + swap blinding key
-        const allBlindingKeys = [
-            { blindingPrivateKey: swap.blindingPrivKey! },
-        ];
-        await this.blindPset(pset, allBlindingKeys);
+        const utxosKeys = [{blindingPrivateKey: swap.blindingPrivKey!}];
+        await this.blindPset(pset, utxosKeys);
 
         return pset;
     }
@@ -259,10 +256,8 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // Add change output to pset
         const changeAddress = await this.liquidService.getNewAddress();
         const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
-        const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
         const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
-        
-        // Use nbxplorer's confidential key instead of deriving manually
+        const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
         const changeKey = Buffer.from(changeAddressInfo.confidential_key!, 'hex');
         this.addOutput(updater, changeAmount, changeOutputScript, changeKey, 0);
 

@@ -8,11 +8,6 @@ import { z } from 'zod';
 import { SLIP77Factory } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
 
-import { ECPairFactory } from 'ecpair';
-import { reverseSwapScript } from './bitcoin-utils.js';
-import * as crypto from 'crypto';
-
-const ECPair = ECPairFactory(ecc);
 
 const LiquidConfigurationDetailsSchema = z.object({
     rpcUrl: z.string(),
