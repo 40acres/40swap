@@ -129,7 +129,6 @@ export const SwapForm: Component = () => {
         if (isInvalidInputAmount) {
             setErrorMessage('Invalid amount');
         }
-        setFormErrors('inputAmount', false);
     }
 
     function validateOutputAmount(conf: FrontendConfiguration): void {
@@ -138,7 +137,6 @@ export const SwapForm: Component = () => {
         if (isInvalidOutputAmount) {
             setErrorMessage('Invalid amount');
         }
-        setFormErrors('outputAmount', false);
     }
 
     function validateLightningInvoice(invoice: string): void {
@@ -177,10 +175,12 @@ export const SwapForm: Component = () => {
         }
         setErrorMessage('');
         if (swapType() === 'in') {
+            validateInputAmount(conf);
             validateOutputAmount(conf);
             validateLightningInvoice(form.payload);
         } else {
             validateInputAmount(conf);
+            validateOutputAmount(conf);
             if (form.to === 'ON_CHAIN_LIQUID') {
                 validateLiquidAddress(form.payload, conf);
             } else if (form.to === 'ON_CHAIN_BITCOIN') {
@@ -191,7 +191,7 @@ export const SwapForm: Component = () => {
     }
 
     function hasErrors(): boolean {
-        return formErrors.from || formErrors.to || formErrors.inputAmount || formErrors.outputAmount;
+        return formErrors.from || formErrors.to || formErrors.inputAmount || formErrors.outputAmount || formErrors.payload;
     }
 
     function isSendable(): boolean {
