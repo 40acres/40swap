@@ -6,9 +6,13 @@ import Decimal from 'decimal.js';
 import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
 import { SLIP77Factory } from 'slip77';
-import * as crypto from 'crypto';
 import * as ecc from 'tiny-secp256k1';
 
+import { ECPairFactory } from 'ecpair';
+import { reverseSwapScript } from './bitcoin-utils.js';
+import * as crypto from 'crypto';
+
+const ECPair = ECPairFactory(ecc);
 
 const LiquidConfigurationDetailsSchema = z.object({
     rpcUrl: z.string(),
@@ -128,12 +132,13 @@ export class LiquidService implements OnApplicationBootstrap  {
         this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
-            // Generate random slip77 key
-            const randomBytes = crypto.randomBytes(32);
+            // Use the same SLIP77 key that was configured in NBXplorer during setup
+            // This key matches the one used in nodes-setup.sh
+            const masterBlindingKeyHex = 'a1d24c4cacaec89d404c54c03901c5dbbb0703a90858bec6ed86dc89e4804098';
             const slip77 = SLIP77Factory(ecc);
-            this.slip77Node = slip77.fromMasterBlindingKey(randomBytes.toString('hex'));
-            this.logger.log('✅ Generated random slip77 key for confidential addresses');
-            this.logger.log('🔐 Master blinding key (SLIP77):');    
+            this.slip77Node = slip77.fromMasterBlindingKey(masterBlindingKeyHex);
+            this.logger.log('✅ Using consistent SLIP77 key matching NBXplorer configuration');
+            this.logger.log(`🔐 Master blinding key (SLIP77): ${masterBlindingKeyHex}`);    
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.error(`Failed to initialize Liquid xpub: ${errorMessage}`);
@@ -258,6 +263,23 @@ export class LiquidService implements OnApplicationBootstrap  {
         return this.slip77Node.masterKey.toString('hex');
     }
     
+    // Derive blinding key using SLIP77 from script
+    async deriveBlindingKey(script: Buffer): Promise<Buffer | null> {
+        if (!this.slip77Node) {
+            this.logger.error('Slip77 key not initialized');
+            return null;
+        }
+        
+        try {
+            const keyPair = this.slip77Node.derive(script);
+            return keyPair.privateKey;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.warn(`Failed to derive blinding key from script: ${errorMessage}`);
+            return null;
+        }
+    }
+    
     // Generate a confidential address using the slip77 key
     generateConfidentialAddress(address: string, script: Buffer): string | null {
         if (!this.slip77Node) {
@@ -273,5 +295,119 @@ export class LiquidService implements OnApplicationBootstrap  {
             this.logger.error(`Failed to generate confidential address: ${errorMessage}`);
             return null;
         }
+    }
+
+    /**
+     * Generate a contract key independently for NBXplorer compatibility
+     * @param contractId Unique identifier for the contract (e.g., swap ID)
+     * @returns Object with private key, public key, and derivation info
+     */
+    deriveContractKey(contractId: string): { privateKey: Buffer, publicKey: Buffer, keyPath: string } {
+        try {
+            // Generate deterministic private key from contract ID
+            const hash = crypto.createHash('sha256').update(`contract:${contractId}`).digest();
+            
+            // Create key pair from the hash
+            const privateKey = hash;
+            const keyPair = ECPair.fromPrivateKey(privateKey);
+            
+            if (!keyPair.privateKey) {
+                throw new Error('Failed to generate private key for contract');
+            }
+            
+            this.logger.log(`🔑 Generated independent contract key for ID "${contractId}"`);
+            
+            return {
+                privateKey: Buffer.from(keyPair.privateKey),
+                publicKey: Buffer.from(keyPair.publicKey),
+                keyPath: `contract:${contractId}`, // Not a BIP32 path, just an identifier
+            };
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`Failed to generate contract key: ${errorMessage}`);
+            throw new Error(`Contract key generation failed: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * Create a contract address that is compatible with NBXplorer tracking
+     * @param contractId Unique identifier for the contract
+     * @param preImageHash Hash of the preimage for the swap
+     * @param counterpartyPubKey Public key of the counterparty
+     * @param timeoutBlockHeight Block height when the contract times out
+     * @returns Contract information including address and private key
+     */
+    getContractAddress(
+        contractId: string, 
+        preImageHash: Buffer, 
+        counterpartyPubKey: Buffer, 
+        timeoutBlockHeight: number
+    ): { 
+        address: string, 
+        confidentialAddress: string,
+        keyPath: string,
+        privateKey: Buffer,
+        lockScript: Buffer
+    } {
+        try {
+            // Generate the contract key independently
+            const { privateKey, publicKey, keyPath } = this.deriveContractKey(contractId);
+            
+            // Create the reverse swap script using generated key
+            const lockScript = reverseSwapScript(
+                preImageHash,
+                counterpartyPubKey,
+                publicKey,
+                timeoutBlockHeight
+            );
+            
+            // Determine network
+            const network = this.xpub.startsWith('vpub') ? liquid.networks.regtest : liquid.networks.liquid;
+            
+            // Create P2WSH from the script
+            const p2wsh = liquid.payments.p2wsh({
+                redeem: { output: lockScript, network },
+                network,
+            });
+            
+            if (!p2wsh.address) {
+                throw new Error('Failed to generate contract address');
+            }
+            
+            // Generate confidential address using SLIP77
+            let confidentialAddress = this.generateConfidentialAddress(p2wsh.address, p2wsh.output!);
+            if (!confidentialAddress) {
+                // Fallback: create basic confidential address
+                if (!this.slip77Node) {
+                    throw new Error('Cannot create confidential address: SLIP77 not initialized');
+                }
+                const keyPair = this.slip77Node.derive(p2wsh.output!);
+                confidentialAddress = liquid.address.toConfidential(p2wsh.address, keyPair.publicKey);
+            }
+            
+            this.logger.log(`📄 Created contract address for ID ${contractId}:`);
+            this.logger.log(`   Address: ${p2wsh.address}`);
+            this.logger.log(`   Confidential: ${confidentialAddress}`);
+            this.logger.log(`   Key ID: ${keyPath}`);
+            
+            return {
+                address: p2wsh.address,
+                confidentialAddress,
+                keyPath,
+                privateKey,
+                lockScript,
+            };
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`Failed to create contract address: ${errorMessage}`);
+            throw new Error(`Contract address creation failed: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * Get the liquid network based on the xpub prefix
+     */
+    getNetwork(): liquid.networks.Network {
+        return this.xpub.startsWith('vpub') ? liquid.networks.regtest : liquid.networks.liquid;
     }
 }

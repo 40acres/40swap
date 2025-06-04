@@ -317,6 +317,39 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
+    /**
+     * Track a derived address with its keyPath for NBXplorer compatibility
+     * This allows NBXplorer to properly derive blinding keys for Liquid addresses
+     * @param address The address to track
+     * @param keyPath The derivation path (e.g., "m/0/9999/123")
+     * @param xpub The xpub to associate the address with
+     * @param cryptoCode The cryptocurrency code
+     */
+    async trackDerivedAddress(address: string, keyPath: string, xpub: string, cryptoCode: string = 'lbtc'): Promise<void> {
+        // First ensure the xpub is tracked
+        await this.track(xpub, cryptoCode);
+        
+        // Tell NBXplorer about this specific derived address
+        // This uses the derivation scheme endpoint which handles blinding properly
+        const response = await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/addresses/${address}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                // Include keyPath information for proper derivation
+                keyPath: keyPath,
+                feature: 'Custom', // Mark as custom to distinguish from normal wallet addresses
+            }),
+        });
+        
+        if (response.status >= 300) {
+            this.logger.warn('Failed to track derived address via derivation scheme, falling back to simple address tracking');
+            // Fallback to simple address tracking if derivation scheme tracking fails
+            await this.trackAddress(address, cryptoCode);
+        } else {
+            this.logger.log(`✅ Successfully tracked derived address: ${address} at path ${keyPath}`);
+        }
+    }
+
     async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
         change?: boolean,
         reserve?: boolean,
@@ -332,6 +365,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
+        console.log('broadcasting tx', tx);
         const response = await fetch(`${this.getUrl(cryptoCode)}/transactions`, {
             method: 'POST',
             body: tx.toBuffer(),

@@ -17,9 +17,8 @@ import moment from 'moment/moment.js';
 import { FourtySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
-import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
-import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { getLiquidCltvExpiry, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { LiquidService } from './LiquidService.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -38,6 +37,7 @@ export class SwapOutRunner {
         private lnd: LndService,
         private swapConfig: FourtySwapConfiguration['swap'],
         private elementsConfig: FourtySwapConfiguration['elements'],
+        private liquidService: LiquidService,
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -92,25 +92,28 @@ export class SwapOutRunner {
             if (swap.chain === 'LIQUID') {
                 const invoiceExpiry = await this.getCltvExpiry();
                 swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, invoiceExpiry);
-                swap.lockScript = reverseSwapScript(
-                    swap.preImageHash, 
-                    swap.counterpartyPubKey, 
-                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
+                
+                // 🔧 NEW LOGIC: Use derived key from xpub for NBXplorer compatibility
+                const contractInfo = this.liquidService.getContractAddress(
+                    swap.id.toString(), // Use swap ID as unique contract identifier
+                    swap.preImageHash,
+                    swap.counterpartyPubKey,
                     swap.timeoutBlockHeight
                 );
-                const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-                const p2wsh = liquid.payments.p2wsh({
-                    redeem: { output: swap.lockScript, network },
-                    network,
-                    blindkey: ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey,
-                });
-                assert(p2wsh.address != null);
-                assert(p2wsh.confidentialAddress != null);
-                swap.contractAddress = p2wsh.confidentialAddress;
+                
+                // Store the derived contract information
+                swap.unlockPrivKey = contractInfo.privateKey;
+                swap.lockScript = contractInfo.lockScript;
+                swap.contractAddress = contractInfo.confidentialAddress;
+                
                 this.swap = await this.repository.save(swap);
-                await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
-                const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
-                const pset = await psetBuilder.getPset(swap, p2wsh.address);
+                
+                // 🎯 KEY: Track the contract address with NBXplorer
+                await this.nbxplorer.trackAddress(contractInfo.address, 'lbtc');
+                
+                const network = this.liquidService.getNetwork();
+                const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.liquidService, network);
+                const pset = await psetBuilder.getPset(swap, contractInfo.address);
                 const psetTx = await psetBuilder.getTx(pset);
                 await psetBuilder.broadcastTx(psetTx);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
@@ -372,7 +375,7 @@ export class SwapOutRunner {
 
     async buildLiquidRefundTx(swap: SwapOut): Promise<liquid.Transaction> {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
-        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.elementsConfig, network);
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.liquidService, network);
         const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!));
         const signature = psetBuilder.signPset(pset, Buffer.from(swap.unlockPrivKey), 0);
         psetBuilder.finalizePset(pset, 0, signature);

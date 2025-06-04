@@ -1,23 +1,16 @@
 import { LiquidService, RPCUtxo } from './LiquidService.js';
-import { FourtySwapConfiguration } from './configuration';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { NbxplorerService } from './NbxplorerService';
 import { SwapOut } from './entities/SwapOut';
 import * as liquid from 'liquidjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import assert from 'node:assert';
-import BIP32Factory from 'bip32';
 import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
 import { blindPset as sharedBlindPset } from '@40swap/shared';
 import secp256k1Module from '@vulpemventures/secp256k1-zkp';
-import { SLIP77Factory } from 'slip77';
 
-
-
-const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
-const SLIP77 = SLIP77Factory(ecc);
 
 export function getLiquidNumber(amount: number): number {
     return liquid.ElementsValue.fromNumber(amount).number;
@@ -70,11 +63,11 @@ export abstract class LiquidPSETBuilder {
 
     constructor(
         protected nbxplorer: NbxplorerService,
-        protected elementsConfig: FourtySwapConfiguration['elements'],
+        liquidService: LiquidService,
         network: liquid.networks.Network,
     ) {
         this.network = network;
-        this.liquidService = new LiquidService(nbxplorer, elementsConfig);
+        this.liquidService = liquidService;
     }
 
     abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
@@ -194,8 +187,8 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const pset = liquid.Creator.newPset({locktime: swap.timeoutBlockHeight});
         const updater = new liquid.Updater(pset);
 
-        // Add inputs to pset
-        await this.addInputs(utxos, pset, updater);
+        // Add inputs to pset and collect blinding keys
+        const utxosBlindingKeys = await this.addInputs(utxos, pset, updater);
 
         // Add required outputs (claim, change, fee) to pset
         const blindingPublicKey = ECPair.fromPrivateKey(swap.blindingPrivKey!).publicKey;
@@ -216,34 +209,52 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
             await this.addRequiredOutputs(amount, totalInputValue, newCommission, updater, contractAddress, blindingPublicKey);
         }
 
-        const utxosKeys = [{blindingPrivateKey: swap.blindingPrivKey!}];
-        await this.blindPset(pset, utxosKeys);
+        // Combine all blinding keys: UTXOs + swap blinding key
+        const allBlindingKeys = [
+            ...utxosBlindingKeys,
+            { blindingPrivateKey: swap.blindingPrivKey! },
+        ];
+        await this.blindPset(pset, allBlindingKeys);
 
         return pset;
     }
 
-    async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
+    async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<{ blindingPrivateKey: Buffer }[]> {
+        const utxosBlindingKeys: { blindingPrivateKey: Buffer }[] = [];
+        
         await Promise.all(utxos.map(async (utxo, i) => {
             const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub);
             const witnessUtxo = liquidTx.outs[utxo.vout];
             this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
             updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
             updater.addInWitnessUtxo(i, witnessUtxo);
-            const relativePath = getRelativePathFromDescriptor(utxo.desc);
+            
             try {
-                const node = bip32.fromBase58(this.liquidService.xpub, this.network);
-                const childNode = node.derivePath(relativePath);
-                updater.addInBIP32Derivation(i, {
-                    masterFingerprint: Buffer.from(node.fingerprint),
-                    pubkey: Buffer.from(childNode.publicKey),
-                    path: relativePath,
-                });
+                // Derive blinding key using SLIP77 directly from the script
+                // This ensures consistency with NBXplorer's derivation method
+                const script = witnessUtxo.script;
+                const blindingKey = await this.liquidService.deriveBlindingKey(script);
+                
+                if (blindingKey) {
+                    utxosBlindingKeys.push({ blindingPrivateKey: blindingKey });
+                } else {
+                    // Fallback to Elements Core's confidential key if SLIP77 derivation fails
+                    const utxoAddress = liquid.address.fromOutputScript(script, this.network);
+                    const addressInfo = await this.liquidService.getAddressInfo(utxoAddress);
+                    
+                    if (addressInfo.confidential_key) {
+                        const fallbackKey = Buffer.from(addressInfo.confidential_key, 'hex');
+                        utxosBlindingKeys.push({ blindingPrivateKey: fallbackKey });
+                    }
+                }
             } catch (error) {
-                throw new Error(`Failed to derive path ${relativePath}: ${error}`);
+                throw new Error(`Failed to derive blinding key for UTXO ${utxo.txid}:${utxo.vout}: ${error}`);
             }
         })).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
         });
+
+        return utxosBlindingKeys;
     }
     
     async addRequiredOutputs(
@@ -263,18 +274,14 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
         const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
-        // const changeKey = Buffer.from(changeAddressInfo.confidential_key!, 'hex');
-        // this.addOutput(updater, changeAmount, changeOutputScript, changeKey, 0);
-        const masterHexBlindingKey = 'a1d24c4cacaec89d404c54c03901c5dbbb0703a90858bec6ed86dc89e4804098';
-        const masterBlindingKey = SLIP77.fromMasterBlindingKey(masterHexBlindingKey);
-        const changeBlindingKey = masterBlindingKey.derive(changeAddressInfo.hdkeypath!);
-        const changeBlindingPrivateKey = changeBlindingKey.privateKey!;
-        this.addOutput(updater, changeAmount, changeOutputScript, changeBlindingPrivateKey, 0);
+        
+        // Use nbxplorer's confidential key instead of deriving manually
+        const changeKey = Buffer.from(changeAddressInfo.confidential_key!, 'hex');
+        this.addOutput(updater, changeAmount, changeOutputScript, changeKey, 0);
 
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);
         this.addOutput(updater, feeAmount);
-
     }
 
     async getTx(pset: liquid.Pset): Promise<liquid.Transaction> {
