@@ -10,8 +10,9 @@ import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import failureImage from '/failure-image.png?url';
-import { currencyFormat, jsonEquals } from './utils.js';
+import { currencyFormat } from './utils.js';
 import { toast } from 'solid-toast';
+import { jsonEquals } from '@40swap/shared';
 
 
 export const SwapOutDetails: Component = () => {
