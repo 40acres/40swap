@@ -14,10 +14,10 @@ import liquidLogo from '/liquid-logo.svg?url';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
-import { currencyFormat, jsonEquals } from './utils.js';
+import { currencyFormat } from './utils.js';
 import { toast } from 'solid-toast';
 import * as liquid from 'liquidjs-lib';
-import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { getLiquidNetworkFromBitcoinNetwork, jsonEquals } from '@40swap/shared';
 
 export const SwapInDetails: Component = () => {
     const { swapInService, localSwapStorageService } = applicationContext;

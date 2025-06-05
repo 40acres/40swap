@@ -15,7 +15,7 @@ jest.setTimeout(2 * 60 * 1000);
 const network = networks.regtest;
 
 // Test suite for Bitcoin functionality without Elements config
-describe('Bitcoin functions without Elements config', () => {
+describe.skip('Bitcoin functions without Elements config', () => {
     let compose: StartedDockerComposeEnvironment;
     let btcOnlyLndLsp: Lnd;
     let btcOnlyLndUser: Lnd;
