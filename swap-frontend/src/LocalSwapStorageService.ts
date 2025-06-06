@@ -1,4 +1,4 @@
-import { getSwapInResponseSchema, getSwapOutResponseSchema } from '@40swap/shared';
+import { getSwapInResponseSchema, getSwapOutResponseSchema, SwapInPersistence } from '@40swap/shared';
 import * as idb from 'idb';
 import { DBSchema, IDBPDatabase } from 'idb';
 import { SwapType } from './utils.js';
@@ -122,5 +122,21 @@ export class LocalSwapStorageService {
             await this.persist(item);
         }
     }
+}
 
+// TODO make localSwapStorageService directly implement the Persistence interface
+export class SwapInPersistenceAdapter implements SwapInPersistence {
+    constructor(private localSwapStorageService: LocalSwapStorageService) {}
+
+    load(swapId: string): PersistedSwapIn | Promise<PersistedSwapIn | null> | null {
+        return this.localSwapStorageService.findById('in', swapId);
+    }
+    persist(swap: PersistedSwapIn): void | Promise<void> {
+        this.localSwapStorageService.persist(swap);
+    }
+    update(swap: Partial<PersistedSwapIn> & Pick<PersistedSwapIn, 'swapId'>): PersistedSwapIn | Promise<PersistedSwapIn> {
+        this.localSwapStorageService.update({ type: 'in', ...swap});
+        // @ts-ignore
+        return this.load(swap.swapId);
+    }
 }
