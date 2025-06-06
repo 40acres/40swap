@@ -2,13 +2,11 @@ import { FortySwapClient, FrontendConfiguration, frontendConfigurationSchema } f
 import { ECPairAPI, ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { LocalSwapStorageService } from './LocalSwapStorageService.js';
-import { SwapInService } from './SwapInService.js';
 import { SwapOutService } from './SwapOutService.js';
 
 export class ApplicationContext {
     private _config?: Promise<FrontendConfiguration>;
     private _localSwapStorageService?: LocalSwapStorageService;
-    private _swapInService?: SwapInService;
     private _swapOutService?: SwapOutService;
     private _fortySwapClient?: FortySwapClient;
     private _ECPair?: ECPairAPI;
@@ -39,18 +37,6 @@ export class ApplicationContext {
             this._localSwapStorageService = new LocalSwapStorageService();
         }
         return this._localSwapStorageService;
-    }
-
-    get swapInService(): SwapInService {
-        if (this._swapInService == null) {
-            this._swapInService = new SwapInService(
-                this.config,
-                this.localSwapStorageService,
-                this.ECPair,
-                this.fortySwapClient,
-            );
-        }
-        return this._swapInService;
     }
 
     get swapOutService(): SwapOutService {

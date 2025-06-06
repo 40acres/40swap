@@ -9,13 +9,20 @@ import { useNavigate } from '@solidjs/router';
 import Decimal from 'decimal.js';
 import { ActionButton } from './ActionButton.js';
 import { toast } from 'solid-toast';
-import { FrontendConfiguration, getLiquidNetworkFromBitcoinNetwork, getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import {
+    FrontendConfiguration,
+    getLiquidNetworkFromBitcoinNetwork,
+    getSwapInInputAmount,
+    getSwapOutOutputAmount,
+    SwapInService,
+} from '@40swap/shared';
 import Fa from 'solid-fa';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
 import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetSelector } from './components/AssetSelector.jsx';
 import { Asset } from './controllers/AssetController.js';
+import { SwapInPersistenceAdapter } from './LocalSwapStorageService.js';
 
 
 type FormData = {
@@ -26,7 +33,7 @@ type FormData = {
 };
 
 export const SwapForm: Component = () => {
-    const { swapInService, swapOutService } = applicationContext;
+    const { swapOutService, localSwapStorageService } = applicationContext;
     const navigate = useNavigate();
     const [config] = createResource(() => applicationContext.config);
     const [destinationAsset, setDestinationAsset] = createSignal<Asset>('ON_CHAIN_BITCOIN');
@@ -206,8 +213,18 @@ export const SwapForm: Component = () => {
         try {
             if (swapType() === 'in') {
                 const chain = form.from === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
-                const swap = await swapInService.createSwap(form.payload, chain);
-                navigate(`/swap/in/${swap.swapId}`);
+                const config = await applicationContext.config;
+                const swapInService = new SwapInService({
+                    baseUrl: '',
+                    persistence: new SwapInPersistenceAdapter(localSwapStorageService),
+                    network: config.bitcoinNetwork,
+                });
+                const { id: swapId } = await swapInService.create({
+                    invoice: form.payload,
+                    chain,
+                    refundAddress: async () => '',
+                });
+                navigate(`/swap/in/${swapId}`);
             } else if (swapType() === 'out') {
                 const chain = form.to === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
                 const swap = await swapOutService.createSwap(form.payload, inputAmount(), chain);

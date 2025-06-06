@@ -23,7 +23,7 @@ const persistedSwapInSchema = getSwapInResponseSchema.extend({
 });
 export type PersistedSwapIn = z.infer<typeof persistedSwapInSchema>;
 
-interface SwapInPersistence {
+export interface SwapInPersistence {
     persist(swap: PersistedSwapIn): void | Promise<void>;
     update(swap: Partial<PersistedSwapIn> & Pick<PersistedSwapIn, 'swapId'>): PersistedSwapIn | Promise<PersistedSwapIn>;
     load(swapId: string): PersistedSwapIn | null | Promise<PersistedSwapIn | null>;
@@ -58,14 +58,18 @@ export class InMemoryPersistence implements SwapInPersistence {
 }
 
 type ChangeListener = (newStatus: PersistedSwapIn) => void;
+type ErrorListener = (errorType: 'REFUND', error: Error) => void;
 
 export class SwapInTracker {
     private pollInterval: ReturnType<typeof setInterval> | undefined;
     private currentStatus: PersistedSwapIn | null = null;
-    private changeListeners: ChangeListener[] = [];
+    private listeners: { change: ChangeListener[], error: ErrorListener[] } = {
+        change: [],
+        error: [],
+    };
 
     constructor(
-        private id: string,
+        public id: string,
         private client: FortySwapClient['in'],
         private persistence: SwapInPersistence,
         private refundAddress: () => Promise<string>,
@@ -85,20 +89,26 @@ export class SwapInTracker {
         return this.currentStatus;
     }
 
-    on(ev: 'change', listener: ChangeListener): void {
-        this.changeListeners.push(listener);
+    on<T extends keyof SwapInTracker['listeners']>(ev: T, listener: SwapInTracker['listeners'][T][number]): void {
+        const arr = this.listeners[ev] as Array<typeof listener>;
+        arr.push(listener);
     }
 
     private async refresh(): Promise<void> {
         const swap = await this.client.find(this.id);
         const newStatus = await this.persistence.update(swap);
         if (!jsonEquals(this.currentStatus ?? {}, newStatus)) {
-            this.changeListeners.forEach(listener => listener(newStatus));
+            this.listeners.change.forEach(listener => listener(newStatus));
         }
         this.currentStatus = newStatus;
 
         if (this.currentStatus.status === 'CONTRACT_EXPIRED' && this.currentStatus.refundRequestDate == null) {
-            await this.refund();
+            try {
+                await this.refund();
+                await this.persistence.update({ swapId: swap.swapId, refundRequestDate: new Date() });
+            } catch (error) {
+                this.listeners.error.forEach(listener => listener('REFUND', error as Error));
+            }
         } else if (this.currentStatus.status === 'DONE') {
             clearInterval(this.pollInterval);
         }
