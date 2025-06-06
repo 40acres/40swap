@@ -7,6 +7,7 @@ import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
 import { SLIP77Factory } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
+import { ECPairInterface } from 'ecpair';
 
 
 const LiquidConfigurationDetailsSchema = z.object({
@@ -128,7 +129,8 @@ export class LiquidService implements OnApplicationBootstrap  {
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
             // Use the same SLIP77 key that was configured in NBXplorer during setup
-            // This key matches the one used in nodes-setup.sh
+            // This key matches the one used in nodes-setup.sh 
+            // TODO: we should use a dynamic way to get the key from envs if this works
             const masterBlindingKeyHex = 'a1d24c4cacaec89d404c54c03901c5dbbb0703a90858bec6ed86dc89e4804098';
             const slip77 = SLIP77Factory(ecc);
             this.slip77Node = slip77.fromMasterBlindingKey(masterBlindingKeyHex);
@@ -259,7 +261,7 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
     
     // Derive blinding key using SLIP77 from script
-    async deriveBlindingKey(script: Buffer): Promise<Buffer | null> {
+    async deriveBlindingKey(script: Buffer): Promise<ECPairInterface | null> {
         if (!this.slip77Node) {
             this.logger.error('Slip77 key not initialized');
             return null;
@@ -267,7 +269,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         
         try {
             const keyPair = this.slip77Node.derive(script);
-            return keyPair.privateKey;
+            return keyPair;
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.warn(`Failed to derive blinding key from script: ${errorMessage}`);
