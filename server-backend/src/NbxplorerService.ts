@@ -332,6 +332,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async broadcastTx(tx: Transaction | LiquidTransaction, cryptoCode: string = 'btc'): Promise<void> {
+        console.log('broadcasting tx', tx);
         const response = await fetch(`${this.getUrl(cryptoCode)}/transactions`, {
             method: 'POST',
             body: tx.toBuffer(),

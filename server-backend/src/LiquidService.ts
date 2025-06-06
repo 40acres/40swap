@@ -5,6 +5,10 @@ import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nest
 import Decimal from 'decimal.js';
 import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
+import { SLIP77Factory } from 'slip77';
+import * as ecc from 'tiny-secp256k1';
+import { ECPairInterface } from 'ecpair';
+
 
 const LiquidConfigurationDetailsSchema = z.object({
     rpcUrl: z.string(),
@@ -98,6 +102,7 @@ export class LiquidService implements OnApplicationBootstrap  {
     private readonly logger = new Logger(LiquidService.name);
     private readonly rpcUrl: string;
     private readonly rpcAuth: {username: string, password: string, wallet: string};
+    private slip77Node: any = null;
 
     constructor(
         private nbxplorer: NbxplorerService,
@@ -123,7 +128,14 @@ export class LiquidService implements OnApplicationBootstrap  {
         this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
-            this.logger.log('LiquidService initialized successfully');
+            // Use the same SLIP77 key that was configured in NBXplorer during setup
+            // This key matches the one used in nodes-setup.sh 
+            // TODO: we should use a dynamic way to get the key from envs if this works
+            const masterBlindingKeyHex = 'a1d24c4cacaec89d404c54c03901c5dbbb0703a90858bec6ed86dc89e4804098';
+            const slip77 = SLIP77Factory(ecc);
+            this.slip77Node = slip77.fromMasterBlindingKey(masterBlindingKeyHex);
+            this.logger.log('✅ Using consistent SLIP77 key matching NBXplorer configuration');
+            this.logger.log(`🔐 Master blinding key (SLIP77): ${masterBlindingKeyHex}`);    
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.logger.error(`Failed to initialize Liquid xpub: ${errorMessage}`);
@@ -240,5 +252,28 @@ export class LiquidService implements OnApplicationBootstrap  {
             throw new Error('PSET is not complete');
         }
         return response.hex;
+    }
+
+    // Get the current slip77 master blinding key
+    getMasterBlindingKey(): string | null {
+        if (!this.slip77Node) return null;
+        return this.slip77Node.masterKey.toString('hex');
+    }
+    
+    // Derive blinding key using SLIP77 from script
+    async deriveBlindingKey(script: Buffer): Promise<ECPairInterface | null> {
+        if (!this.slip77Node) {
+            this.logger.error('Slip77 key not initialized');
+            return null;
+        }
+        
+        try {
+            const keyPair = this.slip77Node.derive(script);
+            return keyPair;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.warn(`Failed to derive blinding key from script: ${errorMessage}`);
+            return null;
+        }
     }
 }

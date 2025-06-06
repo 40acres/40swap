@@ -22,6 +22,7 @@ import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
 import { getBitcoinBlockHeightFromLiquidValue, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { LiquidService } from './LiquidService.js';
 const ECPair = ECPairFactory(ecc);
 
 export class SwapInRunner {
@@ -38,7 +39,7 @@ export class SwapInRunner {
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
         private swapConfig: FourtySwapConfiguration['swap'],
-        private elementsConfig: FourtySwapConfiguration['elements'],
+        private liquidService: LiquidService,
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -343,7 +344,7 @@ export class SwapInRunner {
 
     async buildLiquidClaimTx(swap: SwapIn, spendingTx: liquid.Transaction): Promise<liquid.Transaction> {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
-        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.elementsConfig, network);
+        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.liquidService, network);
         const pset = await psetBuilder.getPset(swap, spendingTx, swap.sweepAddress);
         const signer = new liquid.Signer(pset);
         const finalizer = new liquid.Finalizer(pset);

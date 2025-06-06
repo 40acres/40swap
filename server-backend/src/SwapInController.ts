@@ -164,14 +164,7 @@ export class SwapInController {
 
     async buildLiquidRefundPsbt(swap: SwapIn, outputAddress: string): Promise<liquid.Pset> {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
-        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, {
-            xpub: this.liquidService.xpub,
-            rpcUrl: this.liquidService.configurationDetails.rpcUrl,
-            rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
-            rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
-            rpcWallet: this.liquidService.configurationDetails.rpcAuth.wallet,
-            esploraUrl: this.liquidService.configurationDetails.esploraUrl,
-        }, network);
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.liquidService, network);
         const tx = liquid.Transaction.fromBuffer(swap.lockTx!);
         const pset = await psetBuilder.getPset(swap, tx, outputAddress);
         return pset;

@@ -1,5 +1,4 @@
 import { LiquidService, RPCUtxo } from './LiquidService.js';
-import { FourtySwapConfiguration } from './configuration';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { NbxplorerService } from './NbxplorerService';
 import { SwapOut } from './entities/SwapOut';
@@ -11,8 +10,6 @@ import Decimal from 'decimal.js';
 import { SwapIn } from './entities/SwapIn.js';
 import { blindPset as sharedBlindPset } from '@40swap/shared';
 import secp256k1Module from '@vulpemventures/secp256k1-zkp';
-
-
 
 const bip32 = BIP32Factory(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -68,11 +65,11 @@ export abstract class LiquidPSETBuilder {
 
     constructor(
         protected nbxplorer: NbxplorerService,
-        protected elementsConfig: FourtySwapConfiguration['elements'],
+        liquidService: LiquidService,
         network: liquid.networks.Network,
     ) {
         this.network = network;
-        this.liquidService = new LiquidService(nbxplorer, elementsConfig);
+        this.liquidService = liquidService;
     }
 
     abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
@@ -215,7 +212,7 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         }
 
         const utxosKeys = [{blindingPrivateKey: swap.blindingPrivKey!}];
-        await this.blindPset(pset, utxosKeys, [0]);
+        await this.blindPset(pset, utxosKeys);
 
         return pset;
     }
@@ -259,9 +256,10 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
         // Add change output to pset
         const changeAddress = await this.liquidService.getNewAddress();
         const changeOutputScript = liquid.address.toOutputScript(changeAddress, this.network);
-        // const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
+        const changeAddressInfo = await this.liquidService.getAddressInfo(changeAddress);
         const changeAmount = getLiquidNumber(totalInputValue - amount - commision);
-        this.addOutput(updater, changeAmount, changeOutputScript);
+        const changeKey = Buffer.from(changeAddressInfo.confidential_key!, 'hex');
+        this.addOutput(updater, changeAmount, changeOutputScript, changeKey, 0);
 
         // Add fee output to pset
         const feeAmount = getLiquidNumber(commision);
