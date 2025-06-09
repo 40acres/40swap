@@ -63,7 +63,7 @@ export class SwapOutTracker {
         if (this.currentStatus.status === 'CONTRACT_FUNDED' && this.currentStatus.claimRequestDate == null) {
             try {
                 await this.claim();
-                await this.persistence.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
+                await this.persistence.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
             } catch (error) {
                 this.listeners.error.forEach(listener => {
                     try {
