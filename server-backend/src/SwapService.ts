@@ -21,7 +21,7 @@ import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } f
 import { DataSource, Not } from 'typeorm';
 import { LndService } from './LndService.js';
 import { OnEvent } from '@nestjs/event-emitter';
-import { SwapOutRunner } from './SwapOutRunner.js';
+import { BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS, SwapOutRunner } from './SwapOutRunner.js';
 import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
@@ -170,10 +170,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         assert(sweepAddress, 'Could not create sweep address for requested chain');
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
+        const cltvExpiry = this.swapConfig.lockBlockDelta.out + BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS;
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
+            cltvExpiry,
         });
         const refundKey = ECPair.makeRandom();
         const repository = this.dataSource.getRepository(SwapOut);
