@@ -1,10 +1,18 @@
-import { bitcoin as bitcoinMainnet, regtest as bitcoinRegtest, testnet as bitcoinTestnet, Network as bitcoinNetwork } from 'bitcoinjs-lib/src/networks.js';
-import { liquid as liquidMainnet, regtest as liquidRegtest, testnet as liquidTestnet, Network as liquidNetwork } from 'liquidjs-lib/src/networks.js';
-import { ECPairFactory, ECPairInterface } from 'ecpair';
+import {
+    bitcoin as bitcoinMainnet,
+    Network as bitcoinNetwork,
+    regtest as bitcoinRegtest,
+    testnet as bitcoinTestnet,
+} from 'bitcoinjs-lib/src/networks.js';
+import {
+    liquid as liquidMainnet,
+    Network as liquidNetwork,
+    regtest as liquidRegtest,
+    testnet as liquidTestnet,
+} from 'liquidjs-lib/src/networks.js';
+import { ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import * as liquid from 'liquidjs-lib';
-
-export const ECPair = ECPairFactory(ecc);
 
 export function getLiquidNetworkFromBitcoinNetwork(network: bitcoinNetwork): liquidNetwork {
     switch (network) {

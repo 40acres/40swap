@@ -1,7 +1,7 @@
 import { Lnd } from './Lnd.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { SwapInStatus, SwapInTracker } from '@40swap/shared';
+import { SwapInStatus, SwapInTracker, SwapOutStatus, SwapOutTracker } from '@40swap/shared';
 
 export const ECPair = ECPairFactory(ecc);
 
@@ -11,11 +11,14 @@ export async function waitForChainSync(lnds: Lnd[]): Promise<void> {
     }
 }
 
-export async function waitForSwapStatus(swap: SwapInTracker, status: SwapInStatus): Promise<void> {
+export async function waitForSwapStatus<T extends SwapInTracker|SwapOutTracker>(
+    swap: T,
+    status: T extends SwapInTracker ? SwapInStatus : SwapOutStatus,
+): Promise<void> {
     try {
         return await waitFor(() => swap.value?.status === status, 90, 100);
     } catch (error) {
-        throw new Error(`timeout waiting for swap status to become ${status}`);
+        throw new Error(`timeout waiting for swap status to become ${status} (current status is ${swap.value?.status})`);
     }
 }
 

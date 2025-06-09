@@ -6,11 +6,10 @@ import lightningIcon from '/lightning-icon-monochrome.svg?url';
 import bitcoinIcon from '/bitcoin-icon-monochrome.svg?url';
 import liquidIcon from '/liquid-logo-monochrome.svg?url';
 import swapIcon from '/swap-icon-monochrome.svg?url';
-import { SwapType } from './utils.js';
 import Fa from 'solid-fa';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import moment from 'moment';
-import { Chain } from '@40swap/shared';
+import { Chain, SwapType } from '@40swap/shared';
 
 const SwapTypeComponent: Component<{ type: SwapType, chain: Chain }> = (props) => {
     const baseSize = 14;
