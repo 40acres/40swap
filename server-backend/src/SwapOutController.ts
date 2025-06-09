@@ -160,7 +160,6 @@ export class SwapOutController {
                         preImage: Buffer.alloc(32).fill(0),
                     });
                 }
-                psbt.locktime = swap.timeoutBlockHeight;
                 return psbt;
             },
         );
