@@ -50,7 +50,7 @@ export const SwapInDetails: Component = () => {
             swapIn.on('error', (errorType: 'REFUND', error: Error) => {
                 if (errorType === 'REFUND') {
                     toast.error('Error while requesting refund');
-                    console.error(`Errror while requesting refund: ${error.message}`);
+                    console.error(`Error while requesting refund: ${error.message}`);
                 }
             });
             swapIn.start();

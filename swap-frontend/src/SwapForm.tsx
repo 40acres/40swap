@@ -32,7 +32,7 @@ type FormData = {
 };
 
 export const SwapForm: Component = () => {
-    const { swapOutService, localSwapStorageService } = applicationContext;
+    const { localSwapStorageService } = applicationContext;
     const navigate = useNavigate();
     const [config] = createResource(() => applicationContext.config);
     const [destinationAsset, setDestinationAsset] = createSignal<Asset>('ON_CHAIN_BITCOIN');
@@ -210,24 +210,29 @@ export const SwapForm: Component = () => {
             return;
         }
         try {
+            const chain = swapType() === 'in' ?
+                form.from === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID' :
+                form.to === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID' ;
+            const config = await applicationContext.config;
+            const swapService = new SwapService({
+                baseUrl: '',
+                persistence: localSwapStorageService,
+                network: config.bitcoinNetwork,
+            });
             if (swapType() === 'in') {
-                const chain = form.from === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
-                const config = await applicationContext.config;
-                const swapInService = new SwapService({
-                    baseUrl: '',
-                    persistence: localSwapStorageService,
-                    network: config.bitcoinNetwork,
-                });
-                const { id: swapId } = await swapInService.createSwapIn({
+                const { id: swapId } = await swapService.createSwapIn({
                     invoice: form.payload,
                     chain,
                     refundAddress: async () => '',
                 });
                 navigate(`/swap/in/${swapId}`);
             } else if (swapType() === 'out') {
-                const chain = form.to === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
-                const swap = await swapOutService.createSwap(form.payload, inputAmount(), chain);
-                navigate(`/swap/out/${swap.swapId}`);
+                const { id: swapId } = await swapService.createSwapOut({
+                    chain,
+                    sweepAddress: form.payload,
+                    inputAmount: inputAmount(),
+                });
+                navigate(`/swap/out/${swapId}`);
             }
         } catch (e) {
             toast.error('Unknown error');
