@@ -16,6 +16,7 @@ export class SwapOutTracker {
         change: [],
         error: [],
     };
+    private refreshing = false;
 
     constructor(
         public id: string,
@@ -25,8 +26,8 @@ export class SwapOutTracker {
     ) {}
 
     start(): void {
-        void this.refresh();
-        this.pollInterval = setInterval(() => this.refresh(), 1500);
+        void this.safeRefresh();
+        this.pollInterval = setInterval(async () => this.safeRefresh(), 1500);
     }
 
     stop(): void {
@@ -40,6 +41,18 @@ export class SwapOutTracker {
     on<T extends keyof SwapOutTracker['listeners']>(ev: T, listener: SwapOutTracker['listeners'][T][number]): void {
         const arr = this.listeners[ev] as Array<typeof listener>;
         arr.push(listener);
+    }
+
+    private async safeRefresh(): Promise<void> {
+        if (this.refreshing) {
+            return;
+        }
+        try {
+            this.refreshing = true;
+            await this.refresh();
+        } finally {
+            this.refreshing = false;
+        }
     }
 
     private async refresh(): Promise<void> {
