@@ -1,7 +1,6 @@
-import { getSwapInResponseSchema, getSwapOutResponseSchema, SwapInPersistence } from '@40swap/shared';
+import { getSwapInResponseSchema, getSwapOutResponseSchema, SwapPersistence, SwapType } from '@40swap/shared';
 import * as idb from 'idb';
 import { DBSchema, IDBPDatabase } from 'idb';
-import { SwapType } from './utils.js';
 import { z } from 'zod';
 
 const persistedSwapInSchema = getSwapInResponseSchema.extend({
@@ -31,9 +30,7 @@ export interface FortySwapDbSchema extends DBSchema {
     };
 }
 
-export type PersistedSwapKey = Pick<PersistedSwapIn | PersistedSwapOut, 'type' | 'swapId'>;
-
-export class LocalSwapStorageService {
+export class LocalSwapStorageService implements SwapPersistence {
 
     private db: Promise<IDBPDatabase<FortySwapDbSchema>>;
 
@@ -82,7 +79,7 @@ export class LocalSwapStorageService {
         await (await this.db).add('swap', swap);
     }
 
-    async update<T extends PersistedSwapIn | PersistedSwapOut>(swap: Partial<T> & PersistedSwapKey): Promise<void> {
+    async update<T extends PersistedSwapIn | PersistedSwapOut>(swap: Partial<T> & Pick<PersistedSwapIn, 'swapId'> & { type: SwapType }): Promise<void> {
         const existing = await this.findById(swap.type, swap.swapId);
         if (existing == null) {
             throw new Error();
@@ -121,22 +118,5 @@ export class LocalSwapStorageService {
             }
             await this.persist(item);
         }
-    }
-}
-
-// TODO make localSwapStorageService directly implement the Persistence interface
-export class SwapInPersistenceAdapter implements SwapInPersistence {
-    constructor(private localSwapStorageService: LocalSwapStorageService) {}
-
-    load(swapId: string): PersistedSwapIn | Promise<PersistedSwapIn | null> | null {
-        return this.localSwapStorageService.findById('in', swapId);
-    }
-    persist(swap: PersistedSwapIn): void | Promise<void> {
-        this.localSwapStorageService.persist(swap);
-    }
-    update(swap: Partial<PersistedSwapIn> & Pick<PersistedSwapIn, 'swapId'>): PersistedSwapIn | Promise<PersistedSwapIn> {
-        this.localSwapStorageService.update({ type: 'in', ...swap});
-        // @ts-ignore
-        return this.load(swap.swapId);
     }
 }

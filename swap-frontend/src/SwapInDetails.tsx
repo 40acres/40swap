@@ -16,8 +16,7 @@ import { ActionButton } from './ActionButton.js';
 import { currencyFormat } from './utils.js';
 import { toast } from 'solid-toast';
 import * as liquid from 'liquidjs-lib';
-import { getLiquidNetworkFromBitcoinNetwork, PersistedSwapIn, SwapInService } from '@40swap/shared';
-import { SwapInPersistenceAdapter } from './LocalSwapStorageService.js';
+import { getLiquidNetworkFromBitcoinNetwork, PersistedSwapIn, SwapService } from '@40swap/shared';
 
 export const SwapInDetails: Component = () => {
     const { localSwapStorageService } = applicationContext;
@@ -35,12 +34,12 @@ export const SwapInDetails: Component = () => {
     createEffect(() => {
         const c = config();
         if (c != null && !trackerInitialized) {
-            const service = new SwapInService({
+            const service = new SwapService({
                 network: c.bitcoinNetwork,
                 baseUrl: '',
-                persistence: new SwapInPersistenceAdapter(localSwapStorageService),
+                persistence: localSwapStorageService,
             });
-            const swapIn = service.track({
+            const swapIn = service.trackSwapIn({
                 id: swapId,
                 refundAddress: () => refundAddressPromise,
             });

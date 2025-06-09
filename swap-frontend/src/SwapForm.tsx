@@ -1,7 +1,7 @@
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { Form } from 'solid-bootstrap';
 import flipImg from '/flip.png?url';
-import { currencyFormat, SwapType } from './utils.js';
+import { currencyFormat } from './utils.js';
 import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
@@ -14,7 +14,7 @@ import {
     getLiquidNetworkFromBitcoinNetwork,
     getSwapInInputAmount,
     getSwapOutOutputAmount,
-    SwapInService,
+    SwapService, SwapType,
 } from '@40swap/shared';
 import Fa from 'solid-fa';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
@@ -22,7 +22,6 @@ import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
 import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address.js';
 import { AssetSelector } from './components/AssetSelector.jsx';
 import { Asset } from './controllers/AssetController.js';
-import { SwapInPersistenceAdapter } from './LocalSwapStorageService.js';
 
 
 type FormData = {
@@ -214,12 +213,12 @@ export const SwapForm: Component = () => {
             if (swapType() === 'in') {
                 const chain = form.from === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
                 const config = await applicationContext.config;
-                const swapInService = new SwapInService({
+                const swapInService = new SwapService({
                     baseUrl: '',
-                    persistence: new SwapInPersistenceAdapter(localSwapStorageService),
+                    persistence: localSwapStorageService,
                     network: config.bitcoinNetwork,
                 });
-                const { id: swapId } = await swapInService.create({
+                const { id: swapId } = await swapInService.createSwapIn({
                     invoice: form.payload,
                     chain,
                     refundAddress: async () => '',

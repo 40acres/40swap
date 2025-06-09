@@ -2,14 +2,13 @@ import { DockerComposeEnvironment, StartedDockerComposeEnvironment, Wait } from 
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import { FortySwapClient, InMemoryPersistence, signLiquidPset, SwapInService, SwapOutcome } from '@40swap/shared';
+import { FortySwapClient, InMemoryPersistence, SwapService, SwapOutcome } from '@40swap/shared';
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
 import { ECPair, waitFor, waitForChainSync, waitForSwapStatus } from './utils';
 import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
-import * as liquid from 'liquidjs-lib';
 import assert from 'node:assert';
 
 jest.setTimeout(2 * 60 * 1000);
@@ -24,7 +23,7 @@ describe('40Swap backend', () => {
     let bitcoind: Bitcoind;
     let elements: Elements;
     let backend: FortySwapClient;
-    let swapService: SwapInService;
+    let swapService: SwapService;
 
     beforeAll(async () => {
         await setUpComposeEnvironment();
@@ -37,7 +36,7 @@ describe('40Swap backend', () => {
 
     it('should complete a swap in', async () => {
         const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
-        const swap = await swapService.create({
+        const swap = await swapService.createSwapIn({
             chain: 'BITCOIN',
             invoice: paymentRequest!,
             refundAddress: () => { throw new Error('should not be called'); },
@@ -59,76 +58,68 @@ describe('40Swap backend', () => {
     });
 
     it('should complete a liquid swap out', async () => {
-        const randomBytes = crypto.randomBytes(32);
-        const preImage = Buffer.from(randomBytes);
-        const preImageHash = crypto.createHash('sha256').update(preImage).digest();
-        const claimKey = ECPair.makeRandom();
-        
-        let swap = await backend.out.create({
+        const claimAddress = await elements.getNewAddress();
+        const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
             inputAmount: 0.002,
-            claimPubKey: claimKey.publicKey.toString('hex'),
-            preImageHash: preImageHash.toString('hex'),
+            sweepAddress: claimAddress,
         });
-        expect(swap.status).toEqual('CREATED');
+        swap.start();
 
-        lndUser.sendPayment(swap.invoice);
-        await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
-        
+        await waitForSwapStatus(swap, 'CREATED');
+
+        assert(swap.value != null);
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
         await elements.mine(5);
-        await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED');
-        
-        const claimAddress = await elements.getNewAddress();
-        const claimPsbt = await backend.out.getClaimPsbt(swap.swapId, claimAddress);
-        const pset = liquid.Pset.fromBase64(claimPsbt.psbt);
-        signLiquidPset(pset, preImage.toString('hex'), claimKey);
-        const transaction = liquid.Extractor.extract(pset);
-        const signedTx = transaction.toHex();
-        await backend.out.publishClaimTx(swap.swapId, signedTx);
-        
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
+
         await elements.mine();
-        await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'DONE');
-        swap = await backend.out.find(swap.swapId);
-        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+        await waitForSwapStatus(swap, 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
+
+        // TODO verify that the funds are in claimAddress
     });
 
     it('should properly handle a liquid swap out expiration', async () => {
-        const preImageHash = crypto.createHash('sha256').update(crypto.randomBytes(32)).digest();
-        const claimKey = ECPair.makeRandom();
-        
-        // Create the swap
-        let swap = await backend.out.create({
+        const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
             inputAmount: 0.002,
-            claimPubKey: claimKey.publicKey.toString('hex'),
-            preImageHash: preImageHash.toString('hex'),
+            sweepAddress: await elements.getNewAddress(),
         });
-        expect(swap.status).toEqual('CREATED');
+        swap.start();
 
-        // Fund the invoice to start the swap
-        lndUser.sendPayment(swap.invoice);
-        await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
-        
-        // Wait for contract funding confirmation
-        await elements.mine(5);
-        await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED');
-        
-        // Get the current timeout block height
-        swap = await backend.out.find(swap.swapId);
-        const timeoutBlockHeight = swap.timeoutBlockHeight;
-        
-        // Mine enough blocks to reach the timeout height
+        await waitForSwapStatus(swap, 'CREATED');
+
+        assert(swap.value != null);
+        void lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        swap.stop(); // so that it doesn't get claimed
+        await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
+
+        const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        
-        // Mine blocks to trigger expiration
-        await elements.mine(blocksToMine);
-        await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_EXPIRED');
+        await elements.mine(blocksToMine); // to trigger expiration
+
+        swap.start();
+        await waitForSwapStatus(swap, 'CONTRACT_EXPIRED');
+        swap.stop();
+
+        // TODO liquid refunds seem to be broken, this doesn't work
+        // await sleep(1000); // give it a second to start the refund
+        // swap.start();
+        // await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED');
+        // await elements.mine(5);
+        // await waitForSwapStatus(swap, 'DONE');
+        // expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
     it('should complete a swap in with custom lockBlockDeltaIn', async () => {
         const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
-        const swap = await swapService.create({
+        const swap = await swapService.createSwapIn({
             chain: 'BITCOIN',
             invoice: paymentRequest!,
             lockBlockDeltaIn: 500, // Custom CLTV expiry for testing
@@ -165,7 +156,7 @@ describe('40Swap backend', () => {
 
     it('should refund after timeout block height', async () => {
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
-        const swap = await swapService.create({
+        const swap = await swapService.createSwapIn({
             chain: 'BITCOIN',
             invoice: paymentRequest!,
             refundAddress: async () => 'bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf',
@@ -190,7 +181,7 @@ describe('40Swap backend', () => {
 
     it('should complete a swap in with liquid', async () => {
         const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
-        const swap = await swapService.create({
+        const swap = await swapService.createSwapIn({
             chain: 'LIQUID',
             invoice: paymentRequest!,
             refundAddress:() => { throw new Error('should not be called'); },
@@ -213,7 +204,7 @@ describe('40Swap backend', () => {
 
     it('should refund swap-in after payment with wrong amount', async () => {
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
-        const swap = await swapService.create({
+        const swap = await swapService.createSwapIn({
             chain: 'BITCOIN',
             invoice: paymentRequest!,
             lockBlockDeltaIn: 144, // Minimum allowed value
@@ -316,7 +307,7 @@ describe('40Swap backend', () => {
         const backendContainer = compose.getContainer('40swap_backend');
         const backendBaseUrl = `http://${backendContainer.getHost()}:${backendContainer.getMappedPort(8081)}`;
         backend = new FortySwapClient(backendBaseUrl);
-        swapService = new SwapInService({
+        swapService = new SwapService({
             network,
             baseUrl: backendBaseUrl,
             persistence: new InMemoryPersistence(),
@@ -349,7 +340,8 @@ describe('40Swap backend', () => {
         const ch = await lndLsp.openChannel(lndUser.pubkey, 0.16);
         await bitcoind.mine();
         await waitForChainSync(allLnds);
-        // Force close the channel to avoid flaky issue 'unable to gracefully close channel while peer is offline (try force closing it instead):  channel link not found'
+        // Force close the channel to avoid flaky issue 'unable to gracefully close channel while peer is offline
+        // (try force closing it instead):  channel link not found'
         await lndLsp.closeChannel(ch, true);
         await bitcoind.mine();
         await waitForChainSync(allLnds);

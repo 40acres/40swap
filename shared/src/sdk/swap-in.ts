@@ -1,61 +1,10 @@
 import { FortySwapClient } from './client.js';
-import { getSwapInResponseSchema, SwapInRequest } from './api.types.js';
-import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { z } from 'zod';
-import { Network, networks, Psbt, Transaction } from 'bitcoinjs-lib';
-import { signContractSpend } from './bitcoin-utils.js';
+import { Network, Psbt, Transaction } from 'bitcoinjs-lib';
+import { signContractSpend } from '../bitcoin-utils.js';
 import * as liquid from 'liquidjs-lib';
-import { jsonEquals } from './utils.js';
-
-const ECPair = ECPairFactory(ecc);
-
-interface SwapInOptions {
-    baseUrl: string;
-    persistence: SwapInPersistence,
-    network?: Network,
-}
-
-const persistedSwapInSchema = getSwapInResponseSchema.extend({
-    type: z.literal('in'),
-    refundKey: z.string(),
-    refundRequestDate: z.string().pipe(z.coerce.date()).optional(),
-});
-export type PersistedSwapIn = z.infer<typeof persistedSwapInSchema>;
-
-export interface SwapInPersistence {
-    persist(swap: PersistedSwapIn): void | Promise<void>;
-    update(swap: Partial<PersistedSwapIn> & Pick<PersistedSwapIn, 'swapId'>): PersistedSwapIn | Promise<PersistedSwapIn>;
-    load(swapId: string): PersistedSwapIn | null | Promise<PersistedSwapIn | null>;
-}
-
-export class InMemoryPersistence implements SwapInPersistence {
-    private data = new Map<string, PersistedSwapIn>();
-
-    load(swapId: string): PersistedSwapIn | null | Promise<PersistedSwapIn | null> {
-        return this.data.get(swapId) ?? null;
-    }
-
-    persist(swap: PersistedSwapIn): void | Promise<void> {
-        if (this.data.has(swap.swapId)) {
-            throw new Error(`persisting swap that already exists: ${swap.swapId}`);
-        }
-        this.data.set(swap.swapId, swap);
-    }
-
-    update(swap: Partial<PersistedSwapIn> & Pick<PersistedSwapIn, 'swapId'>): PersistedSwapIn | Promise<PersistedSwapIn> {
-        const prev = this.data.get(swap.swapId);
-        if (prev == null) {
-            throw new Error(`updating swap that doesn't exist: ${swap.swapId}`);
-        }
-        const next = {
-            ...prev,
-            ...swap,
-        };
-        this.data.set(swap.swapId, next);
-        return next;
-    }
-}
+import { ECPair, jsonEquals } from '../utils.js';
+import { PersistedSwapIn, SwapPersistence } from './service.js';
 
 type ChangeListener = (newStatus: PersistedSwapIn) => void;
 type ErrorListener = (errorType: 'REFUND', error: Error) => void;
@@ -71,7 +20,7 @@ export class SwapInTracker {
     constructor(
         public id: string,
         private client: FortySwapClient['in'],
-        private persistence: SwapInPersistence,
+        private persistence: SwapPersistence,
         private refundAddress: () => Promise<string>,
         private network: Network,
     ) {}
@@ -96,18 +45,34 @@ export class SwapInTracker {
 
     private async refresh(): Promise<void> {
         const swap = await this.client.find(this.id);
-        const newStatus = await this.persistence.update(swap);
+        await this.persistence.update({ type: 'in', ...swap });
+        const newStatus = await this.persistence.findById('in', this.id);
+        if (newStatus ==  null) {
+            throw new Error('could not find a swap that was just persisted');
+        }
         if (!jsonEquals(this.currentStatus ?? {}, newStatus)) {
-            this.listeners.change.forEach(listener => listener(newStatus));
+            this.listeners.change.forEach(listener => {
+                try {
+                    listener(newStatus);
+                } catch (e) {
+                    // deliberately empty
+                }
+            });
         }
         this.currentStatus = newStatus;
 
         if (this.currentStatus.status === 'CONTRACT_EXPIRED' && this.currentStatus.refundRequestDate == null) {
             try {
                 await this.refund();
-                await this.persistence.update({ swapId: swap.swapId, refundRequestDate: new Date() });
+                await this.persistence.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
             } catch (error) {
-                this.listeners.error.forEach(listener => listener('REFUND', error as Error));
+                this.listeners.error.forEach(listener => {
+                    try {
+                        listener('REFUND', error as Error);
+                    } catch (e) {
+                        // deliberately empty
+                    }
+                });
             }
         } else if (this.currentStatus.status === 'DONE') {
             clearInterval(this.pollInterval);
@@ -188,50 +153,5 @@ export class SwapInTracker {
         const outs = pset.outputs;
         // TODO verify that the non-fee output pays to the right address
         return outs.length === 2; // In liquid the fee output is also included
-    }
-}
-
-export class SwapInService {
-    private client: FortySwapClient['in'];
-
-    constructor(private readonly opts: SwapInOptions) {
-        this.client = new FortySwapClient(opts.baseUrl).in;
-    }
-
-    async create(swapRequest: Omit<SwapInRequest, 'refundPublicKey'> & {
-        refundKey?: ECPairInterface,
-        refundAddress: () => Promise<string>,
-    }): Promise<SwapInTracker> {
-        const refundKey = swapRequest.refundKey ?? ECPair.makeRandom();
-        const swap = await this.client.create({
-            chain: swapRequest.chain,
-            invoice: swapRequest.invoice,
-            lockBlockDeltaIn: swapRequest.lockBlockDeltaIn,
-            refundPublicKey: refundKey.publicKey.toString('hex'),
-        });
-
-        const localSwap: PersistedSwapIn = {
-            type: 'in',
-            ...swap,
-            refundKey: refundKey.privateKey!.toString('hex'),
-        };
-        await this.opts.persistence.persist(localSwap);
-        return this.track({
-            id: swap.swapId,
-            refundAddress: swapRequest.refundAddress,
-        });
-    }
-
-    track({ id, refundAddress} : {
-        id: string,
-        refundAddress: () => Promise<string>,
-    }): SwapInTracker {
-        return new SwapInTracker(
-            id,
-            this.client,
-            this.opts.persistence,
-            refundAddress,
-            this.opts.network ?? networks.bitcoin,
-        );
     }
 }
