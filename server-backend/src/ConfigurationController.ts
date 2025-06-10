@@ -1,14 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
 import { FrontendConfigurationServer } from '@40swap/shared';
 import { ConfigService } from '@nestjs/config';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { ApiExcludeController } from '@nestjs/swagger';
 
 @ApiExcludeController()
 @Controller('configuration')
 export class ConfigurationController {
 
-    constructor(private readonly config: ConfigService<FourtySwapConfiguration>) {}
+    constructor(private readonly config: ConfigService<FortySwapConfiguration>) {}
 
     @Get()
     public async getConfiguration(): Promise<FrontendConfigurationServer> {

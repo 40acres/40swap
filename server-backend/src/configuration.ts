@@ -69,9 +69,9 @@ export const configSchema = z.object({
     }).optional(),
 });
 
-export type FourtySwapConfiguration = z.infer<typeof configSchema>;
+export type FortySwapConfiguration = z.infer<typeof configSchema>;
 
-export default (): FourtySwapConfiguration => {
+export default (): FortySwapConfiguration => {
     const filePath = SEARCH_PATHS
         .map(p => path.join(p, YAML_CONFIG_FILENAME))
         .find(f => fs.existsSync(f));

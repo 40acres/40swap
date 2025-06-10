@@ -18,7 +18,7 @@ import { SwapOutRunner } from './SwapOutRunner.js';
 import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
@@ -30,8 +30,8 @@ const ECPair = ECPairFactory(ecc);
 export class SwapService implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly logger = new Logger(SwapService.name);
     private readonly runningSwaps: Map<string, SwapInRunner | SwapOutRunner>;
-    private readonly swapConfig: FourtySwapConfiguration['swap'];
-    private readonly elementsConfig?: FourtySwapConfiguration['elements'];
+    private readonly swapConfig: FortySwapConfiguration['swap'];
+    private readonly elementsConfig?: FortySwapConfiguration['elements'];
 
     constructor(
         private bitcoinConfig: BitcoinConfigurationDetails,
@@ -40,7 +40,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
         private lnd: LndService,
-        config: ConfigService<FourtySwapConfiguration>,
+        config: ConfigService<FortySwapConfiguration>,
     ) {
         this.runningSwaps = new Map();
         this.swapConfig = config.getOrThrow('swap', { infer: true });

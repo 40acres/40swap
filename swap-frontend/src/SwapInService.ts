@@ -1,14 +1,5 @@
 import { Psbt, Transaction } from 'bitcoinjs-lib';
-import {
-    Chain,
-    FrontendConfiguration,
-    GetSwapInResponse,
-    getSwapInResponseSchema,
-    psbtResponseSchema,
-    signContractSpend,
-    SwapInRequest,
-    TxRequest,
-} from '@40swap/shared';
+import { Chain, FortySwapClient, FrontendConfiguration, signContractSpend } from '@40swap/shared';
 import { LocalSwapStorageService, PersistedSwapIn } from './LocalSwapStorageService.js';
 import { ECPairAPI } from 'ecpair';
 import { applicationContext } from './ApplicationContext.js';
@@ -21,6 +12,7 @@ export class SwapInService {
         private config: Promise<FrontendConfiguration>,
         private localSwapStorageService: LocalSwapStorageService,
         private ECPair: ECPairAPI,
+        private client: FortySwapClient,
     ) {}
 
     async getRefund(swap: PersistedSwapIn, address: string): Promise<void> {
@@ -34,7 +26,7 @@ export class SwapInService {
             throw new Error(`invalid state ${swap.status}`);
         }
         let tx: Transaction | liquid.Transaction | null = null;
-        const psbtBase64 = await this.getRefundPsbt(swap.swapId, address);
+        const psbtBase64 = await this.client.in.getRefundPsbt(swap.swapId, address);
         if (swap.chain === 'BITCOIN') {
             const psbt = Psbt.fromBase64(psbtBase64, { network });
             if (!this.isValidRefundTx(psbt, address)) {
@@ -79,12 +71,11 @@ export class SwapInService {
                 return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
             });
             tx = liquid.Extractor.extract(pset);
-            console.log(tx.toHex());
         }
         if (tx == null) {
             throw new Error('There was an error extracting the transaction');
         }
-        await this.publishRefundTx(swap.swapId, tx);
+        await this.client.in.publishRefundTx(swap.swapId, tx.toHex());
     }
 
     isValidRefundTx(psbt: Psbt, address: string): boolean {
@@ -92,26 +83,19 @@ export class SwapInService {
         if (outs.length !== 1) {
             return false;
         }
-        if (outs[0].address !== address) {
-            return false;
-        }
-        return true;
+        return outs[0].address === address;
+
     }
 
     isValidLiquidRefundTx(pset: liquid.Pset, address: string): boolean {
         const outs = pset.outputs;
-        if (outs.length !== 2) { // In liquid the fee output is also included
-            return false;
-        }
-        return true;
+        // TODO verify that the non-fee output pays to the right address
+        return outs.length === 2; // In liquid the fee output is also included
+
     }
 
     async getSwap(id: string): Promise<PersistedSwapIn> {
-        const resp = await fetch(`/api/swap/in/${id}`);
-        if (resp.status >= 300) {
-            throw new Error(`Unknown error retrieving swap. ${await resp.text()}`);
-        }
-        const remoteSwap = getSwapInResponseSchema.parse(await resp.json());
+        const remoteSwap = await this.client.in.find(id);
         const localswap = await this.localSwapStorageService.findById('in', id);
         if (localswap == null) {
             throw new Error('swap does not exist in local DB');
@@ -124,7 +108,11 @@ export class SwapInService {
 
     async createSwap(invoice: string, chain: Chain): Promise<PersistedSwapIn> {
         const refundKey = applicationContext.ECPair.makeRandom();
-        const swap = await this.postSwap(invoice, refundKey.publicKey, chain);
+        const swap = await this.client.in.create({
+            chain,
+            invoice,
+            refundPublicKey: refundKey.publicKey.toString('hex'),
+        });
         const localSwap: PersistedSwapIn = {
             type: 'in',
             ...swap,
@@ -132,48 +120,5 @@ export class SwapInService {
         };
         await applicationContext.localSwapStorageService.persist(localSwap);
         return localSwap;
-    }
-
-    private async getRefundPsbt(swapId: string, address: string): Promise<string> {
-        const resp = await fetch(`/api/swap/in/${swapId}/refund-psbt?` + new URLSearchParams({
-            address,
-        }));
-        if (resp.status >= 300) {
-            throw new Error(`Unknown error getting refund psbt. ${await resp.text()}`);
-        }
-        return psbtResponseSchema.parse(await resp.json()).psbt;
-    }
-
-    private async publishRefundTx(swapId: string, tx: Transaction | liquid.Transaction): Promise<void> {
-        const resp = await fetch(`/api/swap/in/${swapId}/refund-tx`, {
-            method: 'POST',
-            body: JSON.stringify({
-                tx: tx.toHex(),
-            } satisfies TxRequest),
-            headers: {
-                'content-type': 'application/json',
-            },
-        });
-        if (resp.status >= 300) {
-            throw new Error(`Unknown error broadcasting refund tx. ${JSON.stringify(await resp.text())}`);
-        }
-    }
-
-    private async postSwap(invoice: string, refundPublicKey: Buffer, chain: Chain): Promise<GetSwapInResponse> {
-        const resp = await fetch('/api/swap/in', {
-            method: 'POST',
-            body: JSON.stringify({
-                invoice,
-                refundPublicKey: refundPublicKey.toString('hex'),
-                chain,
-            } satisfies SwapInRequest),
-            headers: {
-                'content-type': 'application/json',
-            },
-        });
-        if (resp.status >= 300) {
-            throw new Error(`Unknown error creating swap-in. ${await resp.text()}`);
-        }
-        return getSwapInResponseSchema.parse(await resp.json());
     }
 }

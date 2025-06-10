@@ -18,7 +18,7 @@ import { Chain, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInSta
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import moment from 'moment';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
@@ -39,8 +39,8 @@ export class SwapInRunner {
         private bitcoinService: BitcoinService,
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
-        private swapConfig: FourtySwapConfiguration['swap'],
-        private elementsConfig?: FourtySwapConfiguration['elements'],
+        private swapConfig: FortySwapConfiguration['swap'],
+        private elementsConfig?: FortySwapConfiguration['elements'],
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;

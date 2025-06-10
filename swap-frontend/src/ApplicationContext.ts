@@ -1,4 +1,4 @@
-import { FrontendConfiguration, frontendConfigurationSchema } from '@40swap/shared';
+import { FortySwapClient, FrontendConfiguration, frontendConfigurationSchema } from '@40swap/shared';
 import { ECPairAPI, ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { LocalSwapStorageService } from './LocalSwapStorageService.js';
@@ -10,23 +10,28 @@ export class ApplicationContext {
     private _localSwapStorageService?: LocalSwapStorageService;
     private _swapInService?: SwapInService;
     private _swapOutService?: SwapOutService;
+    private _fortySwapClient?: FortySwapClient;
+    private _ECPair?: ECPairAPI;
 
     get config(): Promise<FrontendConfiguration> {
         if (this._config == null) {
-            // eslint-disable-next-line no-async-promise-executor
-            this._config = new Promise<FrontendConfiguration>(async (resolve, reject) => {
-                const response = await fetch('/api/configuration');
-                if (response.status >= 300) {
-                    reject(new Error('error fetching configuration'));
-                }
-                resolve(frontendConfigurationSchema.parse(await response.json()));
-            });
+            this._config = fetch('/api/configuration')
+                .then(response => {
+                    if (response.status >= 300) {
+                        return Promise.reject(new Error('error fetching configuration'));
+                    }
+                    return response.json();
+                })
+                .then(value => frontendConfigurationSchema.parse(value));
         }
         return this._config;
     }
 
     get ECPair(): ECPairAPI {
-        return ECPairFactory(ecc);
+        if (this._ECPair == null) {
+            this._ECPair = ECPairFactory(ecc);
+        }
+        return this._ECPair;
     }
 
     get localSwapStorageService(): LocalSwapStorageService {
@@ -38,16 +43,33 @@ export class ApplicationContext {
 
     get swapInService(): SwapInService {
         if (this._swapInService == null) {
-            this._swapInService = new SwapInService(this.config, this.localSwapStorageService, this.ECPair);
+            this._swapInService = new SwapInService(
+                this.config,
+                this.localSwapStorageService,
+                this.ECPair,
+                this.fortySwapClient,
+            );
         }
         return this._swapInService;
     }
 
     get swapOutService(): SwapOutService {
         if (this._swapOutService == null) {
-            this._swapOutService = new SwapOutService(this.config, this.localSwapStorageService, this.ECPair);
+            this._swapOutService = new SwapOutService(
+                this.config,
+                this.localSwapStorageService,
+                this.ECPair,
+                this.fortySwapClient,
+            );
         }
         return this._swapOutService;
+    }
+
+    get fortySwapClient(): FortySwapClient {
+        if (this._fortySwapClient == null) {
+            this._fortySwapClient = new FortySwapClient('');
+        }
+        return this._fortySwapClient;
     }
 }
 
