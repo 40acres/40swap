@@ -1,4 +1,11 @@
-import { Chain, getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import {
+    Chain,
+    getSwapInInputAmount,
+    getSwapOutOutputAmount,
+    SwapInRequest,
+    SwapOutRequest,
+    SwapType,
+} from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -147,7 +154,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.swapConfig,
             this.elementsConfig,
         );
-        this.runAndMonitor(swap, runner);
+        this.runAndMonitor('in', swap, runner);
         return swap;
     }
 
@@ -201,15 +208,15 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.swapConfig,
             this.elementsConfig,
         );
-        this.runAndMonitor(swap, runner);
+        this.runAndMonitor('out', swap, runner);
         return swap;
     }
 
-    private async runAndMonitor(swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
-        this.logger.log(`Starting swap (id=${swap.id})`);
+    private async runAndMonitor(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
+        this.logger.log(`Starting swap-${type} (id=${swap.id})`);
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
-        this.logger.log(`Swap finished (id=${swap.id})`);
+        this.logger.log(`Swap-${type} finished (id=${swap.id})`);
         this.runningSwaps.delete(swap.id);
     }
 
@@ -256,7 +263,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.elementsConfig,
             );
             this.logger.log(`Resuming swap (id=${swap.id})`);
-            this.runAndMonitor(swap, runner);
+            this.runAndMonitor(swap instanceof SwapIn ? 'in' : 'out', swap, runner);
         }
     }
 

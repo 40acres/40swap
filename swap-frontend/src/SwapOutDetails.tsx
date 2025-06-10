@@ -1,4 +1,13 @@
-import { Component, createEffect, createMemo, createResource, Match, Show, Switch } from 'solid-js';
+import {
+    Component,
+    createEffect,
+    createResource,
+    createSignal,
+    Match,
+    onCleanup,
+    Show,
+    Switch,
+} from 'solid-js';
 import { Button, Table } from 'solid-bootstrap';
 import { applicationContext } from './ApplicationContext.js';
 import { A, useParams } from '@solidjs/router';
@@ -7,46 +16,48 @@ import lightningLogo from '/lightning-logo.svg?url';
 import { QrCode } from './QrCode.js';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
-import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import failureImage from '/failure-image.png?url';
-import { currencyFormat, jsonEquals } from './utils.js';
+import { currencyFormat } from './utils.js';
 import { toast } from 'solid-toast';
+import { PersistedSwapOut, SwapService } from '@40swap/shared';
 
 
 export const SwapOutDetails: Component = () => {
-    const { swapOutService, localSwapStorageService } = applicationContext;
+    const { localSwapStorageService } = applicationContext;
 
+    const [config] = createResource(() => applicationContext.config);
     const params = useParams();
     const { id: swapId } = params;
 
-    const [remoteSwap, { refetch }] = createResource(swapId, id => swapOutService.getSwap(id));
-    const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
-    createTimer(refetch, () => currentSwap()?.status !== 'DONE' ? 1000 : false, setInterval);
+    const [currentSwap, setCurrentSwap] = createSignal<PersistedSwapOut>();
 
     const lightningLink = (): string => `lightning:${currentSwap()?.invoice}`;
+    let trackerInitialized = false;
 
-    createEffect(async () => {
-        const swap = currentSwap();
-        if (swap == null || swap.claimRequestDate != null) {
-            return;
-        }
-        if (swap.status === 'CONTRACT_FUNDED') {
-            try {
-                await swapOutService.claim(swap);
-                await localSwapStorageService.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date()});
-                refetch();
-            } catch (e) {
-                console.log('unhandled error', e);
-                toast.error('Unknown error');
-            }
-        }
-    });
-
-    createEffect(async () => {
-        const swap = currentSwap();
-        if (swap != null) {
-            await localSwapStorageService.update(swap);
+    createEffect(() => {
+        const c = config();
+        if (c != null && !trackerInitialized) {
+            const service = new SwapService({
+                network: c.bitcoinNetwork,
+                baseUrl: '',
+                persistence: localSwapStorageService,
+            });
+            const swapOut = service.trackSwapOut({
+                id: swapId,
+            });
+            trackerInitialized = true;
+            swapOut.on('change', (newStatus: PersistedSwapOut) => {
+                setCurrentSwap(newStatus);
+            });
+            swapOut.on('error', (errorType: 'CLAIM', error: Error) => {
+                if (errorType === 'CLAIM') {
+                    toast.error('Error while claiming the on-chain funds');
+                    console.error(`Error while requesting refund: ${error.message}`);
+                }
+            });
+            swapOut.start();
+            onCleanup(() => swapOut.stop());
         }
     });
 
@@ -156,8 +167,8 @@ export const SwapOutDetails: Component = () => {
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
                             <a href={lightningLink()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening lightning wallet')}>Pay</a>
-                            <Button onclick={() => {
-                                navigator.clipboard.writeText(s().invoice);
+                            <Button onclick={async () => {
+                                await navigator.clipboard.writeText(s().invoice);
                                 toast.success('Invoice copied to clipboard');
                             }}>
                                 <Fa icon={faCopy}/> Copy invoice

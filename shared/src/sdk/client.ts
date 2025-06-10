@@ -4,7 +4,7 @@ import {
     psbtResponseSchema,
     SwapInRequest, SwapOutRequest,
     TxRequest,
-} from './api.types.js';
+} from '../api.types.js';
 
 export class FortySwapClient {
     constructor(private readonly baseUrl: string) {}

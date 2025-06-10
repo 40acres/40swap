@@ -1,7 +1,7 @@
 import { Component, createEffect, createResource, createSignal, Show } from 'solid-js';
 import { Form } from 'solid-bootstrap';
 import flipImg from '/flip.png?url';
-import { currencyFormat, SwapType } from './utils.js';
+import { currencyFormat } from './utils.js';
 import { createStore } from 'solid-js/store';
 import { decode } from 'bolt11';
 import { applicationContext } from './ApplicationContext.js';
@@ -9,7 +9,13 @@ import { useNavigate } from '@solidjs/router';
 import Decimal from 'decimal.js';
 import { ActionButton } from './ActionButton.js';
 import { toast } from 'solid-toast';
-import { FrontendConfiguration, getLiquidNetworkFromBitcoinNetwork, getSwapInInputAmount, getSwapOutOutputAmount } from '@40swap/shared';
+import {
+    FrontendConfiguration,
+    getLiquidNetworkFromBitcoinNetwork,
+    getSwapInInputAmount,
+    getSwapOutOutputAmount,
+    SwapService, SwapType,
+} from '@40swap/shared';
 import Fa from 'solid-fa';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { toOutputScript } from 'bitcoinjs-lib/src/address.js';
@@ -26,7 +32,7 @@ type FormData = {
 };
 
 export const SwapForm: Component = () => {
-    const { swapInService, swapOutService } = applicationContext;
+    const { localSwapStorageService } = applicationContext;
     const navigate = useNavigate();
     const [config] = createResource(() => applicationContext.config);
     const [destinationAsset, setDestinationAsset] = createSignal<Asset>('ON_CHAIN_BITCOIN');
@@ -204,14 +210,29 @@ export const SwapForm: Component = () => {
             return;
         }
         try {
+            const chain = swapType() === 'in' ?
+                form.from === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID' :
+                form.to === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID' ;
+            const config = await applicationContext.config;
+            const swapService = new SwapService({
+                baseUrl: '',
+                persistence: localSwapStorageService,
+                network: config.bitcoinNetwork,
+            });
             if (swapType() === 'in') {
-                const chain = form.from === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
-                const swap = await swapInService.createSwap(form.payload, chain);
-                navigate(`/swap/in/${swap.swapId}`);
+                const { id: swapId } = await swapService.createSwapIn({
+                    invoice: form.payload,
+                    chain,
+                    refundAddress: async () => '',
+                });
+                navigate(`/swap/in/${swapId}`);
             } else if (swapType() === 'out') {
-                const chain = form.to === 'ON_CHAIN_BITCOIN' ? 'BITCOIN' : 'LIQUID';
-                const swap = await swapOutService.createSwap(form.payload, inputAmount(), chain);
-                navigate(`/swap/out/${swap.swapId}`);
+                const { id: swapId } = await swapService.createSwapOut({
+                    chain,
+                    sweepAddress: form.payload,
+                    inputAmount: inputAmount(),
+                });
+                navigate(`/swap/out/${swapId}`);
             }
         } catch (e) {
             toast.error('Unknown error');
