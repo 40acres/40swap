@@ -5,14 +5,12 @@
         "eslint:recommended",
         "plugin:@typescript-eslint/eslint-recommended",
         "plugin:@typescript-eslint/recommended",
-        "prettier"
+        "eslint-config-prettier"
     ],
     "root": true,
     "ignorePatterns": [".eslintrc.json"],
     "rules": {
         "prettier/prettier": "error",
-        "max-len": ["warn", { "code": 160 }],
-        "indent": ["error", 4, { "SwitchCase": 2, "ignoredNodes": ["PropertyDefinition"] }],
         "comma-dangle": ["warn", "always-multiline"],
         "@typescript-eslint/interface-name-prefix": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",

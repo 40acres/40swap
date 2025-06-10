@@ -1,22 +1,24 @@
 {
-  "name": "40swap",
-  "private": true,
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
-    "lint:fix": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\""
-  },
-  "workspaces": [
-    "server-backend",
-    "swap-frontend",
-    "shared"
-  ],
-  "engines" : { 
-    "node" : ">=22.0.0 <23.0.0"
-  },
-  "devDependencies": {
+    "name": "40swap",
+    "private": true,
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
+        "lint:fix": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix",
+        "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+        "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\""
+    },
+    "workspaces": [
+        "server-backend",
+        "swap-frontend",
+        "shared"
+    ],
+    "engines": {
+        "node": ">=22.0.0 <23.0.0"
+    },
+      "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
