@@ -17,12 +17,11 @@ import { toOutputScript as toOutputScriptLiquid } from 'liquidjs-lib/src/address
 import { AssetSelector } from './components/AssetSelector.jsx';
 import { Asset } from './controllers/AssetController.js';
 
-
 type FormData = {
-    inputAmount: number,
-    from: Asset,
-    to: Asset,
-    payload: string,
+    inputAmount: number;
+    from: Asset;
+    to: Asset;
+    payload: string;
 };
 
 export const SwapForm: Component = () => {
@@ -229,101 +228,103 @@ export const SwapForm: Component = () => {
         setDestinationAsset(toAsset);
     }, [form.to]);
 
-    return <>
-        <h3 class="fw-bold">Create a Swap</h3>
-        <div class="d-flex flex-column gap-3">
-            <div class="d-flex gap-2">
-                <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
-                    <div class="fw-medium">
-                        <AssetSelector 
-                            selectedAsset={form.from} 
-                            counterpartyAsset={form.to}
-                            onAssetSelect={(asset) => updateAssets(asset, form.to)}
-                        />
+    return (
+        <>
+            <h3 class="fw-bold">Create a Swap</h3>
+            <div class="d-flex flex-column gap-3">
+                <div class="d-flex gap-2">
+                    <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0">
+                        <div class="fw-medium">
+                            <AssetSelector selectedAsset={form.from} counterpartyAsset={form.to} onAssetSelect={(asset) => updateAssets(asset, form.to)} />
+                        </div>
+                        <hr />
+                        <div class="fs-6">You send</div>
+                        <div>
+                            <input
+                                class="form-control form-control-lg inline-input"
+                                step={0.001}
+                                max={2}
+                                type="number"
+                                value={inputAmount()}
+                                onChange={(e) => setForm('inputAmount', Number(e.target.value))}
+                                onKeyUp={(e) => setForm('inputAmount', Number(e.currentTarget.value))}
+                                placeholder="Enter amount"
+                                classList={{ 'is-valid': isValid('inputAmount'), 'is-invalid': isInvalid('inputAmount') }}
+                                disabled={swapType() === 'in'}
+                            />
+                        </div>
                     </div>
-                    <hr />
-                    <div class="fs-6">You send</div>
-                    <div>
-                        <input
-                            class="form-control form-control-lg inline-input"
-                            step={0.001}
-                            max={2}
-                            type="number"
-                            value={inputAmount()}
-                            onChange={e => setForm('inputAmount', Number(e.target.value))}
-                            onKeyUp={e => setForm('inputAmount', Number(e.currentTarget.value))}
-                            placeholder="Enter amount"
-                            classList={{ 'is-valid': isValid('inputAmount'), 'is-invalid': isInvalid('inputAmount') }}
-                            disabled={swapType() === 'in'}
-                        />
+                    <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipAssets}>
+                        <img src={flipImg} draggable={false} />
                     </div>
-                </div>
-                <div style="margin: auto -28px; z-index: 0; cursor: pointer;" onClick={flipAssets}>
-                    <img src={flipImg} draggable={false} />
-                </div>
-                <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
-                    <div class="fw-medium">
-                        <AssetSelector 
-                            selectedAsset={form.to} 
-                            counterpartyAsset={form.from} 
-                            onAssetSelect={(asset) => updateAssets(form.from, asset)}
-                        />
-                    </div>
-                    <hr />
-                    <div class="fs-6">You get</div>
-                    <div>
-                        <input class="form-control form-control-lg inline-input" value={outputAmount()} disabled
-                            classList={{ 'is-valid': isValid('outputAmount'), 'is-invalid': isInvalid('outputAmount') }}
-                        />
+                    <div class="bg-light d-flex flex-column p-4" style="flex: 1 1 0" id="right-side">
+                        <div class="fw-medium">
+                            <AssetSelector selectedAsset={form.to} counterpartyAsset={form.from} onAssetSelect={(asset) => updateAssets(form.from, asset)} />
+                        </div>
+                        <hr />
+                        <div class="fs-6">You get</div>
+                        <div>
+                            <input
+                                class="form-control form-control-lg inline-input"
+                                value={outputAmount()}
+                                disabled
+                                classList={{ 'is-valid': isValid('outputAmount'), 'is-invalid': isInvalid('outputAmount') }}
+                            />
+                        </div>
                     </div>
                 </div>
+                <Show when={destinationAsset() === 'LIGHTNING_BITCOIN'}>
+                    <Form.Control
+                        as="textarea"
+                        rows={5}
+                        placeholder="Paste a lightning invoice"
+                        id="invoice-input"
+                        value={form.payload}
+                        onChange={(e) => setForm('payload', e.target.value)}
+                        onKeyUp={(e) => setForm('payload', e.currentTarget.value)}
+                        isValid={isValid('payload')}
+                        isInvalid={isInvalid('payload')}
+                    />
+                </Show>
+                <Show when={destinationAsset() === 'ON_CHAIN_BITCOIN'}>
+                    <Form.Control
+                        type="text"
+                        placeholder="Enter bitcoin address"
+                        value={form.payload}
+                        onChange={(e) => setForm('payload', e.target.value)}
+                        onKeyUp={(e) => setForm('payload', e.currentTarget.value)}
+                        isValid={isValid('payload')}
+                        isInvalid={isInvalid('payload')}
+                    />
+                </Show>
+                <Show when={destinationAsset() === 'ON_CHAIN_LIQUID'}>
+                    <Form.Control
+                        type="text"
+                        placeholder="Enter liquid address"
+                        value={form.payload}
+                        onChange={(e) => setForm('payload', e.target.value)}
+                        onKeyUp={(e) => setForm('payload', e.currentTarget.value)}
+                        isValid={isValid('payload')}
+                        isInvalid={isInvalid('payload')}
+                    />
+                </Show>
+                <div class="text-muted text-end small">
+                    Fee ({config()?.feePercentage}%): {currencyFormat(fee())}
+                </div>
+                <ActionButton action={createSwap} disabled={!isSendable()}>
+                    Create swap
+                </ActionButton>
+                <div class="text-muted text-center small border border-primary rounded-3 p-2">
+                    <Fa icon={faInfoCircle} />
+                    Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)}
+                    &nbsp; | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
+                </div>
+                <Show when={errorMessage() !== ''}>
+                    <div class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" style="border-style: dashed !important">
+                        <Fa icon={faInfoCircle} /> {errorMessage()}
+                    </div>
+                </Show>
             </div>
-            <Show when={destinationAsset() === 'LIGHTNING_BITCOIN'}>
-                <Form.Control
-                    as="textarea"
-                    rows={5}
-                    placeholder="Paste a lightning invoice" id="invoice-input"
-                    value={form.payload}
-                    onChange={e => setForm('payload', e.target.value)}
-                    onKeyUp={e => setForm('payload', e.currentTarget.value)}
-                    isValid={isValid('payload')} isInvalid={isInvalid('payload')}
-                />
-            </Show>
-            <Show when={destinationAsset() === 'ON_CHAIN_BITCOIN'}>
-                <Form.Control
-                    type="text"
-                    placeholder="Enter bitcoin address"
-                    value={form.payload}
-                    onChange={e => setForm('payload', e.target.value)}
-                    onKeyUp={e => setForm('payload', e.currentTarget.value)}
-                    isValid={isValid('payload')} isInvalid={isInvalid('payload')}
-                />
-            </Show>
-            <Show when={destinationAsset() === 'ON_CHAIN_LIQUID'}>
-                <Form.Control
-                    type="text"
-                    placeholder="Enter liquid address"
-                    value={form.payload}
-                    onChange={e => setForm('payload', e.target.value)}
-                    onKeyUp={e => setForm('payload', e.currentTarget.value)}
-                    isValid={isValid('payload')} isInvalid={isInvalid('payload')}
-                />
-            </Show>
-            <div class="text-muted text-end small">Fee ({config()?.feePercentage}%): {currencyFormat(fee())}</div>
-            <ActionButton action={createSwap} disabled={!isSendable()}>Create swap</ActionButton>
-            <div class="text-muted text-center small border border-primary rounded-3 p-2">
-                <Fa icon={faInfoCircle} />
-                Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)}
-                &nbsp; | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
-            </div>
-            <Show when={errorMessage() !== ''}>
-                <div
-                    class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle"
-                    style="border-style: dashed !important"
-                >
-                    <Fa icon={faInfoCircle} /> {errorMessage()}
-                </div>
-            </Show>
-        </div>
-    </>;
+        </>
+    );
 };

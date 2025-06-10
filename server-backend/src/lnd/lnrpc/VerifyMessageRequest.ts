@@ -1,12 +1,11 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface VerifyMessageRequest {
-  'msg'?: (Buffer | Uint8Array | string);
-  'signature'?: (string);
+    msg?: Buffer | Uint8Array | string;
+    signature?: string;
 }
 
 export interface VerifyMessageRequest__Output {
-  'msg': (Buffer);
-  'signature': (string);
+    msg: Buffer;
+    signature: string;
 }

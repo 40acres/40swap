@@ -1,14 +1,13 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface OutPoint {
-  'txidBytes'?: (Buffer | Uint8Array | string);
-  'txidStr'?: (string);
-  'outputIndex'?: (number);
+    txidBytes?: Buffer | Uint8Array | string;
+    txidStr?: string;
+    outputIndex?: number;
 }
 
 export interface OutPoint__Output {
-  'txidBytes': (Buffer);
-  'txidStr': (string);
-  'outputIndex': (number);
+    txidBytes: Buffer;
+    txidStr: string;
+    outputIndex: number;
 }

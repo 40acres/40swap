@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface SendManyResponse {
-  'txid'?: (string);
+    txid?: string;
 }
 
 export interface SendManyResponse__Output {
-  'txid': (string);
+    txid: string;
 }

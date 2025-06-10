@@ -1,32 +1,32 @@
 {
-  "folders": {},
-  "connections": {
-    "postgresql-template-1": {
-      "provider": "postgresql",
-      "driver": "postgres-jdbc",
-      "name": "40swap local dev",
-      "save-password": true,
-      "configuration": {
-        "host": "postgres",
-        "port": "5432",
-        "database": "40swap",
-        "url": "jdbc:postgresql://postgres:5432/40swap",
-        "user": "40swap",
-        "password": "40swap",
-        "type": "dev",
-        "auth-model": "native"
-      }
+    "folders": {},
+    "connections": {
+        "postgresql-template-1": {
+            "provider": "postgresql",
+            "driver": "postgres-jdbc",
+            "name": "40swap local dev",
+            "save-password": true,
+            "configuration": {
+                "host": "postgres",
+                "port": "5432",
+                "database": "40swap",
+                "url": "jdbc:postgresql://postgres:5432/40swap",
+                "user": "40swap",
+                "password": "40swap",
+                "type": "dev",
+                "auth-model": "native"
+            }
+        }
+    },
+    "connection-types": {
+        "dev": {
+            "name": "Development",
+            "color": "255,255,255",
+            "description": "Regular development database",
+            "auto-commit": true,
+            "confirm-execute": false,
+            "confirm-data-change": false,
+            "auto-close-transactions": false
+        }
     }
-  },
-  "connection-types": {
-    "dev": {
-      "name": "Development",
-      "color": "255,255,255",
-      "description": "Regular development database",
-      "auto-commit": true,
-      "confirm-execute": false,
-      "confirm-data-change": false,
-      "auto-close-transactions": false
-    }
-  }
 }

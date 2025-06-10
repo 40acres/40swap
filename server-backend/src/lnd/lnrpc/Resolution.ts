@@ -6,17 +6,17 @@ import type { OutPoint as _lnrpc_OutPoint, OutPoint__Output as _lnrpc_OutPoint__
 import type { Long } from '@grpc/proto-loader';
 
 export interface Resolution {
-  'resolutionType'?: (_lnrpc_ResolutionType);
-  'outcome'?: (_lnrpc_ResolutionOutcome);
-  'outpoint'?: (_lnrpc_OutPoint | null);
-  'amountSat'?: (number | string | Long);
-  'sweepTxid'?: (string);
+    resolutionType?: _lnrpc_ResolutionType;
+    outcome?: _lnrpc_ResolutionOutcome;
+    outpoint?: _lnrpc_OutPoint | null;
+    amountSat?: number | string | Long;
+    sweepTxid?: string;
 }
 
 export interface Resolution__Output {
-  'resolutionType': (_lnrpc_ResolutionType__Output);
-  'outcome': (_lnrpc_ResolutionOutcome__Output);
-  'outpoint': (_lnrpc_OutPoint__Output | null);
-  'amountSat': (string);
-  'sweepTxid': (string);
+    resolutionType: _lnrpc_ResolutionType__Output;
+    outcome: _lnrpc_ResolutionOutcome__Output;
+    outpoint: _lnrpc_OutPoint__Output | null;
+    amountSat: string;
+    sweepTxid: string;
 }

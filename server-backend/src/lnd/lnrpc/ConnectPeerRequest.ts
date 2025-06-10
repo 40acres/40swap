@@ -4,13 +4,13 @@ import type { LightningAddress as _lnrpc_LightningAddress, LightningAddress__Out
 import type { Long } from '@grpc/proto-loader';
 
 export interface ConnectPeerRequest {
-  'addr'?: (_lnrpc_LightningAddress | null);
-  'perm'?: (boolean);
-  'timeout'?: (number | string | Long);
+    addr?: _lnrpc_LightningAddress | null;
+    perm?: boolean;
+    timeout?: number | string | Long;
 }
 
 export interface ConnectPeerRequest__Output {
-  'addr': (_lnrpc_LightningAddress__Output | null);
-  'perm': (boolean);
-  'timeout': (string);
+    addr: _lnrpc_LightningAddress__Output | null;
+    perm: boolean;
+    timeout: string;
 }

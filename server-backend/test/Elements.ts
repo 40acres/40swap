@@ -14,7 +14,9 @@ export class Elements {
     }
 
     async sendToAddress(address: string, amount: number): Promise<void> {
-        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -named sendtoaddress address=${address} amount=${amount} fee_rate=25`);
+        const res = await this.container.exec(
+            `elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -named sendtoaddress address=${address} amount=${amount} fee_rate=25`,
+        );
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
@@ -36,9 +38,8 @@ export class Elements {
         const descriptors = JSON.parse(res.stdout);
         const xpub = descriptors.descriptors
             .find((d: { desc: string; internal: boolean }) => d.desc.startsWith('wpkh(') && !d.internal)
-            ?.desc
-            .match(/.*\]([^/]+)\/.*/)?.[1];
-        
+            ?.desc.match(/.*\]([^/]+)\/.*/)?.[1];
+
         if (!xpub) {
             throw new Error('Could not find xpub in descriptors');
         }
@@ -61,4 +62,4 @@ export class Elements {
         }
         return parseInt(res.stdout.trim(), 10);
     }
-} 
+}

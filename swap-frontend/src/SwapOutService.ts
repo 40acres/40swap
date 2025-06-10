@@ -1,19 +1,11 @@
 import { Psbt } from 'bitcoinjs-lib';
-import {
-    Chain,
-    FortySwapClient,
-    FrontendConfiguration,
-    GetSwapOutResponse,
-    signContractSpend,
-    signLiquidPset,
-} from '@40swap/shared';
+import { Chain, FortySwapClient, FrontendConfiguration, GetSwapOutResponse, signContractSpend, signLiquidPset } from '@40swap/shared';
 import { LocalSwapStorageService, PersistedSwapOut } from './LocalSwapStorageService.js';
 import { ECPairAPI } from 'ecpair';
 import Decimal from 'decimal.js';
 import * as liquid from 'liquidjs-lib';
 
 export class SwapOutService {
-
     constructor(
         private config: Promise<FrontendConfiguration>,
         private localSwapStorageService: LocalSwapStorageService,
@@ -65,14 +57,12 @@ export class SwapOutService {
             return false;
         }
         return outs[0].address === address;
-
     }
 
     isValidLiquidClaimTx(pset: liquid.Pset, address: string): boolean {
         const outs = pset.outputs;
         // TODO verify that the non-fee output pays to the right address
         return outs.length === 2; // In liquid the fee output is also included
-
     }
 
     async getSwap(id: string): Promise<PersistedSwapOut> {

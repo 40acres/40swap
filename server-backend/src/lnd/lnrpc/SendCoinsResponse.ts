@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface SendCoinsResponse {
-  'txid'?: (string);
+    txid?: string;
 }
 
 export interface SendCoinsResponse__Output {
-  'txid': (string);
+    txid: string;
 }

@@ -1,14 +1,13 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface GetRecoveryInfoResponse {
-  'recoveryMode'?: (boolean);
-  'recoveryFinished'?: (boolean);
-  'progress'?: (number | string);
+    recoveryMode?: boolean;
+    recoveryFinished?: boolean;
+    progress?: number | string;
 }
 
 export interface GetRecoveryInfoResponse__Output {
-  'recoveryMode': (boolean);
-  'recoveryFinished': (boolean);
-  'progress': (number);
+    recoveryMode: boolean;
+    recoveryFinished: boolean;
+    progress: number;
 }

@@ -62,7 +62,7 @@ describe('40Swap backend', () => {
         const preImage = Buffer.from(randomBytes);
         const preImageHash = crypto.createHash('sha256').update(preImage).digest();
         const claimKey = ECPair.makeRandom();
-        
+
         let swap = await backend.out.create({
             chain: 'LIQUID',
             inputAmount: 0.002,
@@ -73,10 +73,10 @@ describe('40Swap backend', () => {
 
         lndUser.sendPayment(swap.invoice);
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
-        
+
         await elements.mine(5);
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED');
-        
+
         const claimAddress = await elements.getNewAddress();
         const claimPsbt = await backend.out.getClaimPsbt(swap.swapId, claimAddress);
         const pset = liquid.Pset.fromBase64(claimPsbt.psbt);
@@ -84,7 +84,7 @@ describe('40Swap backend', () => {
         const transaction = liquid.Extractor.extract(pset);
         const signedTx = transaction.toHex();
         await backend.out.publishClaimTx(swap.swapId, signedTx);
-        
+
         await elements.mine();
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'DONE');
         swap = await backend.out.find(swap.swapId);
@@ -94,7 +94,7 @@ describe('40Swap backend', () => {
     it('should properly handle a liquid swap out expiration', async () => {
         const preImageHash = crypto.createHash('sha256').update(crypto.randomBytes(32)).digest();
         const claimKey = ECPair.makeRandom();
-        
+
         // Create the swap
         let swap = await backend.out.create({
             chain: 'LIQUID',
@@ -107,19 +107,19 @@ describe('40Swap backend', () => {
         // Fund the invoice to start the swap
         lndUser.sendPayment(swap.invoice);
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
-        
+
         // Wait for contract funding confirmation
         await elements.mine(5);
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_FUNDED');
-        
+
         // Get the current timeout block height
         swap = await backend.out.find(swap.swapId);
         const timeoutBlockHeight = swap.timeoutBlockHeight;
-        
+
         // Mine enough blocks to reach the timeout height
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        
+
         // Mine blocks to trigger expiration
         await elements.mine(blocksToMine);
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_EXPIRED');
@@ -158,7 +158,7 @@ describe('40Swap backend', () => {
                 invoice: paymentRequest!,
                 refundPublicKey: refundKey.publicKey.toString('hex'),
                 lockBlockDeltaIn: 100, // Less than the minimum allowed
-            })
+            }),
         ).rejects.toThrow('lockBlockDeltaIn must be at least 144 blocks');
     });
 
@@ -242,7 +242,7 @@ describe('40Swap backend', () => {
         });
 
         // Send the input amount to the contract address a with a small extra amount to overpay (mismatched payment)
-        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount + 0.0001); 
+        await bitcoind.sendToAddress(swap.contractAddress, swap.inputAmount + 0.0001);
         await waitFor(async () => (await backend.in.find(swap.swapId)).status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
 
         // Wait for the mismatched payment to be confirmed
@@ -325,8 +325,8 @@ describe('40Swap backend', () => {
             },
             swap: {
                 feePercentage: 0.5,
-                minimumAmount: 0.00200000,
-                maximumAmount: 0.01300000,
+                minimumAmount: 0.002,
+                maximumAmount: 0.013,
                 expiryDuration: 'PT30M',
                 lockBlockDelta: {
                     minIn: 144,

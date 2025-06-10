@@ -3,11 +3,11 @@
 import type { Long } from '@grpc/proto-loader';
 
 export interface LookupHtlcResolutionRequest {
-  'chanId'?: (number | string | Long);
-  'htlcIndex'?: (number | string | Long);
+    chanId?: number | string | Long;
+    htlcIndex?: number | string | Long;
 }
 
 export interface LookupHtlcResolutionRequest__Output {
-  'chanId': (string);
-  'htlcIndex': (string);
+    chanId: string;
+    htlcIndex: string;
 }

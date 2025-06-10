@@ -1,6 +1,6 @@
 # Integration guide
 
-Let's describe how an existing application would integrate the 40swap API to  
+Let's describe how an existing application would integrate the 40swap API to
 
 All the code examples are provided in Javascript, using the [bitcoinjs library](https://github.com/bitcoinjs/bitcoinjs-lib),
 but hopefully they are clear enough to that they can be easily translated into any language.
@@ -9,6 +9,7 @@ but hopefully they are clear enough to that they can be easily translated into a
 
 We will convert some of our on-chain bitcoin to lightning.
 The first thing to do is generate a random key-pair to make sure we can recover the funds if anything goes wrong:
+
 ```js
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -16,10 +17,12 @@ import * as ecc from 'tiny-secp256k1';
 const ECPair = ECPairFactory(ecc);
 const refundKey = ECPair.makeRandom();
 ```
+
 Then, we obtain a lightning invoice, and create the swap using the API:
+
 ```js
 const invoice = ''; // you need to obtain this externally
-const BASE_URL = 'https://app.40swap.com'
+const BASE_URL = 'https://app.40swap.com';
 
 const response = await fetch(`${BASE_URL}/api/swap/in`, {
     method: 'POST',
@@ -38,18 +41,22 @@ if (response.status >= 300) {
 }
 const swapIn = await resp.json();
 ```
+
 Now, get the payment instructions and make the on-chain payment:
+
 ```js
 console.log(`Pay ${swapIn.inputAmount} BTC to ${swapIn.contractAddress}`);
 ```
+
 And simply wait for the swap-in to become `DONE`, by polling the `GET` endpoint:
+
 ```js
 let status;
 while (status !== 'DONE') {
     const r = await fetch(`${BASE_URL}/api/swap/in/${swapIn.swapId}`);
     const s = await r.json();
     status = s.status;
-    await setTimeout(new Promise(resolve => setTimeout(1000, resolve)));
+    await setTimeout(new Promise((resolve) => setTimeout(1000, resolve)));
 }
 console.log(`Congratulations! Swap ${swapIn.swapId} is ${swap.outcome}!`);
 ```
@@ -61,6 +68,7 @@ not complete. Instead, after a number of blocks have been mined, it will reach t
 
 Once in this status, we should be able to get a refund of the funds we sent on-chain. The easiest way to do this is by
 getting a PSBT from 40swap, and then signing it locally, but you can also build and sign the transaction locally:
+
 ```js
 import { Psbt } from 'bitcoinjs-lib';
 import { witnessStackToScriptWitness } from 'bitcoinjs-lib/src/psbt/psbtutils.js';
@@ -74,24 +82,21 @@ psbt.signInput(0, refundKey, [Transaction.SIGHASH_ALL]);
 psbt.finalizeInput(0, (inputIndex, input) => {
     const redeemPayment = payments.p2wsh({
         redeem: {
-            input: script.compile([
-                input.partialSig[0].signature,
-                preImage,
-            ]),
+            input: script.compile([input.partialSig[0].signature, preImage]),
             output: input.witnessScript,
         },
     });
-    const finalScriptWitness = witnessStackToScriptWitness(
-        redeemPayment.witness ?? []
-    );
+    const finalScriptWitness = witnessStackToScriptWitness(redeemPayment.witness ?? []);
     return {
         finalScriptSig: Buffer.from(''),
         finalScriptWitness,
     };
 });
 ```
+
 And finally broadcast the signed transaction to the blockchain. For this, you can use your own instance of bitcoind, or
 call the 40swap API:
+
 ```js
 const tx = psbt.extractTransaction();
 const resp = await fetch(`${BASE_URL}/api/swap/in/${swap.swapId}/refund-tx`, {
@@ -102,24 +107,30 @@ const resp = await fetch(`${BASE_URL}/api/swap/in/${swap.swapId}/refund-tx`, {
     },
 });
 ```
+
 After the tx is broadcast, the swap should end up in state `DONE` with outcome `REFUNDED`.
 
 # Swap-out
 
-A swap-out can be used to convert bitcoin from lightning to on-chain. 
+A swap-out can be used to convert bitcoin from lightning to on-chain.
 
 The flow is a bit more complex that the swap-in, but similar in many ways.
 In this case, we start by creating a random preimage and its hash:
+
 ```js
 const randomBytes = crypto.getRandomValues(new Uint8Array(32));
 const preImage = Buffer.from(randomBytes);
 const preImageHash = await Buffer.from(await crypto.subtle.digest('SHA-256', preImage));
 ```
+
 And a key that will be used to claim the on-chain funds:
+
 ```js
 const claimKey = this.ECPair.makeRandom();
 ```
+
 Then, call the 40swap API to create the swap, and pay the lightning invoice:
+
 ```js
 const resp = await fetch(`${BASE_URL}/api/swap/out`, {
     method: 'POST',
@@ -133,19 +144,21 @@ const resp = await fetch(`${BASE_URL}/api/swap/out`, {
         'content-type': 'application/json',
     },
 });
-const swapOut = (await resp.json());
+const swapOut = await resp.json();
 const { invoice } = swap; // this is the invoice you have to pay
 ```
+
 At this point, the lightning invoice has not been accepted by 40swap yet (it can't because it doesn't have the preimage),
 but it will send the on-chain funds to the contract address.
 When this happens, the swap status will change to 'CONTRACT_FUNDED', and you can claim the funds to your own address.
+
 ```js
 // wait until swap state is 'CONTRACT_FUNDED'
 while (status !== 'CONTRACT_FUNDED') {
     const r = await fetch(`${BASE_URL}/api/swap/out/${swapOut.swapId}`);
     const s = await r.json();
     status = s.status;
-    await setTimeout(new Promise(resolve => setTimeout(1000, resolve)));
+    await setTimeout(new Promise((resolve) => setTimeout(1000, resolve)));
 }
 // claim the funds on-chain
 const claimAddress = ''; // this is where you want to receive the funds from the swap
@@ -159,16 +172,11 @@ psbt.signInput(0, claimKey, [Transaction.SIGHASH_ALL]);
 psbt.finalizeInput(0, (inputIndex, input) => {
     const redeemPayment = payments.p2wsh({
         redeem: {
-            input: script.compile([
-                input.partialSig[0].signature,
-                preImage,
-            ]),
+            input: script.compile([input.partialSig[0].signature, preImage]),
             output: input.witnessScript,
         },
     });
-    const finalScriptWitness = witnessStackToScriptWitness(
-        redeemPayment.witness ?? []
-    );
+    const finalScriptWitness = witnessStackToScriptWitness(redeemPayment.witness ?? []);
     return {
         finalScriptSig: Buffer.from(''),
         finalScriptWitness,
@@ -185,6 +193,7 @@ const resp = await fetch(`${BASE_URL}/api/swap/out/${swap.swapId}/claim`, {
     },
 });
 ```
+
 If everything went ok, your swap should end up in status `DONE` with outcome `SUCCESS` after the claim tx is confirmed by the blockchain.
 
 ### Refund

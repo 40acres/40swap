@@ -25,11 +25,11 @@ export const SwapInDetails: Component = () => {
     const [config] = createResource(() => applicationContext.config);
     const params = useParams();
     const { id: swapId } = params;
-    const [remoteSwap, { refetch }] = createResource(swapId, id => swapInService.getSwap(id) );
+    const [remoteSwap, { refetch }] = createResource(swapId, (id) => swapInService.getSwap(id));
     const currentSwap = createMemo(remoteSwap, undefined, { equals: jsonEquals });
     const [refundAddress, setRefundAddress] = createSignal('');
 
-    createTimer(refetch, () => currentSwap()?.status !== 'DONE' ? 1000 : false, setInterval);
+    createTimer(refetch, () => (currentSwap()?.status !== 'DONE' ? 1000 : false), setInterval);
 
     createEffect(async () => {
         const swap = currentSwap();
@@ -80,203 +80,239 @@ export const SwapInDetails: Component = () => {
 
     const bip21Address = (): string => `bitcoin:${currentSwap()?.contractAddress}?amount=${currentSwap()?.inputAmount}`;
     const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(config()?.bitcoinNetwork ?? networks.bitcoin);
-    const liquidBip21Address = (): string => `liquidnetwork:${currentSwap()?.contractAddress}?amount=${currentSwap()?.inputAmount}&assetid=${liquidNetwork.assetHash}`;
+    const liquidBip21Address = (): string =>
+        `liquidnetwork:${currentSwap()?.contractAddress}?amount=${currentSwap()?.inputAmount}&assetid=${liquidNetwork.assetHash}`;
 
-    return <>
-        <Switch
-            fallback={<h3 class="fw-bold">Swap {currentSwap()?.chain.toLowerCase()} to lightning</h3>}
-        >
-            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'BITCOIN'}>
-                <h3 class="text-center" style="text-transform: none">You have successfully swapped Bitcoin to Lightning!</h3>
-            </Match>
-            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'LIQUID'}>
-                <h3 class="text-center" style="text-transform: none">You have successfully swapped Liquid to Lightning!</h3>
-            </Match>
-            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
-                <h3 class="text-center" style="text-transform: none">Transaction failed. Please try again.</h3>
-            </Match>
-        </Switch>
+    return (
+        <>
+            <Switch fallback={<h3 class="fw-bold">Swap {currentSwap()?.chain.toLowerCase()} to lightning</h3>}>
+                <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'BITCOIN'}>
+                    <h3 class="text-center" style="text-transform: none">
+                        You have successfully swapped Bitcoin to Lightning!
+                    </h3>
+                </Match>
+                <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'LIQUID'}>
+                    <h3 class="text-center" style="text-transform: none">
+                        You have successfully swapped Liquid to Lightning!
+                    </h3>
+                </Match>
+                <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
+                    <h3 class="text-center" style="text-transform: none">
+                        Transaction failed. Please try again.
+                    </h3>
+                </Match>
+            </Switch>
 
-        <div class="d-flex flex-column gap-3">
-            <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
-                <img src={successImage} class="align-self-center" />
-            </Show>
-            <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
-                <img src={failureImage} class="align-self-center" />
-            </Show>
-            <Show when={currentSwap()}>{s => <>
-                <Table class="swap-details-table">
-                    <tbody>
-                        <tr>
-                            <th>Transaction No:</th>
-                            <td>{s().swapId}</td>
-                        </tr>
-                        <Switch>
-                            <Match when={s().status === 'CREATED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Waiting for your payment</td>
-                                </tr>
-                                <tr>
-                                    <th>Amount to be paid:</th>
-                                    <td>{s().inputAmount} BTC</td>
-                                </tr>
-                                <tr>
-                                    <th>Send to:</th>
-                                    <td class="text-break">{s().contractAddress}</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED' || s().status === 'CONTRACT_AMOUNT_MISMATCH'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Wrong amount detected. Once the onchain contract expires, you'll be able to request a refund</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'DONE' && s().outcome === 'SUCCESS'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Success</td>
-                                </tr>
-                                <tr>
-                                    <th>Amount sent:</th>
-                                    <td>{currencyFormat(s().inputAmount)}</td>
-                                </tr>
-                                <tr>
-                                    <th>Amount received:</th>
-                                    <td>{currencyFormat(s().outputAmount)}</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'CONTRACT_FUNDED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Contract funded, waiting for 40swap to pay the invoice</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'INVOICE_PAID'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Lightning invoice paid, claiming on-chain tx</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'CONTRACT_EXPIRED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>{
-                                        s().refundRequestDate == null ?
-                                            'On-chain contract expired. Please, initiate a refund' :
-                                            'On-chain contract expired. Refund is in-progress'
-                                    }</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'DONE' && s().outcome === 'REFUNDED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Failed. The funds have been refunded to you</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'CONTRACT_FUNDED_UNCONFIRMED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>On-chain payment detected, waiting for confirmation</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'CONTRACT_REFUNDED_UNCONFIRMED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>The refund to you has been sent, waiting for on-chain confirmation</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'CONTRACT_CLAIMED_UNCONFIRMED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation</td>
-                                </tr>
-                            </Match>
-                            <Match when={s().status === 'DONE' && s().outcome === 'EXPIRED'}>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>Expired</td>
-                                </tr>
-                            </Match>
-                        </Switch>
-                    </tbody>
-                </Table>
-                <Switch fallback={
-                    <div class="d-flex flex-column align-items-center pt-5 gap-4">
-                        <Spinner/>
-                        <div class="text-muted">Completing the swap</div>
-                    </div>
-                }>
-                    <Match when={s().status === 'CREATED' && s().chain === 'BITCOIN'}>
-                        <div class="d-flex justify-content-center">
-                            <QrCode data={bip21Address()} image={bitcoinLogo}/>
-                        </div>
-                        <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
-                            <a href={bip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Bitcoin wallet')}>Pay</a>
-                            <Button onclick={() => {
-                                navigator.clipboard.writeText(s().inputAmount.toString());
-                                toast.success('Amount copied to clipboard');
-                            }}>
-                                <Fa icon={faCopy}/> Copy amount
-                            </Button>
-                            <Button onclick={() => {
-                                navigator.clipboard.writeText(s().contractAddress.toString());
-                                toast.success('Address copied to clipboard');
-                            }}>
-                                <Fa icon={faCopy}/> Copy address
-                            </Button>
-                        </div>
-                    </Match>
-                    <Match when={s().status === 'CREATED' && s().chain === 'LIQUID'}>
-                        <div class="d-flex justify-content-center">
-                            <QrCode data={liquidBip21Address()} image={liquidLogo}/>
-                        </div>
-                        <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
-                            <a href={liquidBip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Liquid wallet')}>Pay</a>
-                            <Button onclick={() => {
-                                navigator.clipboard.writeText(s().inputAmount.toString());
-                                toast.success('Amount copied to clipboard');
-                            }}>
-                                <Fa icon={faCopy}/> Copy amount
-                            </Button>
-                            <Button onclick={() => {
-                                navigator.clipboard.writeText(s().contractAddress.toString());
-                                toast.success('Address copied to clipboard');
-                            }}>
-                                <Fa icon={faCopy}/> Copy address
-                            </Button>
-                        </div>
-                    </Match>
-                    <Match when={s().status === 'DONE'}>
-                        <A href="/" class="btn btn-primary"><Fa icon={faArrowRotateBack}/> Start new swap</A>
-                    </Match>
-                    <Match when={s().status === 'CONTRACT_EXPIRED' && s().refundRequestDate == null}>
-                        <div>
-                            <Form.Group class="mb-3">
-                                <Form.Control 
-                                    type="text" 
-                                    placeholder={`Enter ${s().chain.toLowerCase()} address to receive refund`}
-                                    value={refundAddress()}
-                                    onChange={e => setRefundAddress(e.target.value)}
-                                    onKeyUp={e => setRefundAddress(e.currentTarget.value)}
-                                    isInvalid={isInvalidRefundAddress()}
-                                />
-                            </Form.Group>
-                            <ActionButton action={() => startRefund()} disabled={refundAddress() === '' || isInvalidRefundAddress()}>Get refund</ActionButton>
-                        </div>
-                    </Match>
-                </Switch>
-                <Show when={s().contractAddress && s().chain === 'BITCOIN'}>
-                    <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`} target="_blank">
-                        <img src={lockOpenImage} class="me-2" />Open lockup address
-                    </a>
+            <div class="d-flex flex-column gap-3">
+                <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
+                    <img src={successImage} class="align-self-center" />
                 </Show>
-                <Show when={s().contractAddress && s().chain === 'LIQUID'}>
-                    <a class="action-link" href={`${config()?.esploraUrl}/address/${s().contractAddress}`} target="_blank">
-                        <img src={lockOpenImage} class="me-2" />Open lockup address
-                    </a>
+                <Show when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
+                    <img src={failureImage} class="align-self-center" />
                 </Show>
-            </>}</Show>
-        </div>
-    </>;
+                <Show when={currentSwap()}>
+                    {(s) => (
+                        <>
+                            <Table class="swap-details-table">
+                                <tbody>
+                                    <tr>
+                                        <th>Transaction No:</th>
+                                        <td>{s().swapId}</td>
+                                    </tr>
+                                    <Switch>
+                                        <Match when={s().status === 'CREATED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Waiting for your payment</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Amount to be paid:</th>
+                                                <td>{s().inputAmount} BTC</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Send to:</th>
+                                                <td class="text-break">{s().contractAddress}</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED' || s().status === 'CONTRACT_AMOUNT_MISMATCH'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Wrong amount detected. Once the onchain contract expires, you'll be able to request a refund</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'DONE' && s().outcome === 'SUCCESS'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Success</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Amount sent:</th>
+                                                <td>{currencyFormat(s().inputAmount)}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Amount received:</th>
+                                                <td>{currencyFormat(s().outputAmount)}</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'CONTRACT_FUNDED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Contract funded, waiting for 40swap to pay the invoice</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'INVOICE_PAID'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Lightning invoice paid, claiming on-chain tx</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'CONTRACT_EXPIRED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>
+                                                    {s().refundRequestDate == null
+                                                        ? 'On-chain contract expired. Please, initiate a refund'
+                                                        : 'On-chain contract expired. Refund is in-progress'}
+                                                </td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'DONE' && s().outcome === 'REFUNDED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Failed. The funds have been refunded to you</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'CONTRACT_FUNDED_UNCONFIRMED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>On-chain payment detected, waiting for confirmation</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'CONTRACT_REFUNDED_UNCONFIRMED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>The refund to you has been sent, waiting for on-chain confirmation</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'CONTRACT_CLAIMED_UNCONFIRMED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>40swap has paid your lightning invoice and claimed the on-chain funds, waiting for confirmation</td>
+                                            </tr>
+                                        </Match>
+                                        <Match when={s().status === 'DONE' && s().outcome === 'EXPIRED'}>
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>Expired</td>
+                                            </tr>
+                                        </Match>
+                                    </Switch>
+                                </tbody>
+                            </Table>
+                            <Switch
+                                fallback={
+                                    <div class="d-flex flex-column align-items-center pt-5 gap-4">
+                                        <Spinner />
+                                        <div class="text-muted">Completing the swap</div>
+                                    </div>
+                                }
+                            >
+                                <Match when={s().status === 'CREATED' && s().chain === 'BITCOIN'}>
+                                    <div class="d-flex justify-content-center">
+                                        <QrCode data={bip21Address()} image={bitcoinLogo} />
+                                    </div>
+                                    <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
+                                        <a href={bip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Bitcoin wallet')}>
+                                            Pay
+                                        </a>
+                                        <Button
+                                            onclick={() => {
+                                                navigator.clipboard.writeText(s().inputAmount.toString());
+                                                toast.success('Amount copied to clipboard');
+                                            }}
+                                        >
+                                            <Fa icon={faCopy} /> Copy amount
+                                        </Button>
+                                        <Button
+                                            onclick={() => {
+                                                navigator.clipboard.writeText(s().contractAddress.toString());
+                                                toast.success('Address copied to clipboard');
+                                            }}
+                                        >
+                                            <Fa icon={faCopy} /> Copy address
+                                        </Button>
+                                    </div>
+                                </Match>
+                                <Match when={s().status === 'CREATED' && s().chain === 'LIQUID'}>
+                                    <div class="d-flex justify-content-center">
+                                        <QrCode data={liquidBip21Address()} image={liquidLogo} />
+                                    </div>
+                                    <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
+                                        <a
+                                            href={liquidBip21Address()}
+                                            class="btn btn-primary"
+                                            role="button"
+                                            onclick={() => toast.success('Opening Liquid wallet')}
+                                        >
+                                            Pay
+                                        </a>
+                                        <Button
+                                            onclick={() => {
+                                                navigator.clipboard.writeText(s().inputAmount.toString());
+                                                toast.success('Amount copied to clipboard');
+                                            }}
+                                        >
+                                            <Fa icon={faCopy} /> Copy amount
+                                        </Button>
+                                        <Button
+                                            onclick={() => {
+                                                navigator.clipboard.writeText(s().contractAddress.toString());
+                                                toast.success('Address copied to clipboard');
+                                            }}
+                                        >
+                                            <Fa icon={faCopy} /> Copy address
+                                        </Button>
+                                    </div>
+                                </Match>
+                                <Match when={s().status === 'DONE'}>
+                                    <A href="/" class="btn btn-primary">
+                                        <Fa icon={faArrowRotateBack} /> Start new swap
+                                    </A>
+                                </Match>
+                                <Match when={s().status === 'CONTRACT_EXPIRED' && s().refundRequestDate == null}>
+                                    <div>
+                                        <Form.Group class="mb-3">
+                                            <Form.Control
+                                                type="text"
+                                                placeholder={`Enter ${s().chain.toLowerCase()} address to receive refund`}
+                                                value={refundAddress()}
+                                                onChange={(e) => setRefundAddress(e.target.value)}
+                                                onKeyUp={(e) => setRefundAddress(e.currentTarget.value)}
+                                                isInvalid={isInvalidRefundAddress()}
+                                            />
+                                        </Form.Group>
+                                        <ActionButton action={() => startRefund()} disabled={refundAddress() === '' || isInvalidRefundAddress()}>
+                                            Get refund
+                                        </ActionButton>
+                                    </div>
+                                </Match>
+                            </Switch>
+                            <Show when={s().contractAddress && s().chain === 'BITCOIN'}>
+                                <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`} target="_blank">
+                                    <img src={lockOpenImage} class="me-2" />
+                                    Open lockup address
+                                </a>
+                            </Show>
+                            <Show when={s().contractAddress && s().chain === 'LIQUID'}>
+                                <a class="action-link" href={`${config()?.esploraUrl}/address/${s().contractAddress}`} target="_blank">
+                                    <img src={lockOpenImage} class="me-2" />
+                                    Open lockup address
+                                </a>
+                            </Show>
+                        </>
+                    )}
+                </Show>
+            </div>
+        </>
+    );
 };

@@ -1,426 +1,417 @@
 {
-  "openapi": "3.0.0",
-  "paths": {
-    "/api/swap/in": {
-      "post": {
-        "operationId": "SwapInController_createSwap",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SwapInRequestDto"
-              }
+    "openapi": "3.0.0",
+    "paths": {
+        "/api/swap/in": {
+            "post": {
+                "operationId": "SwapInController_createSwap",
+                "parameters": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SwapInRequestDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Create a swap in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GetSwapInResponseDto"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["SwapIn"]
             }
-          }
         },
-        "responses": {
-          "201": {
-            "description": "Create a swap in",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSwapInResponseDto"
-                }
-              }
+        "/api/swap/in/{id}/refund-psbt": {
+            "get": {
+                "operationId": "SwapInController_getRefundPsbt",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "path",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "address",
+                        "required": true,
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Get a refund PSBT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PsbtResponseDto"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["SwapIn"]
             }
-          }
         },
-        "tags": ["SwapIn"]
-      }
-    },
-    "/api/swap/in/{id}/refund-psbt": {
-      "get": {
-        "operationId": "SwapInController_getRefundPsbt",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+        "/api/swap/in/{id}/refund-tx": {
+            "post": {
+                "operationId": "SwapInController_sendRefundTx",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "path",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TxRequestDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Send a refund tx"
+                    }
+                },
+                "tags": ["SwapIn"]
             }
-          },
-          {
-            "name": "address",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Get a refund PSBT",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PsbtResponseDto"
-                }
-              }
-            }
-          }
         },
-        "tags": ["SwapIn"]
-      }
-    },
-    "/api/swap/in/{id}/refund-tx": {
-      "post": {
-        "operationId": "SwapInController_sendRefundTx",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+        "/api/swap/in/{id}": {
+            "get": {
+                "operationId": "SwapInController_getSwap",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "path",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Get a swap",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GetSwapInResponseDto"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["SwapIn"]
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TxRequestDto"
-              }
-            }
-          }
         },
-        "responses": {
-          "201": {
-            "description": "Send a refund tx"
-          }
+        "/api/swap/out": {
+            "post": {
+                "operationId": "SwapOutController_createSwap",
+                "parameters": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SwapOutRequestDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Create a swap out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GetSwapOutResponseDto"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["SwapOut"]
+            }
         },
-        "tags": ["SwapIn"]
-      }
-    },
-    "/api/swap/in/{id}": {
-      "get": {
-        "operationId": "SwapInController_getSwap",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+        "/api/swap/out/{id}": {
+            "get": {
+                "operationId": "SwapOutController_getSwap",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "path",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Get a swap out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GetSwapOutResponseDto"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["SwapOut"]
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Get a swap",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSwapInResponseDto"
-                }
-              }
-            }
-          }
         },
-        "tags": ["SwapIn"]
-      }
-    },
-    "/api/swap/out": {
-      "post": {
-        "operationId": "SwapOutController_createSwap",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SwapOutRequestDto"
-              }
+        "/api/swap/out/{id}/claim": {
+            "post": {
+                "operationId": "SwapOutController_claimSwap",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "path",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TxRequestDto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Claim a swap out"
+                    }
+                },
+                "tags": ["SwapOut"]
             }
-          }
         },
-        "responses": {
-          "201": {
-            "description": "Create a swap out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSwapOutResponseDto"
-                }
-              }
+        "/api/swap/out/{id}/claim-psbt": {
+            "get": {
+                "operationId": "SwapOutController_getClaimPsbt",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "required": true,
+                        "in": "path",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "address",
+                        "required": true,
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Get a claim PSBT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PsbtResponseDto"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": ["SwapOut"]
             }
-          }
         },
-        "tags": ["SwapOut"]
-      }
-    },
-    "/api/swap/out/{id}": {
-      "get": {
-        "operationId": "SwapOutController_getSwap",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+        "/api/configuration": {
+            "get": {
+                "operationId": "ConfigurationController_getConfiguration",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": ""
+                    }
+                },
+                "tags": ["Configuration"]
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Get a swap out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSwapOutResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": ["SwapOut"]
-      }
-    },
-    "/api/swap/out/{id}/claim": {
-      "post": {
-        "operationId": "SwapOutController_claimSwap",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TxRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Claim a swap out"
-          }
-        },
-        "tags": ["SwapOut"]
-      }
-    },
-    "/api/swap/out/{id}/claim-psbt": {
-      "get": {
-        "operationId": "SwapOutController_getClaimPsbt",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "address",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Get a claim PSBT",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PsbtResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": ["SwapOut"]
-      }
-    },
-    "/api/configuration": {
-      "get": {
-        "operationId": "ConfigurationController_getConfiguration",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": ["Configuration"]
-      }
-    }
-  },
-  "info": {
-    "title": "40Swap",
-    "description": "40Swap API description",
-    "version": "1.0",
-    "contact": {}
-  },
-  "tags": [],
-  "servers": [],
-  "components": {
-    "schemas": {
-      "ChainDto": {
-        "type": "object",
-        "properties": {
-          "chain": {
-            "type": "string",
-            "enum": ["BITCOIN", "LIQUID"]
-          }
         }
-      },
-      "SwapInRequestDto": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ChainDto"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "invoice": {
-                "type": "string"
-              },
-              "refundPublicKey": {
-                "type": "string"
-              }
+    },
+    "info": {
+        "title": "40Swap",
+        "description": "40Swap API description",
+        "version": "1.0",
+        "contact": {}
+    },
+    "tags": [],
+    "servers": [],
+    "components": {
+        "schemas": {
+            "ChainDto": {
+                "type": "object",
+                "properties": {
+                    "chain": {
+                        "type": "string",
+                        "enum": ["BITCOIN", "LIQUID"]
+                    }
+                }
             },
-            "required": ["chain", "invoice", "refundPublicKey"]
-          }
-        ]
-      },
-      "GetSwapInResponseDto": {
-        "type": "object",
-        "properties": {
-          "swapId": {
-            "type": "string"
-          },
-          "contractAddress": {
-            "type": "string"
-          },
-          "redeemScript": {
-            "type": "string"
-          },
-          "timeoutBlockHeight": {
-            "type": "number"
-          },
-          "lockTx": {
-            "type": "string"
-          },
-          "inputAmount": {
-            "type": "number",
-            "exclusiveMinimum": true,
-            "minimum": 0
-          },
-          "outputAmount": {
-            "type": "number"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "outcome": {
-            "type": "string",
-            "enum": ["SUCCESS", "REFUNDED", "EXPIRED"]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "CREATED",
-              "CONTRACT_FUNDED_UNCONFIRMED",
-              "CONTRACT_FUNDED",
-              "INVOICE_PAID",
-              "CONTRACT_CLAIMED_UNCONFIRMED",
-              "DONE",
-              "CONTRACT_REFUNDED_UNCONFIRMED",
-              "CONTRACT_EXPIRED"
-            ]
-          }
-        },
-        "required": [
-          "swapId",
-          "contractAddress",
-          "redeemScript",
-          "timeoutBlockHeight",
-          "inputAmount",
-          "outputAmount",
-          "createdAt",
-          "status"
-        ]
-      },
-      "PsbtResponseDto": {
-        "type": "object",
-        "properties": {
-          "psbt": {
-            "type": "string"
-          }
-        },
-        "required": ["psbt"]
-      },
-      "TxRequestDto": {
-        "type": "object",
-        "properties": {
-          "tx": {
-            "type": "string"
-          }
-        },
-        "required": ["tx"]
-      },
-      "SwapOutRequestDto": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ChainDto"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "preImageHash": {
-                "type": "string"
-              },
-              "inputAmount": {
-                "type": "number",
-                "exclusiveMinimum": true,
-                "minimum": 0
-              },
-              "claimPubKey": {
-                "type": "string"
-              }
+            "SwapInRequestDto": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/ChainDto"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "invoice": {
+                                "type": "string"
+                            },
+                            "refundPublicKey": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["chain", "invoice", "refundPublicKey"]
+                    }
+                ]
             },
-            "required": ["chain", "preImageHash", "inputAmount", "claimPubKey"]
-          }
-        ]
-      },
-      "GetSwapOutResponseDto": {
-        "type": "object",
-        "properties": {
-          "chain": {
-            "type": "string",
-            "enum": ["BITCOIN", "LIQUID"]
-          },
-          "preImageHash": {
-            "type": "string"
-          },
-          "inputAmount": {
-            "type": "number",
-            "exclusiveMinimum": true,
-            "minimum": 0
-          },
-          "claimPubKey": {
-            "type": "string"
-          }
-        },
-        "required": ["chain", "preImageHash", "inputAmount", "claimPubKey"]
-      }
+            "GetSwapInResponseDto": {
+                "type": "object",
+                "properties": {
+                    "swapId": {
+                        "type": "string"
+                    },
+                    "contractAddress": {
+                        "type": "string"
+                    },
+                    "redeemScript": {
+                        "type": "string"
+                    },
+                    "timeoutBlockHeight": {
+                        "type": "number"
+                    },
+                    "lockTx": {
+                        "type": "string"
+                    },
+                    "inputAmount": {
+                        "type": "number",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                    },
+                    "outputAmount": {
+                        "type": "number"
+                    },
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": ["SUCCESS", "REFUNDED", "EXPIRED"]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "CREATED",
+                            "CONTRACT_FUNDED_UNCONFIRMED",
+                            "CONTRACT_FUNDED",
+                            "INVOICE_PAID",
+                            "CONTRACT_CLAIMED_UNCONFIRMED",
+                            "DONE",
+                            "CONTRACT_REFUNDED_UNCONFIRMED",
+                            "CONTRACT_EXPIRED"
+                        ]
+                    }
+                },
+                "required": ["swapId", "contractAddress", "redeemScript", "timeoutBlockHeight", "inputAmount", "outputAmount", "createdAt", "status"]
+            },
+            "PsbtResponseDto": {
+                "type": "object",
+                "properties": {
+                    "psbt": {
+                        "type": "string"
+                    }
+                },
+                "required": ["psbt"]
+            },
+            "TxRequestDto": {
+                "type": "object",
+                "properties": {
+                    "tx": {
+                        "type": "string"
+                    }
+                },
+                "required": ["tx"]
+            },
+            "SwapOutRequestDto": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/ChainDto"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "preImageHash": {
+                                "type": "string"
+                            },
+                            "inputAmount": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0
+                            },
+                            "claimPubKey": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["chain", "preImageHash", "inputAmount", "claimPubKey"]
+                    }
+                ]
+            },
+            "GetSwapOutResponseDto": {
+                "type": "object",
+                "properties": {
+                    "chain": {
+                        "type": "string",
+                        "enum": ["BITCOIN", "LIQUID"]
+                    },
+                    "preImageHash": {
+                        "type": "string"
+                    },
+                    "inputAmount": {
+                        "type": "number",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                    },
+                    "claimPubKey": {
+                        "type": "string"
+                    }
+                },
+                "required": ["chain", "preImageHash", "inputAmount", "claimPubKey"]
+            }
+        }
     }
-  }
 }

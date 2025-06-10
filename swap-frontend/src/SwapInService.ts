@@ -7,7 +7,6 @@ import * as liquid from 'liquidjs-lib';
 import * as ecc from 'tiny-secp256k1';
 
 export class SwapInService {
-
     constructor(
         private config: Promise<FrontendConfiguration>,
         private localSwapStorageService: LocalSwapStorageService,
@@ -68,7 +67,7 @@ export class SwapInService {
             const finalizer = new liquid.Finalizer(pset);
             const stack = [signature, Buffer.from(''), input.witnessScript!];
             finalizer.finalizeInput(inputIndex, () => {
-                return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
+                return { finalScriptWitness: liquid.witnessStackToScriptWitness(stack) };
             });
             tx = liquid.Extractor.extract(pset);
         }
@@ -84,14 +83,12 @@ export class SwapInService {
             return false;
         }
         return outs[0].address === address;
-
     }
 
     isValidLiquidRefundTx(pset: liquid.Pset, address: string): boolean {
         const outs = pset.outputs;
         // TODO verify that the non-fee output pays to the right address
         return outs.length === 2; // In liquid the fee output is also included
-
     }
 
     async getSwap(id: string): Promise<PersistedSwapIn> {

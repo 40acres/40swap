@@ -1,14 +1,13 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface SendCustomMessageRequest {
-  'peer'?: (Buffer | Uint8Array | string);
-  'type'?: (number);
-  'data'?: (Buffer | Uint8Array | string);
+    peer?: Buffer | Uint8Array | string;
+    type?: number;
+    data?: Buffer | Uint8Array | string;
 }
 
 export interface SendCustomMessageRequest__Output {
-  'peer': (Buffer);
-  'type': (number);
-  'data': (Buffer);
+    peer: Buffer;
+    type: number;
+    data: Buffer;
 }

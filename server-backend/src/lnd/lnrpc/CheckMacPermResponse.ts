@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface CheckMacPermResponse {
-  'valid'?: (boolean);
+    valid?: boolean;
 }
 
 export interface CheckMacPermResponse__Output {
-  'valid': (boolean);
+    valid: boolean;
 }

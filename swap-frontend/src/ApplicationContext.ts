@@ -16,13 +16,13 @@ export class ApplicationContext {
     get config(): Promise<FrontendConfiguration> {
         if (this._config == null) {
             this._config = fetch('/api/configuration')
-                .then(response => {
+                .then((response) => {
                     if (response.status >= 300) {
                         return Promise.reject(new Error('error fetching configuration'));
                     }
                     return response.json();
                 })
-                .then(value => frontendConfigurationSchema.parse(value));
+                .then((value) => frontendConfigurationSchema.parse(value));
         }
         return this._config;
     }
@@ -43,24 +43,14 @@ export class ApplicationContext {
 
     get swapInService(): SwapInService {
         if (this._swapInService == null) {
-            this._swapInService = new SwapInService(
-                this.config,
-                this.localSwapStorageService,
-                this.ECPair,
-                this.fortySwapClient,
-            );
+            this._swapInService = new SwapInService(this.config, this.localSwapStorageService, this.ECPair, this.fortySwapClient);
         }
         return this._swapInService;
     }
 
     get swapOutService(): SwapOutService {
         if (this._swapOutService == null) {
-            this._swapOutService = new SwapOutService(
-                this.config,
-                this.localSwapStorageService,
-                this.ECPair,
-                this.fortySwapClient,
-            );
+            this._swapOutService = new SwapOutService(this.config, this.localSwapStorageService, this.ECPair, this.fortySwapClient);
         }
         return this._swapOutService;
     }

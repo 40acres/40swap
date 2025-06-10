@@ -23,7 +23,6 @@ import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 
-
 const ECPair = ECPairFactory(ecc);
 
 @Injectable()
@@ -64,7 +63,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (invoiceNetwork == null || invoiceNetwork.bech32 !== network.bech32) {
             throw new BadRequestException('invalid bitcoin network');
         }
-        const hashTag = tags.find(t => t.tagName === 'payment_hash');
+        const hashTag = tags.find((t) => t.tagName === 'payment_hash');
         assert(hashTag);
         assert(typeof hashTag.data === 'string');
         assert(satoshis != null);
@@ -82,16 +81,11 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         let timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
         if (request.chain === 'LIQUID') {
             assert(this.liquidService.xpub != null, 'liquid is not available');
-            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + (lockBlockDeltaIn * 10);
+            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + lockBlockDeltaIn * 10;
         }
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
-        const lockScript = swapScript(
-            Buffer.from(paymentHash, 'hex'),
-            claimKey.publicKey,
-            counterpartyPubKey,
-            timeoutBlockHeight,
-        );
+        const lockScript = swapScript(Buffer.from(paymentHash, 'hex'), claimKey.publicKey, counterpartyPubKey, timeoutBlockHeight);
         let address: string | undefined;
         let sweepAddress: string | undefined;
         if (request.chain === 'BITCOIN') {
@@ -215,13 +209,13 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
 
     @OnEvent('nbxplorer.newblock')
     private async processNewBlock(event: NBXplorerBlockEvent, cryptoCode: Chain): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event, cryptoCode));
+        const promises = Array.from(this.runningSwaps.values()).map((runner) => runner.processNewBlock(event, cryptoCode));
         await Promise.all(promises);
     }
 
     @OnEvent('nbxplorer.newtransaction')
     private async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewTransaction(event, cryptoCode));
+        const promises = Array.from(this.runningSwaps.values()).map((runner) => runner.processNewTransaction(event, cryptoCode));
         await Promise.all(promises);
     }
 
@@ -236,25 +230,28 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             status: Not('DONE'),
         });
         for (const swap of [...resumableSwapIns, ...resumableSwapOuts]) {
-            const runner = swap instanceof SwapIn ? new SwapInRunner(
-                swap,
-                swapInRepository,
-                this.bitcoinConfig,
-                this.bitcoinService,
-                this.nbxplorer,
-                this.lnd,
-                this.swapConfig,
-                this.elementsConfig,
-            ) : new SwapOutRunner(
-                swap,
-                swapOutRepository,
-                this.bitcoinConfig,
-                this.bitcoinService,
-                this.nbxplorer,
-                this.lnd,
-                this.swapConfig,
-                this.elementsConfig,
-            );
+            const runner =
+                swap instanceof SwapIn
+                    ? new SwapInRunner(
+                          swap,
+                          swapInRepository,
+                          this.bitcoinConfig,
+                          this.bitcoinService,
+                          this.nbxplorer,
+                          this.lnd,
+                          this.swapConfig,
+                          this.elementsConfig,
+                      )
+                    : new SwapOutRunner(
+                          swap,
+                          swapOutRepository,
+                          this.bitcoinConfig,
+                          this.bitcoinService,
+                          this.nbxplorer,
+                          this.lnd,
+                          this.swapConfig,
+                          this.elementsConfig,
+                      );
             this.logger.log(`Resuming swap (id=${swap.id})`);
             this.runAndMonitor(swap, runner);
         }

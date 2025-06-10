@@ -4,23 +4,23 @@ import type { ChannelPoint as _lnrpc_ChannelPoint, ChannelPoint__Output as _lnrp
 import type { Long } from '@grpc/proto-loader';
 
 export interface CloseChannelRequest {
-  'channelPoint'?: (_lnrpc_ChannelPoint | null);
-  'force'?: (boolean);
-  'targetConf'?: (number);
-  'satPerByte'?: (number | string | Long);
-  'deliveryAddress'?: (string);
-  'satPerVbyte'?: (number | string | Long);
-  'maxFeePerVbyte'?: (number | string | Long);
-  'noWait'?: (boolean);
+    channelPoint?: _lnrpc_ChannelPoint | null;
+    force?: boolean;
+    targetConf?: number;
+    satPerByte?: number | string | Long;
+    deliveryAddress?: string;
+    satPerVbyte?: number | string | Long;
+    maxFeePerVbyte?: number | string | Long;
+    noWait?: boolean;
 }
 
 export interface CloseChannelRequest__Output {
-  'channelPoint': (_lnrpc_ChannelPoint__Output | null);
-  'force': (boolean);
-  'targetConf': (number);
-  'satPerByte': (string);
-  'deliveryAddress': (string);
-  'satPerVbyte': (string);
-  'maxFeePerVbyte': (string);
-  'noWait': (boolean);
+    channelPoint: _lnrpc_ChannelPoint__Output | null;
+    force: boolean;
+    targetConf: number;
+    satPerByte: string;
+    deliveryAddress: string;
+    satPerVbyte: string;
+    maxFeePerVbyte: string;
+    noWait: boolean;
 }

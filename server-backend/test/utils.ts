@@ -11,7 +11,7 @@ export async function waitForChainSync(lnds: Lnd[]): Promise<void> {
 }
 
 export function sleep(ms = 1000): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function waitFor(fn: () => Promise<boolean>, maxIterations = 6, delay = 5000): Promise<void> {
