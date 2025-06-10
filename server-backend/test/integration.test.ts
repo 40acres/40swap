@@ -123,6 +123,14 @@ describe('40Swap backend', () => {
         // Mine blocks to trigger expiration
         await elements.mine(blocksToMine);
         await waitFor(async () => (await backend.out.find(swap.swapId)).status === 'CONTRACT_EXPIRED');
+        expect(swap.contractAddress).toBeDefined();
+        expect(swap.redeemScript).toBeDefined();
+        expect(swap.timeoutBlockHeight).toBeDefined();
+        const currentBlockHeight = await elements.getBlockHeight();
+        expect(currentBlockHeight).toBeGreaterThanOrEqual(swap.timeoutBlockHeight);
+        
+        // TODO: Implement swap-out refund API endpoints to enable automated refund testing
+        // Similar to how swap-in refunds work with getRefundPsbt and publishRefundTx endpoints
     });
 
     it('should complete a swap in with custom lockBlockDeltaIn', async () => {

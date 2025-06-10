@@ -19,7 +19,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { getLiquidCltvExpiry, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { getLiquidCltvExpiry, LiquidLockPSETBuilder, LiquidPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -89,9 +89,10 @@ export class SwapOutRunner {
         if (status === 'CREATED') {
             this.waitForLightningPaymentIntent();
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
+            const invoiceExpiry = await this.getCltvExpiry();
             if (swap.chain === 'LIQUID') {
-                const invoiceExpiry = await this.getCltvExpiry();
-                swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, invoiceExpiry);
+                swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, invoiceExpiry, this.swapConfig.lockBlockDelta.out);
+                console.log('swap.timeoutBlockHeight: ', swap.timeoutBlockHeight);
                 swap.lockScript = reverseSwapScript(
                     swap.preImageHash, 
                     swap.counterpartyPubKey, 
@@ -114,7 +115,7 @@ export class SwapOutRunner {
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else if (swap.chain === 'BITCOIN') {
-                swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;
+                swap.timeoutBlockHeight = (invoiceExpiry - this.swapConfig.lockBlockDelta.out);
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,
                     swap.counterpartyPubKey,
@@ -240,10 +241,15 @@ export class SwapOutRunner {
 
         const isSendingToRefundAddress = unlockTx.outs.find(o => {
             try {
-                const sweepAddress = swap.chain === 'LIQUID' ? 
-                    liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest) : 
-                    address.fromOutputScript(o.script, this.bitcoinConfig.network);
-                return sweepAddress === swap.sweepAddress;
+                if(swap.chain === 'BITCOIN') {
+                    const sweepAddress = address.fromOutputScript(o.script, this.bitcoinConfig.network);
+                    return sweepAddress === swap.sweepAddress;
+                } else if (swap.chain === 'LIQUID') {
+                    const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+                    const unconfidentialAddress = liquid.address.fromConfidential(swap.sweepAddress).unconfidentialAddress;
+                    const outputAddress = liquid.address.fromOutputScript(o.script, liquidNetwork);
+                    return outputAddress === unconfidentialAddress;
+                }
             } catch (e) {
                 return false;
             }
