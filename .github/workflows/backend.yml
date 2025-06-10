@@ -50,7 +50,7 @@ jobs:
 
   integration-testing:
     runs-on: ubuntu-latest
-    needs: code-quality  # Ensure code quality passes before running tests
+    # needs: code-quality
     permissions:
       contents: read
       packages: read
