@@ -63,17 +63,17 @@ sendtoaddress address amount:
 
 # Send to address with fee rate and generate blocks for Liquid
 elements-sendtoaddress address amount:
-    just elements-cli -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
+    just elements-cli -rpcwallet=main -named sendtoaddress address={{address}} amount={{amount}} fee_rate=25
     just generate 6
 
 # Generate blocks for both bitcoin and liquid
 generate blocks:
     docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest -generate {{blocks}}
-    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main -generate {{blocks}}
 
 # Generate blocks(mining) for Liquid
 generate-liquid blocks='1':
-    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -generate {{blocks}}
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main -generate {{blocks}}
 
 # Generate blocks(mining) for Bitcoin
 generate-bitcoin blocks='6':
@@ -93,7 +93,7 @@ alice-lncli *cmd:
 
 # Run command within elements container
 elements-cli *cmd:
-    docker exec -it 40swap_elements elements-cli -chain=liquidregtest  {{cmd}}
+    docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main {{cmd}}
 
 # Run backend IgTests
 [working-directory: 'server-backend']
@@ -115,3 +115,8 @@ lint:
 # Check linting
 check-lint:
     npm run lint:check
+
+# Build docs
+[working-directory: 'docs']
+build-docs:
+    docker run -v ./:/book peaceiris/mdbook:v0.4.40 build

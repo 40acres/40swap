@@ -89,12 +89,10 @@ EOM
 echo "$dev_config" > ../server-backend/dev/40swap.lightning.yml
 
 # Liquid setup:
-docker exec -it 40swap_elements elements-cli -chain=liquidregtest unloadwallet ""
-docker exec -it 40swap_elements rm -r -f '/home/elements/.elements/liquidregtest/wallets/database' '/home/elements/.elements/liquidregtest/wallets/db.log' '/home/elements/.elements/liquidregtest/wallets/wallet.dat'
-docker exec -it 40swap_elements elements-cli -chain=liquidregtest createwallet "" false false "" false true true false
-address=$(docker exec -i 40swap_elements elements-cli -chain=liquidregtest getnewaddress | tr -d '\r\n' | xargs)
-docker exec -it 40swap_elements elements-cli -chain=liquidregtest generatetoaddress 101 $address
-xpub=$(docker exec -it 40swap_elements elements-cli -chain=liquidregtest listdescriptors | jq -r '.descriptors[] | select(.desc | startswith("wpkh(")) | select(.internal==false) | .desc' | sed -E 's/.*\]([^\/]+)\/.*/\1/')
+docker exec -it 40swap_elements elements-cli -chain=liquidregtest createwallet "main" false false "" false true true false
+address=$(docker exec -i 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main getnewaddress | tr -d '\r\n' | xargs)
+docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main generatetoaddress 101 $address
+xpub=$(docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main listdescriptors | jq -r '.descriptors[] | select(.desc | startswith("wpkh(")) | select(.internal==false) | .desc' | sed -E 's/.*\]([^\/]+)\/.*/\1/')
 
 set the xpub of the liquid wallet
 read -r -d '' xpub_config << EOM
@@ -104,7 +102,9 @@ elements:
   rpcUrl: http://localhost:18884
   rpcUsername: 40swap
   rpcPassword: pass
+  rpcWallet: main
   xpub: $xpub
+  esploraUrl: http://localhost:35000
 EOM
 
 echo "$xpub_config" > ../server-backend/dev/40swap.elements.yml

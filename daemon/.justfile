@@ -11,7 +11,7 @@ tidy:
 # Build the project
 [working-directory: 'cmd']
 build: tidy
-    go build .
+    go build -gcflags '-N -l' .
 
 # Generate the project
 generate:
@@ -26,7 +26,7 @@ run *cmd:
 
 run-daemon: copy-lnd-data
     @lndconnect=$(just generate-lndconnect); \
-    go tool air -- start -regtest -db-keep-alive -db-host localhost -server-url=http://localhost:7081 -lndconnect "$lndconnect"
+    go tool air -- start -regtest -db-keep-alive -db-host localhost -server-url=http://localhost:7081 -lndconnect "$lndconnect" -mempool-endpoint "http://localhost:7084/api" -mempool-token "test"
 
 # Lint the project
 lint:

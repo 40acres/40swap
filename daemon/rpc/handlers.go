@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gorm.io/gorm"
 )
 
 func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInResponse, error) {
@@ -115,7 +118,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
-	err = server.Repository.SaveSwapIn(&models.SwapIn{
+	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
 		AmountSats: int64(*invoice.MilliSat / 1000),
@@ -124,6 +127,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
 		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
+		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
 		PaymentRequest:     *req.Invoice,
@@ -137,9 +141,10 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	log.Info("Swap created: ", swap.SwapId)
 
 	return &SwapInResponse{
-		SwapId:       swap.SwapId,
-		AmountSats:   uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
-		ClaimAddress: swap.ContractAddress,
+		SwapId:        swap.SwapId,
+		AmountSats:    uint64(swap.InputAmount.Mul(decimal.NewFromInt(1e8)).IntPart()), // nolint:gosec,
+		ClaimAddress:  swap.ContractAddress,
+		RefundAddress: req.RefundTo,
 	}, nil
 }
 
@@ -148,10 +153,6 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	network := ToLightningNetworkType(server.network)
 
 	// Validate request
-	if req.AmountSats > 21_000_000*100_000_000 {
-		return nil, fmt.Errorf("amount must be less than 21,000,000 BTC")
-	}
-
 	// If the user didn't provide any address, generate one from the LND wallet
 	if req.Address == "" {
 		addr, err := server.lightningClient.GenerateAddress(ctx)
@@ -179,7 +180,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		return nil, fmt.Errorf("invalid address: %w", err)
 	}
 	if !address.IsForNet(lightning.ToChainCfgNetwork(network)) {
-		return nil, fmt.Errorf("invalid refund address: address is not for the current active network '%s'", network)
+		return nil, fmt.Errorf("invalid address: address is not for the current active network '%s'", network)
 	}
 
 	// Private key for the claim
@@ -192,15 +193,13 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	// Create swap out
 	swap, preimage, err := server.CreateSwapOut(ctx, pubkey, money.Money(req.AmountSats))
 	if err != nil {
-		log.Error("Error creating swap: ", err)
-
 		return nil, fmt.Errorf("error creating the swap: %w", err)
 	}
 
 	// Save swap to the database
 	amount, err := money.NewFromBtc(swap.InputAmount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error converting amount to BTC: %w", err)
 	}
 
 	maxRoutingFeeRatio := 0.005 // 0.5% is a good max value for Lightning Network
@@ -223,7 +222,7 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 		PreImage:           preimage,
 	}
 
-	err = server.Repository.SaveSwapOut(&swapModel)
+	err = server.Repository.SaveSwapOut(ctx, &swapModel)
 	if err != nil {
 		return nil, err
 	}
@@ -231,14 +230,20 @@ func (server *Server) SwapOut(ctx context.Context, req *SwapOutRequest) (*SwapOu
 	// Send L2 payment
 	err = server.lightningClient.PayInvoice(ctx, swap.Invoice, swapModel.MaxRoutingFeeRatio)
 	if err != nil {
-		log.Error("Error paying the invoice: ", err)
-
 		return nil, fmt.Errorf("error paying the invoice: %w", err)
 	}
 
 	log.Info("Swap created: ", swap.SwapId)
 
-	return &SwapOutResponse{}, nil
+	amountSats, err := money.NewFromBtc(swap.InputAmount)
+	if err != nil {
+		return nil, fmt.Errorf("error converting amount to BTC: %w", err)
+	}
+
+	return &SwapOutResponse{
+		SwapId:     swap.SwapId,
+		AmountSats: uint64(amountSats), // nolint:gosec
+	}, nil
 }
 
 // mapStatus maps the swap status from the database to the RPC status
@@ -289,8 +294,7 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		ContractAddress:    swap.ContractAddress,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
 		InputAmount:        swap.InputAmount.InexactFloat64(),
-		LockTx:             swap.LockTx,
-		Outcome:            &swap.Outcome,
+		Outcome:            (*string)(&swap.Outcome),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
 		TimeoutBlockHeight: swap.TimeoutBlockHeight,
@@ -323,7 +327,98 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		Invoice:            swap.Invoice,
 		InputAmount:        swap.InputAmount.InexactFloat64(),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
+		Outcome:            (*string)(&swap.Outcome),
 	}
 
 	return res, nil
+}
+
+func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReusedSwapAddressRequest) (*RecoverReusedSwapAddressResponse, error) {
+	network := ToLightningNetworkType(s.network)
+	_, vout, err := bitcoin.ParseOutpoint(req.Outpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse outpoint %s: %w", req.Outpoint, err)
+	}
+
+	// If the user didn't provide a refund address, generate one to the connected lightning node
+	if req.RefundTo == nil {
+		address, err := s.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate address: %w", err)
+		}
+
+		req.RefundTo = &address
+	}
+
+	tx, err := s.bitcoin.GetTxFromOutpoint(ctx, req.Outpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get address from outpoint %s: %w", req.Outpoint, err)
+	}
+
+	address, err := bitcoin.GetOutputAddress(tx, vout, network)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get address from output: %w", err)
+	}
+
+	swap, err := s.Repository.GetSwapInByClaimAddress(ctx, address.String())
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, fmt.Errorf("outpoint doesn't belong to any address registered for a swap in the database")
+	case err != nil:
+		return nil, fmt.Errorf("failed to get swap from outpoint: %w", err)
+	}
+
+	logger := log.WithFields(log.Fields{
+		"swap_id":  swap.SwapID,
+		"outpoint": req.Outpoint,
+	})
+
+	recommendedFeeRate, err := s.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recommended fees: %w", err)
+	}
+
+	if recommendedFeeRate > 200 {
+		return nil, fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
+	}
+	logger.Infof("Claiming reused address outpoint for swap: %s", swap.SwapID)
+	pkt, err := bitcoin.BuildPSBT(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, s.minRelayFee, network)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build PSBT: %w", err)
+	}
+
+	pkt.UnsignedTx.LockTime = uint32(swap.TimeoutBlockHeight) //nolint:gosec
+
+	// check if the refund address returned in the psbt is our own
+	if !bitcoin.PSBTHasValidOutputAddress(pkt, network, *req.RefundTo) {
+		return nil, fmt.Errorf("invalid refund tx")
+	}
+
+	privateKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode refund private key: %w", err)
+	}
+
+	// Process the PSBT
+	tx, err = bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign PSBT: %w", err)
+	}
+
+	serializedTx, err := bitcoin.SerializeTx(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	// Send transaction back to the swap client
+	logger.Debug("broadcasting transaction")
+	err = s.bitcoin.PostRefund(ctx, serializedTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RecoverReusedSwapAddressResponse{
+		Txid:            tx.TxID(),
+		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), //nolint:gosec
+	}, nil
 }

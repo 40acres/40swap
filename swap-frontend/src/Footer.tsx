@@ -1,9 +1,9 @@
 import { Component } from 'solid-js';
-import fortyAcresBrandUrl from '/assets/40acres-brand.svg';
-import elSalvadorUrl from '/assets/gobierno-de-el-salvador.png';
-import twitterImgUrl from '/assets/twitter.svg';
-import linkedinImgUrl from '/assets/linkedin.svg';
-import githubImgUrl from '/assets/github.svg';
+import fortyAcresBrandUrl from '/40acres-brand.svg?url';
+import elSalvadorUrl from '/gobierno-de-el-salvador.png?url';
+import twitterImgUrl from '/twitter.svg?url';
+import linkedinImgUrl from '/linkedin.svg?url';
+import githubImgUrl from '/github.svg?url';
 import { NavLinks } from './NavLinks.js';
 import { Container } from 'solid-bootstrap';
 

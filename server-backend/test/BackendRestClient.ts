@@ -26,6 +26,7 @@ export class BackendRestClient {
             minimumAmount: 1000,
             maximumAmount: 100000000,
             mempoolDotSpaceUrl: 'https://mempool.space',
+            esploraUrl: 'https://blockstream.info/liquid',
         });
 
     }

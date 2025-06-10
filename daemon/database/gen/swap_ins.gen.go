@@ -34,7 +34,6 @@ func newSwapIn(db *gorm.DB, opts ...gen.DOOption) swapIn {
 	_swapIn.Outcome = field.NewField(tableName, "outcome")
 	_swapIn.SourceChain = field.NewField(tableName, "source_chain")
 	_swapIn.ClaimAddress = field.NewString(tableName, "claim_address")
-	_swapIn.ClaimTxID = field.NewString(tableName, "claim_tx_id")
 	_swapIn.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
 	_swapIn.RefundAddress = field.NewString(tableName, "refund_address")
 	_swapIn.RefundTxID = field.NewString(tableName, "refund_tx_id")
@@ -47,6 +46,8 @@ func newSwapIn(db *gorm.DB, opts ...gen.DOOption) swapIn {
 	_swapIn.CreatedAt = field.NewTime(tableName, "created_at")
 	_swapIn.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_swapIn.RefundRequestedAt = field.NewTime(tableName, "refund_requested_at")
+	_swapIn.LockTxID = field.NewString(tableName, "lock_tx_id")
+	_swapIn.RefundAmount = field.NewInt64(tableName, "refund_amount")
 
 	_swapIn.fillFieldMap()
 
@@ -64,7 +65,6 @@ type swapIn struct {
 	Outcome            field.Field
 	SourceChain        field.Field
 	ClaimAddress       field.String
-	ClaimTxID          field.String
 	TimeoutBlockHeight field.Int64
 	RefundAddress      field.String
 	RefundTxID         field.String
@@ -77,6 +77,8 @@ type swapIn struct {
 	CreatedAt          field.Time
 	UpdatedAt          field.Time
 	RefundRequestedAt  field.Time
+	LockTxID           field.String
+	RefundAmount       field.Int64
 
 	fieldMap map[string]field.Expr
 }
@@ -100,7 +102,6 @@ func (s *swapIn) updateTableName(table string) *swapIn {
 	s.Outcome = field.NewField(table, "outcome")
 	s.SourceChain = field.NewField(table, "source_chain")
 	s.ClaimAddress = field.NewString(table, "claim_address")
-	s.ClaimTxID = field.NewString(table, "claim_tx_id")
 	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
 	s.RefundAddress = field.NewString(table, "refund_address")
 	s.RefundTxID = field.NewString(table, "refund_tx_id")
@@ -113,6 +114,8 @@ func (s *swapIn) updateTableName(table string) *swapIn {
 	s.CreatedAt = field.NewTime(table, "created_at")
 	s.UpdatedAt = field.NewTime(table, "updated_at")
 	s.RefundRequestedAt = field.NewTime(table, "refund_requested_at")
+	s.LockTxID = field.NewString(table, "lock_tx_id")
+	s.RefundAmount = field.NewInt64(table, "refund_amount")
 
 	s.fillFieldMap()
 
@@ -137,7 +140,7 @@ func (s *swapIn) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapIn) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 20)
+	s.fieldMap = make(map[string]field.Expr, 21)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["amount_sats"] = s.AmountSats
@@ -145,7 +148,6 @@ func (s *swapIn) fillFieldMap() {
 	s.fieldMap["outcome"] = s.Outcome
 	s.fieldMap["source_chain"] = s.SourceChain
 	s.fieldMap["claim_address"] = s.ClaimAddress
-	s.fieldMap["claim_tx_id"] = s.ClaimTxID
 	s.fieldMap["timeout_block_height"] = s.TimeoutBlockHeight
 	s.fieldMap["refund_address"] = s.RefundAddress
 	s.fieldMap["refund_tx_id"] = s.RefundTxID
@@ -158,6 +160,8 @@ func (s *swapIn) fillFieldMap() {
 	s.fieldMap["created_at"] = s.CreatedAt
 	s.fieldMap["updated_at"] = s.UpdatedAt
 	s.fieldMap["refund_requested_at"] = s.RefundRequestedAt
+	s.fieldMap["lock_tx_id"] = s.LockTxID
+	s.fieldMap["refund_amount"] = s.RefundAmount
 }
 
 func (s swapIn) clone(db *gorm.DB) swapIn {

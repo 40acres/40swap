@@ -10,6 +10,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { FourtySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { Chain } from '@40swap/shared';
 
 const nbxplorerBalanceSchema = z.object({
     unconfirmed: z.number(),
@@ -127,23 +128,25 @@ const nbxplorerBaseEvent = z.object({
     data: z.object({}),
 });
 
-const nbxplorerTransactionEvent = nbxplorerBaseEvent.extend({
+const bitcoinTransactionOutput = z.object({
+    keyPath: z.string().optional(),
+    scriptPubKey: z.string(),
+    index: z.number().int(),
+    value: z.number().int(),
+    address: z.string(),
+});
+
+const bitcoinTransactionEventSchema = nbxplorerBaseEvent.extend({
     type: z.literal('newtransaction'),
     data: z.object({
         blockId: z.string().nullish(),
         trackedSource: z.string(),
         transactionData: nbxplorerTransactionSchema,
-        outputs: z.object({
-            keyPath: z.string().optional(),
-            scriptPubKey: z.string(),
-            index: z.number().int(),
-            value: z.number().int(),
-            address: z.string(),
-        }).array(),
+        outputs: bitcoinTransactionOutput.array(),
     }),
 });
 
-const nbxplorerBlockEvent = nbxplorerBaseEvent.extend({
+const bitcoinBlockEventSchema = nbxplorerBaseEvent.extend({
     type: z.literal('newblock'),
     data: z.object({
         height: z.number().int().positive(),
@@ -193,8 +196,8 @@ const liquidTransactionEventSchema = nbxplorerBaseEvent.extend({
         trackedSource: z.string(),
         derivationStrategy: z.string().optional(),
         transactionData: nbxplorerTransactionSchema,
-        outputs: liquidTransactionOutputSchema.array(),
-        inputs: liquidTransactionInputSchema.array(),
+        outputs: liquidTransactionOutputSchema.array().optional().default([]),
+        inputs: liquidTransactionInputSchema.array().optional().default([]),
         replacing: z.array(z.any()).default([]),
         cryptoCode: z.string(),
     }),
@@ -205,12 +208,17 @@ export type NBXplorerLiquidAssetValue = z.infer<typeof liquidAssetValueSchema>;
 export type NBXplorerLiquidTransactionOutput = z.infer<typeof liquidTransactionOutputSchema>;
 export type NBXplorerLiquidTransactionInput = z.infer<typeof liquidTransactionInputSchema>;
 export type NBXplorerLiquidWalletTransaction = z.infer<typeof liquidTransactionEventSchema>['data'];
+export type NBXplorerBitcoinTransactionOutput = z.infer<typeof bitcoinTransactionOutput>;
 
-const liquidNbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
-const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [nbxplorerBlockEvent, nbxplorerTransactionEvent]);
-const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
+export const liquidNbxplorerEvent = z.discriminatedUnion('type', [liquidBlockEventSchema, liquidTransactionEventSchema]);
+export const bitcoinNbxplorerEvent = z.discriminatedUnion('type', [bitcoinBlockEventSchema, bitcoinTransactionEventSchema]);
+export const nbxplorerEvent = z.union([bitcoinNbxplorerEvent, liquidNbxplorerEvent]);
+export const nbxplorerTransactionEvent = z.union([bitcoinTransactionEventSchema, liquidTransactionEventSchema]);
+export const nbxplorerBlockEvent = z.union([bitcoinBlockEventSchema, liquidBlockEventSchema]);
 export type LiquidBlockEvent = z.infer<typeof liquidBlockEventSchema>;
 export type LiquidTransactionEvent = z.infer<typeof liquidTransactionEventSchema>;
+export type BitcoinBlockEvent = z.infer<typeof bitcoinBlockEventSchema>;
+export type BitcoinTransactionEvent = z.infer<typeof bitcoinTransactionEventSchema>;
 export type NBXplorerBlockEvent = z.infer<typeof nbxplorerBlockEvent>;
 export type NBXplorerNewTransactionEvent = z.infer<typeof nbxplorerTransactionEvent>;
 export type BitcoinEvent = z.infer<typeof bitcoinNbxplorerEvent>;
@@ -265,15 +273,39 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
     private readonly logger = new Logger(NbxplorerService.name);
     private readonly config: FourtySwapConfiguration['nbxplorer'];
+    private readonly elementsConfig?: FourtySwapConfiguration['elements'];
     private eventProcessingPromise?: Promise<unknown>;
     private shutdownRequested = false;
+    private isLiquidEnabled = false;
 
     constructor(
-        config: ConfigService<FourtySwapConfiguration>,
+        private configService: ConfigService<FourtySwapConfiguration>,
         private dataSource: DataSource,
         private eventEmitter: EventEmitter2,
     ) {
-        this.config = config.getOrThrow('nbxplorer', { infer: true });
+        this.config = configService.getOrThrow('nbxplorer', { infer: true });
+        try {
+            this.elementsConfig = configService.get('elements', { infer: true });
+            this.isLiquidEnabled = !!this.elementsConfig;
+            if (this.isLiquidEnabled) {
+                this.logger.log('Liquid functionality is enabled. Will process liquid events.');
+            } else {
+                this.logger.log('Liquid functionality is disabled. Will not process liquid events.');
+            }
+        } catch (error) {
+            this.logger.warn('Elements configuration not found. Liquid functionality will be disabled.');
+            this.isLiquidEnabled = false;
+        }
+    }
+
+    getChainFromCryptoCode(cryptoCode: string): Chain {
+        if (cryptoCode === 'BTC') {
+            return 'BITCOIN';
+        }
+        if (cryptoCode === 'LBTC') {
+            return 'LIQUID';
+        }
+        throw new Error(`Unknown crypto code: ${cryptoCode}`);
     }
 
     getUrl(cryptoCode: string = 'btc'): string {
@@ -393,7 +425,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 await this.dataSource.transaction(async dbTx => {
                     await this.saveLastEventId(event.eventId, dbTx);
                     if (event.type === 'newblock' || event.type === 'newtransaction') {
-                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
+                        const cryptoCode = this.getChainFromCryptoCode('BTC'); // BTC events do not have a cryptoCode
+                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event, cryptoCode);
                     }
                 });
             }
@@ -403,6 +436,11 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
 
     async processLiquidEvents(): Promise<void> {
+        if (!this.isLiquidEnabled) {
+            this.logger.log('Liquid functionality is disabled. Skipping liquid events processing.');
+            return;
+        }
+        
         while (!this.shutdownRequested) {
             const lastEventId = await this.getLastLiquidEventId();
             const events = await this.getLiquidEvents({ lastEventId });
@@ -410,12 +448,18 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 if (this.shutdownRequested) {
                     break;
                 }
-                await this.dataSource.transaction(async dbTx => {
-                    await this.saveLastLiquidEventId(event.eventId, dbTx);
-                    if (event.type === 'newblock' || event.type === 'newtransaction') {
-                        await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event);
-                    }
-                });
+                try{
+                    await this.dataSource.transaction(async dbTx => {
+                        await this.saveLastLiquidEventId(event.eventId, dbTx);
+                        if (event.type === 'newblock' || event.type === 'newtransaction') {
+                            const cryptoCode = this.getChainFromCryptoCode(event.data.cryptoCode);
+                            await this.eventEmitter.emitAsync(`nbxplorer.${event.type}`, event, cryptoCode);
+                        }
+                    });
+                } catch (e) {
+                    console.log('event', event);
+                    this.logger.error('Error processing liquid event', e);
+                }
             }
         }
         this.logger.log('Liquid event listener stopped');
@@ -493,13 +537,29 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 });
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
-            return liquidNbxplorerEvent.array().parse(await response.json());
+            
+            // Check if the response is successful
+            if (!response.ok) {
+                this.logger.warn(`Failed to fetch liquid events: ${response.status} ${response.statusText}`);
+                return [];
+            }
+            
+            const responseJson = await response.json();
+            
+            // Check if the response is an array
+            if (!Array.isArray(responseJson)) {
+                this.logger.warn('Liquid events response is not an array, possibly due to disabled Liquid functionality');
+                return [];
+            }
+            
+            return liquidNbxplorerEvent.array().parse(responseJson);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
                 return [];
             }
-            throw e;
+            this.logger.error(`Error fetching liquid events: ${e.message || e}`);
+            return [];
         }
     }
 
@@ -555,10 +615,14 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     onApplicationBootstrap(): void {
-        this.eventProcessingPromise = Promise.all([
-            this.processBitcoinEvents(),
-            this.processLiquidEvents(),
-        ]);
+        if (this.isLiquidEnabled) {
+            this.eventProcessingPromise = Promise.all([
+                this.processBitcoinEvents(),
+                this.processLiquidEvents(),
+            ]);
+        } else {
+            this.eventProcessingPromise = this.processBitcoinEvents();
+        }
     }
 
     onApplicationShutdown(): Promise<unknown> {

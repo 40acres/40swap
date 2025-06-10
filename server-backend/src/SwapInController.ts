@@ -11,8 +11,9 @@ import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { 
+    getLiquidNetworkFromBitcoinNetwork,
     GetSwapInResponse,
     getSwapInResponseSchema,
     PsbtResponse,
@@ -21,6 +22,9 @@ import {
     swapInRequestSchema,
     txRequestSchema,
 } from '@40swap/shared';
+import { LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { LiquidService } from './LiquidService.js';
+import * as liquid from 'liquidjs-lib';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -38,39 +42,56 @@ export class SwapInController {
         private dataSource: DataSource,
         private bitcoinConfig: BitcoinConfigurationDetails,
         private bitcoinService: BitcoinService,
+        private liquidService: LiquidService,
         private swapService: SwapService,
     ) {}
 
     @Post()
-    @ApiCreatedResponse({description: 'Create a swap in', type: GetSwapInResponseDto})
+    @ApiOperation({ description: 'Creates a swap-in (chain to lightning)' })
+    @ApiCreatedResponse({ description: 'The swap-in was correctly created', type: GetSwapInResponseDto })
     async createSwap(@Body() request: SwapInRequestDto): Promise<GetSwapInResponse> {
         const swap = await this.swapService.createSwapIn(request);
         return this.mapToResponse(swap);
     }
 
     @Get('/:id/refund-psbt')
-    @ApiOkResponse({description: 'Get a refund PSBT', type: PsbtResponseDto})
+    @ApiOperation({ description: 'Obtains an unsigned PSBT to refund the swap-in.' })
+    @ApiQuery({ name: 'address', required: true, description: 'The address to refund to.'})
+    @ApiParam({ name: 'id', required: true, description: 'The swap-in ID to refund.'})
+    @ApiOkResponse({ type: PsbtResponseDto })
     async getRefundPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
-        }
-        try {
-            address.toOutputScript(outputAddress, this.bitcoinConfig.network);
-        } catch (e) {
-            throw new BadRequestException(`invalid address ${outputAddress}`);
         }
         const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
+        try {
+            if (swap.chain === 'BITCOIN') {
+                address.toOutputScript(outputAddress, this.bitcoinConfig.network);
+            } else if (swap.chain === 'LIQUID') {
+                liquid.address.toOutputScript(outputAddress, getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network));
+            }
+        } catch (e) {
+            throw new BadRequestException(`invalid address ${outputAddress}`);
+        }
         assert(swap.lockTx != null);
-        const lockTx = Transaction.fromBuffer(swap.lockTx);
-        const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
-        return { psbt: refundPsbt.toBase64() };
+        if (swap.chain === 'BITCOIN') {
+            const lockTx = Transaction.fromBuffer(swap.lockTx);
+            const refundPsbt = this.buildRefundPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
+            return { psbt: refundPsbt.toBase64() };
+        } else if (swap.chain === 'LIQUID') {
+            const refundPsbt = await this.buildLiquidRefundPsbt(swap, outputAddress);
+            return { psbt: refundPsbt.toBase64() };
+        }
+        throw new BadRequestException('invalid chain');
     }
 
     @Post('/:id/refund-tx')
-    @ApiCreatedResponse({description: 'Send a refund tx', type: undefined})
+    @ApiOperation({ description: 'Broadcasts a refund transaction.' })
+    @ApiParam({ name: 'id', required: true, description: 'The swap-in ID to refund.'})
+    @ApiCreatedResponse({ description: 'The tx was broadcast' })
     async sendRefundTx(@Param('id') id: string, @Body() txRequest: TxRequestDto): Promise<void> {
         const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
         if (swap === null) {
@@ -78,18 +99,25 @@ export class SwapInController {
         }
         assert(swap.lockTx != null);
         try {
-            const lockTx = Transaction.fromBuffer(swap.lockTx);
-            const refundTx = Transaction.fromHex(txRequest.tx);
-            if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
-                throw new BadRequestException('invalid refund tx');
+            if (swap.chain === 'BITCOIN') {
+                const lockTx = Transaction.fromBuffer(swap.lockTx);
+                const refundTx = Transaction.fromHex(txRequest.tx);
+                if (refundTx.ins.filter(i => i.hash.equals(lockTx.getHash())).length !== 1) {
+                    throw new BadRequestException('invalid refund tx');
+                }
+                await this.nbxplorer.broadcastTx(refundTx);
+            } else if (swap.chain === 'LIQUID') {
+                const refundTx = liquid.Transaction.fromHex(txRequest.tx);
+                await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
             }
-            await this.nbxplorer.broadcastTx(refundTx);
         } catch (e) {
-            throw new BadRequestException('invalid bitcoin tx');
+            throw new BadRequestException('invalid tx');
         }
     }
 
     @Get('/:id')
+    @ApiOperation({ description: 'Gets current status of a swap-in.' })
+    @ApiParam({ name: 'id', required: true, description: 'The swap-in ID.'})
     @ApiOkResponse({description: 'Get a swap', type: GetSwapInResponseDto})
     async getSwap(@Param('id') id: string): Promise<GetSwapInResponse> {
         const swap = await this.dataSource.getRepository(SwapIn).findOneBy({ id });
@@ -102,6 +130,7 @@ export class SwapInController {
     private mapToResponse(swap: SwapIn): GetSwapInResponse {
         return {
             swapId: swap.id,
+            chain: swap.chain,
             contractAddress: swap.contractAddress,
             redeemScript: swap.lockScript.toString('hex'),
             timeoutBlockHeight: swap.timeoutBlockHeight,
@@ -139,5 +168,21 @@ export class SwapInController {
                 return psbt;
             }
         );
+    }
+
+    async buildLiquidRefundPsbt(swap: SwapIn, outputAddress: string): Promise<liquid.Pset> {
+        const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+        assert(this.liquidService.configurationDetails != null, 'liquid is not available');
+        assert(this.liquidService.xpub != null, 'liquid is not available');
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, {
+            xpub: this.liquidService.xpub,
+            rpcUrl: this.liquidService.configurationDetails.rpcUrl,
+            rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
+            rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
+            rpcWallet: this.liquidService.configurationDetails.rpcAuth.wallet,
+            esploraUrl: this.liquidService.configurationDetails.esploraUrl,
+        }, network);
+        const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!), outputAddress);
+        return pset;
     }
 }

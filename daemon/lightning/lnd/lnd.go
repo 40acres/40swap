@@ -32,6 +32,7 @@ type Client struct {
 	lndClient       lnrpc.LightningClient
 	stateClient     lnrpc.StateClient
 	invoicesClient  invoicesrpc.InvoicesClient
+	network         lightning.Network
 	closeConnection func()
 }
 

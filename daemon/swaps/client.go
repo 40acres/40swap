@@ -22,6 +22,8 @@ type ClientInterface interface {
 	PostClaim(ctx context.Context, swapId, tx string) error
 	CreateSwapIn(ctx context.Context, req *CreateSwapInRequest) (*SwapInResponse, error)
 	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
+	GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error)
+	PostRefund(ctx context.Context, swapId, tx string) error
 }
 
 type ConfigurationResponse struct {
@@ -47,7 +49,8 @@ type SwapOutResponse struct {
 	Status             models.SwapStatus  `json:"status"`
 	Outcome            models.SwapOutcome `json:"outcome"`
 	CreatedAt          time.Time          `json:"createdAt"`
-	TxId               *string            `json:"lockTx"`
+	LockTx             *string            `json:"lockTx"`
+	UnlockTx           *string            `json:"unlockTx"`
 }
 
 type GetClaimPSBTResponse struct {
@@ -62,14 +65,18 @@ type CreateSwapInRequest struct {
 
 type SwapInResponse struct {
 	// ContractAddress is the claim address for the swap
-	ContractAddress    string            `json:"contractAddress"`
-	CreatedAt          time.Time         `json:"createdAt"`
-	InputAmount        decimal.Decimal   `json:"inputAmount"`
-	LockTx             *string           `json:"lockTx"`
-	Outcome            string            `json:"outcome"`
-	OutputAmount       decimal.Decimal   `json:"outputAmount"`
-	RedeemScript       string            `json:"redeemScript"`
-	Status             models.SwapStatus `json:"status"`
-	SwapId             string            `json:"swapId"`
-	TimeoutBlockHeight uint32            `json:"timeoutBlockHeight"`
+	ContractAddress    string             `json:"contractAddress"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	InputAmount        decimal.Decimal    `json:"inputAmount"`
+	LockTx             *string            `json:"lockTx"`
+	Outcome            models.SwapOutcome `json:"outcome"`
+	OutputAmount       decimal.Decimal    `json:"outputAmount"`
+	RedeemScript       string             `json:"redeemScript"`
+	Status             models.SwapStatus  `json:"status"`
+	SwapId             string             `json:"swapId"`
+	TimeoutBlockHeight uint32             `json:"timeoutBlockHeight"`
+}
+
+type RefundPSBTResponse struct {
+	PSBT string `json:"psbt"`
 }

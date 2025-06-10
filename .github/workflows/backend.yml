@@ -13,10 +13,6 @@ on:
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - "daemon/**"
-      - ".justfile"
-      - "README.md"
 
 concurrency:
   # Cancel any previous workflows if they are from a PR or push.
@@ -42,7 +38,16 @@ jobs:
           - /var/run/docker.sock:/var/run/docker.sock:ro
     steps:
       - uses: actions/checkout@v4
+      - name: Check if the integrations tests should be run
+        uses: tj-actions/changed-files@v46
+        id: changed-files
+        with:
+          files: |
+            server-backend/**
+            shared/**
+            docker/**
       - name: Setup Node.js
+        if: steps.changed-files.outputs.any_modified == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
@@ -51,6 +56,7 @@ jobs:
             package-lock.json
             package.json
       - name: Install dependencies
+        if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: server-backend
         run: npm ci
       - name: Check code formatting
@@ -60,9 +66,11 @@ jobs:
         working-directory: server-backend
         run: npm run lint:check
       - name: Build shared
+        if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: shared
         run: npm run build
       - name: Run tests
+        if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: server-backend
         run: npm test
   build:
@@ -104,12 +112,12 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
       - name: Build and push frontend Docker image
         id: build-and-push-frontend
-        uses: docker/build-push-action@v5.0.0
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: swap-frontend/docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           provenance: false
           tags: ${{ steps.meta-fe.outputs.tags }}
           labels: ${{ steps.meta-fe.outputs.labels }}
@@ -134,12 +142,12 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
       - name: Build and push backend Docker image
         id: build-and-push-backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: server-backend/docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           provenance: false
           tags: ${{ steps.meta-be.outputs.tags }}
           labels: ${{ steps.meta-be.outputs.labels }}

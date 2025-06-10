@@ -6,15 +6,18 @@ import { A, useParams } from '@solidjs/router';
 import Fa from 'solid-fa';
 import { faArrowRotateBack, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { QrCode } from './QrCode.js';
-import bitcoinLogo from '/assets/bitcoin-logo.svg';
-import successImage from '/assets/success-image.png';
-import failureImage from '/assets/failure-image.png';
-import lockOpenImage from '/assets/lock-open.svg';
+import bitcoinLogo from '/bitcoin-logo.svg?url';
+import successImage from '/success-image.png?url';
+import failureImage from '/failure-image.png?url';
+import lockOpenImage from '/lock-open.svg?url';
+import liquidLogo from '/liquid-logo.svg?url';
 import { createTimer } from '@solid-primitives/timer';
 import { Spinner } from './Spinner.js';
 import { ActionButton } from './ActionButton.js';
 import { currencyFormat, jsonEquals } from './utils.js';
 import { toast } from 'solid-toast';
+import * as liquid from 'liquidjs-lib';
+import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 
 export const SwapInDetails: Component = () => {
     const { swapInService, localSwapStorageService } = applicationContext;
@@ -40,12 +43,22 @@ export const SwapInDetails: Component = () => {
             return false;
         }
         const network = config()?.bitcoinNetwork ?? networks.bitcoin;
-        try {
-            address.toOutputScript(refundAddress(), network);
-            return false;
-        } catch (e) {
-            return true;
+        if (currentSwap()?.chain === 'BITCOIN') {
+            try {
+                address.toOutputScript(refundAddress(), network);
+                return false;
+            } catch (e) {
+                return true;
+            }
+        } else if (currentSwap()?.chain === 'LIQUID') {
+            try {
+                liquid.address.toOutputScript(refundAddress(), getLiquidNetworkFromBitcoinNetwork(network));
+                return false;
+            } catch (e) {
+                return true;
+            }
         }
+        return false;
     }
 
     async function startRefund(): Promise<void> {
@@ -54,8 +67,10 @@ export const SwapInDetails: Component = () => {
             return;
         }
         try {
+            toast.loading('Processing refund request...', { duration: 3000 });
             await swapInService.getRefund(swap, refundAddress());
             await localSwapStorageService.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
+            toast.success('Refund request initiated successfully');
             refetch();
         } catch (e) {
             console.error(e);
@@ -64,13 +79,18 @@ export const SwapInDetails: Component = () => {
     }
 
     const bip21Address = (): string => `bitcoin:${currentSwap()?.contractAddress}?amount=${currentSwap()?.inputAmount}`;
+    const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(config()?.bitcoinNetwork ?? networks.bitcoin);
+    const liquidBip21Address = (): string => `liquidnetwork:${currentSwap()?.contractAddress}?amount=${currentSwap()?.inputAmount}&assetid=${liquidNetwork.assetHash}`;
 
     return <>
         <Switch
-            fallback={<h3 class="fw-bold">Swap bitcoin to lightning</h3>}
+            fallback={<h3 class="fw-bold">Swap {currentSwap()?.chain.toLowerCase()} to lightning</h3>}
         >
-            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS'}>
+            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'BITCOIN'}>
                 <h3 class="text-center" style="text-transform: none">You have successfully swapped Bitcoin to Lightning!</h3>
+            </Match>
+            <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'SUCCESS' && currentSwap()?.chain === 'LIQUID'}>
+                <h3 class="text-center" style="text-transform: none">You have successfully swapped Liquid to Lightning!</h3>
             </Match>
             <Match when={currentSwap()?.status === 'DONE' && currentSwap()?.outcome === 'REFUNDED'}>
                 <h3 class="text-center" style="text-transform: none">Transaction failed. Please try again.</h3>
@@ -104,6 +124,12 @@ export const SwapInDetails: Component = () => {
                                 <tr>
                                     <th>Send to:</th>
                                     <td class="text-break">{s().contractAddress}</td>
+                                </tr>
+                            </Match>
+                            <Match when={s().status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED' || s().status === 'CONTRACT_AMOUNT_MISMATCH'}>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>Wrong amount detected. Once the onchain contract expires, you'll be able to request a refund</td>
                                 </tr>
                             </Match>
                             <Match when={s().status === 'DONE' && s().outcome === 'SUCCESS'}>
@@ -181,16 +207,42 @@ export const SwapInDetails: Component = () => {
                         <div class="text-muted">Completing the swap</div>
                     </div>
                 }>
-                    <Match when={s().status === 'CREATED'}>
+                    <Match when={s().status === 'CREATED' && s().chain === 'BITCOIN'}>
                         <div class="d-flex justify-content-center">
                             <QrCode data={bip21Address()} image={bitcoinLogo}/>
                         </div>
                         <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
-                            <a href={bip21Address()} class="btn btn-primary" role="button">Pay</a>
-                            <Button onclick={() => navigator.clipboard.writeText(s().inputAmount.toString())}>
+                            <a href={bip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Bitcoin wallet')}>Pay</a>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().inputAmount.toString());
+                                toast.success('Amount copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy amount
                             </Button>
-                            <Button onclick={() => navigator.clipboard.writeText(s().contractAddress.toString())}>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().contractAddress.toString());
+                                toast.success('Address copied to clipboard');
+                            }}>
+                                <Fa icon={faCopy}/> Copy address
+                            </Button>
+                        </div>
+                    </Match>
+                    <Match when={s().status === 'CREATED' && s().chain === 'LIQUID'}>
+                        <div class="d-flex justify-content-center">
+                            <QrCode data={liquidBip21Address()} image={liquidLogo}/>
+                        </div>
+                        <div class="d-flex flex-grow-1 flex-shrink-0 gap-2">
+                            <a href={liquidBip21Address()} class="btn btn-primary" role="button" onclick={() => toast.success('Opening Liquid wallet')}>Pay</a>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().inputAmount.toString());
+                                toast.success('Amount copied to clipboard');
+                            }}>
+                                <Fa icon={faCopy}/> Copy amount
+                            </Button>
+                            <Button onclick={() => {
+                                navigator.clipboard.writeText(s().contractAddress.toString());
+                                toast.success('Address copied to clipboard');
+                            }}>
                                 <Fa icon={faCopy}/> Copy address
                             </Button>
                         </div>
@@ -201,7 +253,9 @@ export const SwapInDetails: Component = () => {
                     <Match when={s().status === 'CONTRACT_EXPIRED' && s().refundRequestDate == null}>
                         <div>
                             <Form.Group class="mb-3">
-                                <Form.Control type="text" placeholder="Enter bitcoin address to receive refund"
+                                <Form.Control 
+                                    type="text" 
+                                    placeholder={`Enter ${s().chain.toLowerCase()} address to receive refund`}
                                     value={refundAddress()}
                                     onChange={e => setRefundAddress(e.target.value)}
                                     onKeyUp={e => setRefundAddress(e.currentTarget.value)}
@@ -212,8 +266,13 @@ export const SwapInDetails: Component = () => {
                         </div>
                     </Match>
                 </Switch>
-                <Show when={s().contractAddress}>
-                    <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`}>
+                <Show when={s().contractAddress && s().chain === 'BITCOIN'}>
+                    <a class="action-link" href={`${config()?.mempoolDotSpaceUrl}/address/${s().contractAddress}`} target="_blank">
+                        <img src={lockOpenImage} class="me-2" />Open lockup address
+                    </a>
+                </Show>
+                <Show when={s().contractAddress && s().chain === 'LIQUID'}>
+                    <a class="action-link" href={`${config()?.esploraUrl}/address/${s().contractAddress}`} target="_blank">
                         <img src={lockOpenImage} class="me-2" />Open lockup address
                     </a>
                 </Show>

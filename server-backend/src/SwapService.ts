@@ -1,4 +1,4 @@
-import { getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import { Chain, getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -21,7 +21,7 @@ import { ConfigService } from '@nestjs/config';
 import { FourtySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
-import { getLiquidNetwork } from './LiquidUtils.js';
+import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
 
 
 const ECPair = ECPairFactory(ecc);
@@ -31,7 +31,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     private readonly logger = new Logger(SwapService.name);
     private readonly runningSwaps: Map<string, SwapInRunner | SwapOutRunner>;
     private readonly swapConfig: FourtySwapConfiguration['swap'];
-    private readonly elementsConfig: FourtySwapConfiguration['elements'];
+    private readonly elementsConfig?: FourtySwapConfiguration['elements'];
 
     constructor(
         private bitcoinConfig: BitcoinConfigurationDetails,
@@ -44,7 +44,11 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     ) {
         this.runningSwaps = new Map();
         this.swapConfig = config.getOrThrow('swap', { infer: true });
-        this.elementsConfig = config.getOrThrow('elements', { infer: true });
+        try {
+            this.elementsConfig = config.get('elements', { infer: true });
+        } catch (error) {
+            this.logger.warn('Elements configuration not found. Liquid functionality will be disabled.');
+        }
     }
 
     getCheckedAmount(amount: Decimal): Decimal {
@@ -55,9 +59,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     async createSwapIn(request: SwapInRequest): Promise<SwapIn> {
-        if (request.chain !== 'BITCOIN') {
-            throw new Error('not implemented'); // TODO
-        }
         const { network } = this.bitcoinConfig;
         const { tags, satoshis, network: invoiceNetwork } = decode(request.invoice);
         if (invoiceNetwork == null || invoiceNetwork.bech32 !== network.bech32) {
@@ -78,7 +79,11 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (lockBlockDeltaIn < this.swapConfig.lockBlockDelta.minIn) {
             throw new BadRequestException(`lockBlockDeltaIn must be at least ${this.swapConfig.lockBlockDelta.minIn} blocks`);
         }
-        const timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
+        let timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
+        if (request.chain === 'LIQUID') {
+            assert(this.liquidService.xpub != null, 'liquid is not available');
+            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + (lockBlockDeltaIn * 10);
+        }
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
         const lockScript = swapScript(
@@ -88,23 +93,29 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             timeoutBlockHeight,
         );
         let address: string | undefined;
+        let sweepAddress: string | undefined;
         if (request.chain === 'BITCOIN') {
             address = payments.p2wsh({ network, redeem: { output: lockScript, network } }).address;
             assert(address);
             await this.nbxplorer.trackAddress(address);
+            sweepAddress = await this.lnd.getNewAddress();
         } else if (request.chain === 'LIQUID') {
-            const liquidNetworkToUse = getLiquidNetwork(network);
+            assert(this.liquidService.xpub != null, 'liquid is not available');
+            const liquidNetworkToUse = getLiquidNetworkFromBitcoinNetwork(network);
             address = liquidPayments.p2wsh({
                 network: liquidNetworkToUse,
                 redeem: {
                     output: lockScript,
                     network: liquidNetworkToUse,
                 },
-                blindkey: undefined, // TODO
+                blindkey: undefined, // TODO: add blinding key
             }).address;
+            assert(address);
+            await this.nbxplorer.trackAddress(address, 'lbtc');
+            sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
         }
         assert(address);
-
+        assert(sweepAddress);
         const repository = this.dataSource.getRepository(SwapIn);
         const swap = await repository.save({
             id: base58Id(),
@@ -117,7 +128,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             inputAmount: getSwapInInputAmount(outputAmount, new Decimal(this.swapConfig.feePercentage)).toDecimalPlaces(8),
             outputAmount,
             status: 'CREATED',
-            sweepAddress: await this.lnd.getNewAddress(),
+            sweepAddress,
             timeoutBlockHeight,
             lockTx: null,
             unlockTx: null,
@@ -134,6 +145,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.nbxplorer,
             this.lnd,
             this.swapConfig,
+            this.elementsConfig,
         );
         this.runAndMonitor(swap, runner);
         return swap;
@@ -145,6 +157,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             sweepAddress = await this.lnd.getNewAddress();
         }
         if (request.chain === 'LIQUID') {
+            assert(this.liquidService.xpub != null, 'liquid is not available');
             sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
         }
         assert(sweepAddress, 'Could not create sweep address for requested chain');
@@ -201,14 +214,14 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     @OnEvent('nbxplorer.newblock')
-    private async processNewBlock(event: NBXplorerBlockEvent): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event));
+    private async processNewBlock(event: NBXplorerBlockEvent, cryptoCode: Chain): Promise<void> {
+        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event, cryptoCode));
         await Promise.all(promises);
     }
 
     @OnEvent('nbxplorer.newtransaction')
-    private async processNewTransaction(event: NBXplorerNewTransactionEvent): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewTransaction(event));
+    private async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
+        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewTransaction(event, cryptoCode));
         await Promise.all(promises);
     }
 
@@ -231,6 +244,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                 this.nbxplorer,
                 this.lnd,
                 this.swapConfig,
+                this.elementsConfig,
             ) : new SwapOutRunner(
                 swap,
                 swapOutRepository,

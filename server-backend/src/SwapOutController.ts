@@ -1,7 +1,7 @@
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { BadRequestException, Body, Controller, Get, Inject, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -11,22 +11,23 @@ import assert from 'node:assert';
 import { SwapOut } from './entities/SwapOut.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import {
-    GetSwapOutResponse,
+    GetSwapOutResponse, getSwapOutResponseSchema,
     PsbtResponse,
     psbtResponseSchema,
     signContractSpend,
     swapOutRequestSchema,
     txRequestSchema,
+    getLiquidNetworkFromBitcoinNetwork,
 } from '@40swap/shared';
-import { getLiquidNetwork, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { LiquidClaimPSETBuilder } from './LiquidUtils.js';
 import { LiquidService } from './LiquidService.js';
 const ECPair = ECPairFactory(ecc);
 
 class SwapOutRequestDto extends createZodDto(swapOutRequestSchema) {}
 class TxRequestDto extends createZodDto(txRequestSchema) {}
-class GetSwapOutResponseDto extends createZodDto(swapOutRequestSchema) {}
+class GetSwapOutResponseDto extends createZodDto(getSwapOutResponseSchema) {}
 class PsbtResponseDto extends createZodDto(psbtResponseSchema) {}
 
 @Controller('/swap/out')
@@ -43,7 +44,8 @@ export class SwapOutController {
     ) {}
 
     @Post()
-    @ApiCreatedResponse({description: 'Create a swap out', type: GetSwapOutResponseDto})
+    @ApiOperation({ description: 'Creates a swap-out (lightning to chain)' })
+    @ApiCreatedResponse({ description: 'The swap-out was correctly created', type: GetSwapOutResponseDto })
     async createSwap(@Body() request: SwapOutRequestDto): Promise<GetSwapOutResponse> {
         const swap = await this.swapService.createSwapOut(request);
         return this.mapToResponse(swap);
@@ -51,7 +53,9 @@ export class SwapOutController {
 
 
     @Get('/:id')
-    @ApiOkResponse({description: 'Get a swap out', type: GetSwapOutResponseDto})
+    @ApiOperation({ description: 'Gets current status of a swap-out.' })
+    @ApiParam({ name: 'id', required: true, description: 'The swap-out ID.'})
+    @ApiOkResponse({ type: GetSwapOutResponseDto })
     async getSwap(@Param('id') id: string): Promise<GetSwapOutResponse> {
         const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
         if (swap === null) {
@@ -62,7 +66,9 @@ export class SwapOutController {
 
 
     @Post('/:id/claim')
-    @ApiCreatedResponse({description: 'Claim a swap out'})
+    @ApiOperation({ description: 'Broadcasts a claim transaction.' })
+    @ApiParam({ name: 'id', required: true, description: 'The swap-out ID to claim.'})
+    @ApiCreatedResponse({ description: 'The tx was broadcast' })
     async claimSwap(@Body() txRequest: TxRequestDto, @Param('id') id: string): Promise<void> {
         const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
         if (swap === null) {
@@ -95,7 +101,10 @@ export class SwapOutController {
     }
 
     @Get('/:id/claim-psbt')
-    @ApiOkResponse({description: 'Get a claim PSBT', type: PsbtResponseDto})
+    @ApiOperation({ description: 'Obtains an unsigned PSBT to claim the swap-out.' })
+    @ApiQuery({ name: 'address', required: true, description: 'The address to claim to.'})
+    @ApiParam({ name: 'id', required: true, description: 'The swap-out ID to claim.'})
+    @ApiOkResponse({ type: PsbtResponseDto })
     async getClaimPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
@@ -104,7 +113,7 @@ export class SwapOutController {
         if (swap === null) {
             throw new NotFoundException('swap not found');
         }
-        assert(swap.lockTx != null, "Swap does not have lock tx");
+        assert(swap.lockTx != null, 'Swap does not have lock tx');
         if (swap.chain === 'BITCOIN') {
             try {
                 address.toOutputScript(outputAddress, this.bitcoinConfig.network);
@@ -113,13 +122,12 @@ export class SwapOutController {
             }
             const lockTx = Transaction.fromBuffer(swap.lockTx);
             const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
-            claimPsbt.locktime = swap.timeoutBlockHeight;
             return { psbt: claimPsbt.toBase64() };
         }
         if (swap.chain === 'LIQUID') {
             assert(swap.status === 'CONTRACT_FUNDED', 'swap is not ready');
             try {
-                liquid.address.toOutputScript(outputAddress, getLiquidNetwork(this.bitcoinConfig.network));
+                liquid.address.toOutputScript(outputAddress, getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network));
             } catch (e) {
                 throw new BadRequestException(`invalid address ${outputAddress}`);
             }
@@ -152,18 +160,23 @@ export class SwapOutController {
                         preImage: Buffer.alloc(32).fill(0),
                     });
                 }
+                psbt.locktime = swap.timeoutBlockHeight;
                 return psbt;
             },
         );
     }
 
     async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {
-        const liquidNetwork = getLiquidNetwork(this.bitcoinConfig.network);
+        assert(this.liquidService.xpub != null, 'liquid is not available');
+        assert(this.liquidService.configurationDetails != null, 'liquid is not available');
+        const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
         const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, {
             xpub: this.liquidService.xpub,
             rpcUrl: this.liquidService.configurationDetails.rpcUrl,
             rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
             rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
+            rpcWallet: this.liquidService.configurationDetails.rpcAuth.wallet,
+            esploraUrl: this.liquidService.configurationDetails.esploraUrl,
         }, liquidNetwork);
         const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
         return await psetBuilder.getPset(swap, lockTx, destinationAddress);
@@ -172,6 +185,7 @@ export class SwapOutController {
     private mapToResponse(swap: SwapOut): GetSwapOutResponse {
         return {
             swapId: swap.id,
+            chain: swap.chain,
             timeoutBlockHeight: swap.timeoutBlockHeight,
             redeemScript: swap.lockScript?.toString('hex'),
             invoice: swap.invoice,

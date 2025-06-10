@@ -10,6 +10,7 @@ service SwapService {
   rpc SwapOut(SwapOutRequest) returns (SwapOutResponse); // Initiates a SwapOut operation.
   rpc GetSwapIn(GetSwapInRequest) returns (GetSwapInResponse); // Retrieves the status of a SwapIn.
   rpc GetSwapOut(GetSwapOutRequest) returns (GetSwapOutResponse); // Retrieves the status of a SwapOut.
+  rpc RecoverReusedSwapAddress(RecoverReusedSwapAddressRequest) returns (RecoverReusedSwapAddressResponse); // Recovers a reused swap address.
 }
 
 // Enum definition for supported blockchain chains.
@@ -53,7 +54,8 @@ message SwapInRequest {
 message SwapInResponse {
   string swap_id = 1; // Unique identifier for the swap.
   uint64 amount_sats = 2; // Amount in satoshis.
-  string claim_address = 3; // Address to claim the funds.
+  string claim_address = 3; // Address to send the funds to.
+  string refund_address = 4; // Address where the funds will be refunded.
 }
 
 // Message definitions for SwapOut operation.
@@ -65,7 +67,8 @@ message SwapOutRequest {
 }
 
 message SwapOutResponse {
-
+  string swap_id = 1; // Unique identifier for the swap.
+  uint64 amount_sats = 2; // Amount in satoshis.
 }
 
 // Message definitions for querying SwapIn status.
@@ -78,7 +81,7 @@ message GetSwapInResponse {
   string contract_address = 2; // Address of the contract.
   google.protobuf.Timestamp created_at = 3; // Timestamp when the swap was created.
   double input_amount = 4; // Input amount in BTC.
-  optional string lock_tx = 5; // Lock transaction txid.
+  optional string lock_tx_id = 5; // Lock transaction txid.
   optional string outcome = 6; // Outcome of the swap.
   double output_amount = 7; // Output amount in BTC.
   string redeem_script = 8; // Redeem script for the contract.
@@ -99,4 +102,16 @@ message GetSwapOutResponse {
   double output_amount = 5; // Output amount in BTC.
   Status status = 6; // Current status of the swap.
   google.protobuf.Timestamp created_at = 7; // Timestamp when the swap was created.
+  optional string outcome = 8; // Outcome of the swap.
+  optional string claim_tx_id = 9; // Claim transaction txid.
+}
+
+message RecoverReusedSwapAddressRequest {
+  string outpoint = 1; // Outpoint of the transaction to refund
+  optional string refund_to = 2; // Address to refund to
+}
+
+message RecoverReusedSwapAddressResponse {
+  string txid = 1; // Transaction ID of the refund transaction
+  double recovered_amount = 2; // Amount recovered in BTC
 }
