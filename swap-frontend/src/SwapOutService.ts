@@ -1,14 +1,11 @@
-import { Psbt, Transaction } from 'bitcoinjs-lib';
+import { Psbt } from 'bitcoinjs-lib';
 import {
+    Chain,
+    FortySwapClient,
     FrontendConfiguration,
     GetSwapOutResponse,
-    getSwapOutResponseSchema,
-    psbtResponseSchema,
     signContractSpend,
-    SwapOutRequest,
-    TxRequest,
     signLiquidPset,
-    Chain,
 } from '@40swap/shared';
 import { LocalSwapStorageService, PersistedSwapOut } from './LocalSwapStorageService.js';
 import { ECPairAPI } from 'ecpair';
@@ -21,6 +18,7 @@ export class SwapOutService {
         private config: Promise<FrontendConfiguration>,
         private localSwapStorageService: LocalSwapStorageService,
         private ECPair: ECPairAPI,
+        private client: FortySwapClient,
     ) {}
 
     async claim(swap: GetSwapOutResponse): Promise<void> {
@@ -33,9 +31,9 @@ export class SwapOutService {
         }
         const { claimKey, preImage, sweepAddress } = localDetails;
         const network = (await this.config).bitcoinNetwork;
-        const psbtBase64 = await this.getClaimPsbtBase64(swap.swapId, sweepAddress);
+        const psbtBase64 = (await this.client.out.getClaimPsbt(swap.swapId, sweepAddress)).psbt;
         if (swap.chain === 'BITCOIN') {
-            const psbt = Psbt.fromBase64(psbtBase64, {network});
+            const psbt = Psbt.fromBase64(psbtBase64, { network });
             if (!this.isValidClaimTx(psbt, sweepAddress)) {
                 throw new Error('Error building refund transactions');
             }
@@ -49,7 +47,7 @@ export class SwapOutService {
                 throw new Error(`fee rate too high ${psbt.getFeeRate()}`);
             }
             const claimTx = psbt.extractTransaction();
-            await this.publishClaimTx(swap.swapId, claimTx);
+            await this.client.out.publishClaimTx(swap.swapId, claimTx.toHex());
         } else if (swap.chain === 'LIQUID') {
             const pset = liquid.Pset.fromBase64(psbtBase64);
             if (!this.isValidLiquidClaimTx(pset, sweepAddress)) {
@@ -57,7 +55,7 @@ export class SwapOutService {
             }
             signLiquidPset(pset, preImage, this.ECPair.fromPrivateKey(Buffer.from(claimKey, 'hex')));
             const claimTx = liquid.Extractor.extract(pset);
-            await this.publishClaimTx(swap.swapId, claimTx);
+            await this.client.out.publishClaimTx(swap.swapId, claimTx.toHex());
         }
     }
 
@@ -66,26 +64,19 @@ export class SwapOutService {
         if (outs.length !== 1) {
             return false;
         }
-        if (outs[0].address !== address) {
-            return false;
-        }
-        return true;
+        return outs[0].address === address;
+
     }
 
     isValidLiquidClaimTx(pset: liquid.Pset, address: string): boolean {
         const outs = pset.outputs;
-        if (outs.length !== 2) { // In liquid the fee output is also included
-            return false;
-        }
-        return true;
+        // TODO verify that the non-fee output pays to the right address
+        return outs.length === 2; // In liquid the fee output is also included
+
     }
 
     async getSwap(id: string): Promise<PersistedSwapOut> {
-        const resp = await fetch(`/api/swap/out/${id}`);
-        if (resp.status >= 300) {
-            throw new Error(`Unknown error retrieving swap. ${JSON.stringify(await resp.text())}`);
-        }
-        const remoteSwap = getSwapOutResponseSchema.parse(await resp.json());
+        const remoteSwap = await this.client.out.find(id);
         const localswap = await this.localSwapStorageService.findById('out', id);
         if (localswap == null) {
             throw new Error('swap does not exist in local DB');
@@ -107,7 +98,12 @@ export class SwapOutService {
             claimKey: claimKey.privateKey!.toString('hex'),
             sweepAddress,
         };
-        const swap = await this.postSwap(amount, claimKey.publicKey, preImageHash, chain);
+        const swap = await this.client.out.create({
+            inputAmount: new Decimal(amount).toDecimalPlaces(8).toNumber(),
+            claimPubKey: claimKey.publicKey.toString('hex'),
+            preImageHash: preImageHash.toString('hex'),
+            chain,
+        });
         const localSwap: PersistedSwapOut = {
             type: 'out',
             ...swap,
@@ -115,50 +111,6 @@ export class SwapOutService {
         };
         await this.localSwapStorageService.persist(localSwap);
         return localSwap;
-    }
-
-    private async getClaimPsbtBase64(swapId: string, address: string): Promise<string> {
-        const resp = await fetch(`/api/swap/out/${swapId}/claim-psbt?` + new URLSearchParams({
-            address,
-        }));
-        if (resp.status >= 300) {
-            throw new Error(`error getting claim psbt: ${await resp.text()}`);
-        }
-        return psbtResponseSchema.parse(await resp.json()).psbt;
-    }
-
-    private async publishClaimTx(swapId: string, tx: Transaction | liquid.Transaction): Promise<void> {
-        const resp = await fetch(`/api/swap/out/${swapId}/claim`, {
-            method: 'POST',
-            body: JSON.stringify({
-                tx: tx.toHex(),
-            } satisfies TxRequest),
-            headers: {
-                'content-type': 'application/json',
-            },
-        });
-        if (resp.status >= 300) {
-            throw new Error(`error claiming: ${await resp.text()}`);
-        }
-    }
-
-    private async postSwap(amount: number, claimPubKey: Buffer, preImageHash: Buffer, chain: Chain): Promise<GetSwapOutResponse> {
-        const resp = await fetch('/api/swap/out', {
-            method: 'POST',
-            body: JSON.stringify({
-                inputAmount: new Decimal(amount).toDecimalPlaces(8).toNumber(),
-                claimPubKey: claimPubKey.toString('hex'),
-                preImageHash: preImageHash.toString('hex'),
-                chain,
-            } satisfies SwapOutRequest),
-            headers: {
-                'content-type': 'application/json',
-            },
-        });
-        if (resp.status >= 300) {
-            throw new Error(`Unknown error creating the swap. ${await resp.text()}`);
-        }
-        return getSwapOutResponseSchema.parse(await resp.json());
     }
 
     private async sha256(message: Buffer): Promise<Buffer> {

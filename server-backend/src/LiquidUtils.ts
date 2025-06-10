@@ -1,5 +1,5 @@
 import { LiquidService, RPCUtxo } from './LiquidService.js';
-import { FourtySwapConfiguration } from './configuration';
+import { FortySwapConfiguration } from './configuration';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { NbxplorerService } from './NbxplorerService';
 import { SwapOut } from './entities/SwapOut';
@@ -52,7 +52,7 @@ export abstract class LiquidPSETBuilder {
 
     constructor(
         protected nbxplorer: NbxplorerService,
-        protected elementsConfig: FourtySwapConfiguration['elements'],
+        protected elementsConfig: FortySwapConfiguration['elements'],
         network: liquid.networks.Network,
     ) {
         this.network = network;

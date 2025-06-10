@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SwapInController } from './SwapInController.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import configuration, { FourtySwapConfiguration } from './configuration.js';
+import configuration, { FortySwapConfiguration } from './configuration.js';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadSync } from '@grpc/proto-loader';
@@ -25,7 +25,7 @@ import { HealthController } from './HealthController.js';
     imports: [
         TypeOrmModule.forRootAsync({
             inject: [ConfigService],
-            useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {
+            useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
                 const config = configService.getOrThrow('db', { infer: true });
                 return {
                     ...config,
@@ -77,7 +77,7 @@ import { HealthController } from './HealthController.js';
         },
         {
             inject: [ConfigService],
-            useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {
+            useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
                 const config = configService.getOrThrow('lnd', { infer: true });
                 const pd = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/lightning.proto'), {
                     enums: String,
@@ -95,7 +95,7 @@ import { HealthController } from './HealthController.js';
         },
         {
             inject: [ConfigService],
-            useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {
+            useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
                 const config = configService.getOrThrow('lnd', { infer: true });
                 const pd = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/invoices.proto'), {
                     enums: String,
@@ -113,7 +113,7 @@ import { HealthController } from './HealthController.js';
         },
         {
             inject: [ConfigService],
-            useFactory: (configService: ConfigService<FourtySwapConfiguration>) => {
+            useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
                 try {
                     return configService.get('elements', { infer: true });
                 } catch (error) {

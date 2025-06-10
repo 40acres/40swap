@@ -11,7 +11,6 @@ export class Elements {
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
-        console.log(res.stdout);
     }
 
     async sendToAddress(address: string, amount: number): Promise<void> {
@@ -19,7 +18,6 @@ export class Elements {
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
-        console.log(res.stdout);
     }
 
     async getNewAddress(): Promise<string> {

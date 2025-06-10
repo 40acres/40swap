@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Network, networks } from 'bitcoinjs-lib';
 import { ConfigService } from '@nestjs/config';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 
@@ -15,10 +15,10 @@ export class BitcoinService {
     private readonly logger = new Logger(BitcoinService.name);
 
     readonly configurationDetails: BitcoinConfigurationDetails;
-    private config: FourtySwapConfiguration['bitcoin'];
+    private config: FortySwapConfiguration['bitcoin'];
 
     constructor(
-        config: ConfigService<FourtySwapConfiguration>,
+        config: ConfigService<FortySwapConfiguration>,
         private nbxplorer: NbxplorerService,
         private mempoolDotSpace: MempoolDotSpaceService,
     ) {
