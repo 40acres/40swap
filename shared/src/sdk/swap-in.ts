@@ -12,7 +12,7 @@ type ErrorListener = (errorType: 'REFUND', error: Error) => void;
 export class SwapInTracker {
     private pollInterval: ReturnType<typeof setInterval> | undefined;
     private currentStatus: PersistedSwapIn | null = null;
-    private listeners: { change: ChangeListener[], error: ErrorListener[] } = {
+    private listeners: { change: ChangeListener[]; error: ErrorListener[] } = {
         change: [],
         error: [],
     };
@@ -60,11 +60,11 @@ export class SwapInTracker {
         const swap = await this.client.find(this.id);
         await this.persistence.update({ type: 'in', ...swap });
         const newStatus = await this.persistence.findById('in', this.id);
-        if (newStatus ==  null) {
+        if (newStatus == null) {
             throw new Error('could not find a swap that was just persisted');
         }
         if (!jsonEquals(this.currentStatus ?? {}, newStatus)) {
-            this.listeners.change.forEach(listener => {
+            this.listeners.change.forEach((listener) => {
                 try {
                     listener(newStatus);
                 } catch (e) {
@@ -79,7 +79,7 @@ export class SwapInTracker {
                 await this.refund();
                 await this.persistence.update({ type: 'in', swapId: swap.swapId, refundRequestDate: new Date() });
             } catch (error) {
-                this.listeners.error.forEach(listener => {
+                this.listeners.error.forEach((listener) => {
                     try {
                         listener('REFUND', error as Error);
                     } catch (e) {
@@ -143,7 +143,7 @@ export class SwapInTracker {
             const finalizer = new liquid.Finalizer(pset);
             const stack = [signature, Buffer.from(''), input.witnessScript!];
             finalizer.finalizeInput(inputIndex, () => {
-                return {finalScriptWitness: liquid.witnessStackToScriptWitness(stack)};
+                return { finalScriptWitness: liquid.witnessStackToScriptWitness(stack) };
             });
             tx = liquid.Extractor.extract(pset);
         }
@@ -159,7 +159,6 @@ export class SwapInTracker {
             return false;
         }
         return outs[0].address === address;
-
     }
 
     private isValidLiquidRefundTx(pset: liquid.Pset, address: string): boolean {

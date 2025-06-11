@@ -24,7 +24,7 @@ const persistedSwapOutSchema = getSwapOutResponseSchema.extend({
 });
 export type PersistedSwapOut = z.infer<typeof persistedSwapOutSchema>;
 
-type SwapTypeToPersistedSwap<T extends SwapType> = (T extends 'in' ? PersistedSwapIn : PersistedSwapOut);
+type SwapTypeToPersistedSwap<T extends SwapType> = T extends 'in' ? PersistedSwapIn : PersistedSwapOut;
 export interface SwapPersistence {
     persist(swap: PersistedSwapIn | PersistedSwapOut): Promise<void>;
 
@@ -65,8 +65,8 @@ export class InMemoryPersistence implements SwapPersistence {
 
 interface SwapServiceOptions {
     baseUrl: string;
-    persistence: SwapPersistence,
-    network?: Network,
+    persistence: SwapPersistence;
+    network?: Network;
 }
 
 export class SwapService {
@@ -76,10 +76,12 @@ export class SwapService {
         this.client = new FortySwapClient(opts.baseUrl);
     }
 
-    async createSwapIn(swapRequest: Omit<SwapInRequest, 'refundPublicKey'> & {
-        refundKey?: ECPairInterface,
-        refundAddress: () => Promise<string>,
-    }): Promise<SwapInTracker> {
+    async createSwapIn(
+        swapRequest: Omit<SwapInRequest, 'refundPublicKey'> & {
+            refundKey?: ECPairInterface;
+            refundAddress: () => Promise<string>;
+        },
+    ): Promise<SwapInTracker> {
         const refundKey = swapRequest.refundKey ?? ECPair.makeRandom();
         const swap = await this.client.in.create({
             chain: swapRequest.chain,
@@ -100,24 +102,17 @@ export class SwapService {
         });
     }
 
-    trackSwapIn({id, refundAddress}: {
-        id: string,
-        refundAddress: () => Promise<string>,
-    }): SwapInTracker {
-        return new SwapInTracker(
-            id,
-            this.client.in,
-            this.opts.persistence,
-            refundAddress,
-            this.opts.network ?? networks.bitcoin,
-        );
+    trackSwapIn({ id, refundAddress }: { id: string; refundAddress: () => Promise<string> }): SwapInTracker {
+        return new SwapInTracker(id, this.client.in, this.opts.persistence, refundAddress, this.opts.network ?? networks.bitcoin);
     }
 
-    async createSwapOut(swapRequest: Omit<SwapOutRequest, 'claimPubKey'|'preImageHash'> & {
-        claimKey?: ECPairInterface,
-        preImage?: Buffer,
-        sweepAddress: string,
-    }): Promise<SwapOutTracker> {
+    async createSwapOut(
+        swapRequest: Omit<SwapOutRequest, 'claimPubKey' | 'preImageHash'> & {
+            claimKey?: ECPairInterface;
+            preImage?: Buffer;
+            sweepAddress: string;
+        },
+    ): Promise<SwapOutTracker> {
         let preImage = swapRequest.preImage;
         if (preImage == null) {
             const randomBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -146,15 +141,8 @@ export class SwapService {
         });
     }
 
-    trackSwapOut({id }: {
-        id: string,
-    }): SwapOutTracker {
-        return new SwapOutTracker(
-            id,
-            this.client.out,
-            this.opts.persistence,
-            this.opts.network ?? networks.bitcoin,
-        );
+    trackSwapOut({ id }: { id: string }): SwapOutTracker {
+        return new SwapOutTracker(id, this.client.out, this.opts.persistence, this.opts.network ?? networks.bitcoin);
     }
 
     private async sha256(message: Buffer): Promise<Buffer> {

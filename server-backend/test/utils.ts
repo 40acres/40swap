@@ -11,7 +11,7 @@ export async function waitForChainSync(lnds: Lnd[]): Promise<void> {
     }
 }
 
-export async function waitForSwapStatus<T extends SwapInTracker|SwapOutTracker>(
+export async function waitForSwapStatus<T extends SwapInTracker | SwapOutTracker>(
     swap: T,
     status: T extends SwapInTracker ? SwapInStatus : SwapOutStatus,
 ): Promise<void> {
@@ -23,7 +23,7 @@ export async function waitForSwapStatus<T extends SwapInTracker|SwapOutTracker>(
 }
 
 export function sleep(ms = 1000): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function waitFor(fn: () => boolean | Promise<boolean>, maxIterations = 20, delay = 1000): Promise<void> {

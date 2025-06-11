@@ -1,7 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { NBXplorerLiquidTransactionOutput, NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService, NBXplorerBitcoinTransactionOutput } from './NbxplorerService.js';
+import {
+    NBXplorerLiquidTransactionOutput,
+    NBXplorerBlockEvent,
+    NBXplorerNewTransactionEvent,
+    NbxplorerService,
+    NBXplorerBitcoinTransactionOutput,
+} from './NbxplorerService.js';
 import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
@@ -28,7 +34,7 @@ export class SwapOutRunner {
     private readonly logger = new Logger(SwapOutRunner.name);
     private runningPromise: Promise<void>;
     private notifyFinished!: () => void;
-    private expiryPoller: NodeJS.Timeout|undefined;
+    private expiryPoller: NodeJS.Timeout | undefined;
 
     constructor(
         private swap: SwapOut,
@@ -47,10 +53,7 @@ export class SwapOutRunner {
 
     async run(): Promise<void> {
         if (this.swap.status === 'CREATED') {
-            this.expiryPoller = setInterval(
-                () => this.checkExpiry(),
-                moment.duration(1, 'minute').asMilliseconds(),
-            );
+            this.expiryPoller = setInterval(() => this.checkExpiry(), moment.duration(1, 'minute').asMilliseconds());
             this.onStatusChange('CREATED');
         }
         return this.runningPromise;
@@ -94,23 +97,23 @@ export class SwapOutRunner {
                 const invoiceExpiry = await this.getCltvExpiry();
                 swap.timeoutBlockHeight = await this.getLiquidTimeoutBlockHeight(this.nbxplorer, invoiceExpiry);
                 swap.lockScript = reverseSwapScript(
-                    swap.preImageHash, 
-                    swap.counterpartyPubKey, 
-                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey, 
-                    swap.timeoutBlockHeight
+                    swap.preImageHash,
+                    swap.counterpartyPubKey,
+                    ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey,
+                    swap.timeoutBlockHeight,
                 );
                 const network = this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest;
-                const p2wsh = liquid.payments.p2wsh({redeem: { output: swap.lockScript, network }, network});
+                const p2wsh = liquid.payments.p2wsh({ redeem: { output: swap.lockScript, network }, network });
                 assert(p2wsh.address != null);
                 swap.contractAddress = p2wsh.address;
                 this.swap = await this.repository.save(swap);
                 await this.nbxplorer.trackAddress(p2wsh.address, 'lbtc');
                 const psetBuilder = new LiquidLockPSETBuilder(this.nbxplorer, this.elementsConfig, network);
                 const pset = await psetBuilder.getPset(
-                    swap.outputAmount.mul(1e8).toNumber(), 
-                    p2wsh.address, 
+                    swap.outputAmount.mul(1e8).toNumber(),
+                    p2wsh.address,
                     Buffer.alloc(0), // TODO: add a proper blinding key
-                    swap.timeoutBlockHeight
+                    swap.timeoutBlockHeight,
                 );
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
@@ -123,7 +126,7 @@ export class SwapOutRunner {
                     swap.timeoutBlockHeight,
                 );
                 const { network } = this.bitcoinConfig;
-                const { address: contractAddress } = payments.p2wsh({network, redeem: { output: swap.lockScript, network }});
+                const { address: contractAddress } = payments.p2wsh({ network, redeem: { output: swap.lockScript, network } });
                 assert(contractAddress != null);
                 swap.contractAddress = contractAddress;
                 await this.nbxplorer.trackAddress(contractAddress);
@@ -160,13 +163,14 @@ export class SwapOutRunner {
         const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
         const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
         assert(cltvExpiry > currentBitcoinHeight, `invoiceExpiry=${cltvExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
-        return currentLiquidHeight + ((cltvExpiry - currentBitcoinHeight - BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS) * ratio);
+        return currentLiquidHeight + (cltvExpiry - currentBitcoinHeight - BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS) * ratio;
     }
 
     private async waitForLightningPaymentIntent(): Promise<void> {
         const { swap } = this;
-        let invoice: Invoice__Output|undefined;
-        while (swap.status === 'CREATED') { // it will stop if swap expires
+        let invoice: Invoice__Output | undefined;
+        while (swap.status === 'CREATED') {
+            // it will stop if swap expires
             invoice = await this.lnd.lookUpInvoice(swap.preImageHash);
             if (invoice.state === 'ACCEPTED') {
                 swap.status = 'INVOICE_PAYMENT_INTENT_RECEIVED';
@@ -193,7 +197,7 @@ export class SwapOutRunner {
         if (match != null) {
             const txAddress = match[1];
             if (swap.contractAddress === txAddress) {
-                if (event.data.outputs.find(o => o.address === swap.contractAddress) != null) {
+                if (event.data.outputs.find((o) => o.address === swap.contractAddress) != null) {
                     await this.processContractFundingTx(event);
                 } else {
                     await this.processContractSpendingTx(event);
@@ -205,14 +209,17 @@ export class SwapOutRunner {
     // TODO refactor. It is very similar to SwapInRunner
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
-        const output = event.data.outputs.find(o => o.address === swap.contractAddress);
+        const output = event.data.outputs.find((o) => o.address === swap.contractAddress);
         assert(output != null);
-        const expectedAmount = swap.chain === 'LIQUID' ? 
-            new Decimal((output as NBXplorerLiquidTransactionOutput).value.value).div(1e8) : 
-            new Decimal((output as NBXplorerBitcoinTransactionOutput).value).div(1e8);
+        const expectedAmount =
+            swap.chain === 'LIQUID'
+                ? new Decimal((output as NBXplorerLiquidTransactionOutput).value.value).div(1e8)
+                : new Decimal((output as NBXplorerBitcoinTransactionOutput).value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
             // eslint-disable-next-line max-len
-            this.logger.error(`Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`);
+            this.logger.error(
+                `Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`,
+            );
             return;
         }
         if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
@@ -234,12 +241,11 @@ export class SwapOutRunner {
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         assert(swap.lockTx != null);
-        const lockTx = swap.chain === 'LIQUID' ? 
-            liquid.Transaction.fromBuffer(swap.lockTx) : 
-            Transaction.fromBuffer(swap.lockTx);
-        const unlockTx = swap.chain === 'LIQUID' ? 
-            liquid.Transaction.fromHex(event.data.transactionData.transaction) : 
-            Transaction.fromHex(event.data.transactionData.transaction);
+        const lockTx = swap.chain === 'LIQUID' ? liquid.Transaction.fromBuffer(swap.lockTx) : Transaction.fromBuffer(swap.lockTx);
+        const unlockTx =
+            swap.chain === 'LIQUID'
+                ? liquid.Transaction.fromHex(event.data.transactionData.transaction)
+                : Transaction.fromHex(event.data.transactionData.transaction);
 
         swap.unlockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
         if (event.data.transactionData.height != null) {
@@ -247,16 +253,18 @@ export class SwapOutRunner {
         }
         this.swap = await this.repository.save(swap);
 
-        const isSendingToRefundAddress = unlockTx.outs.find(o => {
-            try {
-                const sweepAddress = swap.chain === 'LIQUID' ? 
-                    liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest) : 
-                    address.fromOutputScript(o.script, this.bitcoinConfig.network);
-                return sweepAddress === swap.sweepAddress;
-            } catch (e) {
-                return false;
-            }
-        }) != null;
+        const isSendingToRefundAddress =
+            unlockTx.outs.find((o) => {
+                try {
+                    const sweepAddress =
+                        swap.chain === 'LIQUID'
+                            ? liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest)
+                            : address.fromOutputScript(o.script, this.bitcoinConfig.network);
+                    return sweepAddress === swap.sweepAddress;
+                } catch (e) {
+                    return false;
+                }
+            }) != null;
 
         if (isSendingToRefundAddress) {
             if (this.swap.status === 'CONTRACT_EXPIRED') {
@@ -265,7 +273,7 @@ export class SwapOutRunner {
                 void this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
             }
         } else {
-            const input = unlockTx.ins.find(i => Buffer.from(i.hash).equals(lockTx.getHash()));
+            const input = unlockTx.ins.find((i) => Buffer.from(i.hash).equals(lockTx.getHash()));
             if (input != null) {
                 const preimage = input.witness[1];
                 assert(preimage != null);
@@ -289,7 +297,7 @@ export class SwapOutRunner {
         if (swap.chain !== cryptoCode) {
             return;
         }
-        if (swap.status === 'CONTRACT_FUNDED'  && swap.timeoutBlockHeight <= event.data.height) {
+        if (swap.status === 'CONTRACT_FUNDED' && swap.timeoutBlockHeight <= event.data.height) {
             swap.status = 'CONTRACT_EXPIRED';
             this.swap = await this.repository.save(swap);
             void this.onStatusChange('CONTRACT_EXPIRED');
@@ -315,29 +323,26 @@ export class SwapOutRunner {
 
     buildRefundTx(swap: SwapOut, spendingTx: Transaction, feeRate: number): Transaction {
         const { network } = this.bitcoinConfig;
-        return buildTransactionWithFee(
-            feeRate,
-            (feeAmount, isFeeCalculationRun) => {
-                assert(swap.lockScript != null);
-                assert(swap.contractAddress != null);
-                const psbt = buildContractSpendBasePsbt({
-                    contractAddress: swap.contractAddress,
-                    lockScript: swap.lockScript,
-                    network,
-                    spendingTx,
-                    outputAddress: swap.sweepAddress,
-                    feeAmount,
-                });
-                psbt.locktime = swap.timeoutBlockHeight;
-                signContractSpend({
-                    psbt,
-                    network,
-                    key: ECPair.fromPrivateKey(swap.unlockPrivKey),
-                    preImage: Buffer.alloc(0),
-                });
-                return psbt;
-            }
-        ).extractTransaction();
+        return buildTransactionWithFee(feeRate, (feeAmount, isFeeCalculationRun) => {
+            assert(swap.lockScript != null);
+            assert(swap.contractAddress != null);
+            const psbt = buildContractSpendBasePsbt({
+                contractAddress: swap.contractAddress,
+                lockScript: swap.lockScript,
+                network,
+                spendingTx,
+                outputAddress: swap.sweepAddress,
+                feeAmount,
+            });
+            psbt.locktime = swap.timeoutBlockHeight;
+            signContractSpend({
+                psbt,
+                network,
+                key: ECPair.fromPrivateKey(swap.unlockPrivKey),
+                preImage: Buffer.alloc(0),
+            });
+            return psbt;
+        }).extractTransaction();
     }
 
     async buildLiquidRefundTx(swap: SwapOut): Promise<liquid.Transaction> {

@@ -39,7 +39,9 @@ describe('40Swap backend', () => {
         const swap = await swapService.createSwapIn({
             chain: 'BITCOIN',
             invoice: paymentRequest!,
-            refundAddress: () => { throw new Error('should not be called'); },
+            refundAddress: () => {
+                throw new Error('should not be called');
+            },
         });
         swap.start();
         await waitForSwapStatus(swap, 'CREATED');
@@ -123,7 +125,9 @@ describe('40Swap backend', () => {
             chain: 'BITCOIN',
             invoice: paymentRequest!,
             lockBlockDeltaIn: 500, // Custom CLTV expiry for testing
-            refundAddress: () => { throw new Error('should not be called'); },
+            refundAddress: () => {
+                throw new Error('should not be called');
+            },
         });
         swap.start();
         await waitForSwapStatus(swap, 'CREATED');
@@ -150,7 +154,7 @@ describe('40Swap backend', () => {
                 invoice: paymentRequest!,
                 refundPublicKey: refundKey.publicKey.toString('hex'),
                 lockBlockDeltaIn: 100, // Less than the minimum allowed
-            })
+            }),
         ).rejects.toThrow('lockBlockDeltaIn must be at least 144 blocks');
     });
 
@@ -184,7 +188,9 @@ describe('40Swap backend', () => {
         const swap = await swapService.createSwapIn({
             chain: 'LIQUID',
             invoice: paymentRequest!,
-            refundAddress:() => { throw new Error('should not be called'); },
+            refundAddress: () => {
+                throw new Error('should not be called');
+            },
         });
         swap.start();
         await waitForSwapStatus(swap, 'CREATED');
@@ -274,8 +280,8 @@ describe('40Swap backend', () => {
             },
             swap: {
                 feePercentage: 0.5,
-                minimumAmount: 0.00200000,
-                maximumAmount: 0.01300000,
+                minimumAmount: 0.002,
+                maximumAmount: 0.013,
                 expiryDuration: 'PT30M',
                 lockBlockDelta: {
                     minIn: 144,
