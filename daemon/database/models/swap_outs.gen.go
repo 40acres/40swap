@@ -4,7 +4,11 @@
 
 package models
 
-import "github.com/lightningnetwork/lnd/lntypes"
+import (
+	"time"
+
+	"github.com/lightningnetwork/lnd/lntypes"
+)
 
 const TableNameSwapOut = "swap_outs"
 
@@ -27,6 +31,8 @@ type SwapOut struct {
 	PreImage           *lntypes.Preimage `gorm:"column:pre_image;type:text;serializer:preimage" json:"pre_image"`
 	TimeoutBlockHeight int64             `gorm:"column:timeout_block_height;type:bigint" json:"timeout_block_height"`
 	TxID               string            `gorm:"column:tx_id;type:text" json:"tx_id"`
+	CreatedAt          time.Time         `gorm:"column:created_at;type:timestamp with time zone;<-:create" json:"created_at"`
+	UpdatedAt          time.Time         `gorm:"column:updated_at;type:timestamp with time zone;<-:update" json:"updated_at"`
 }
 
 // TableName SwapOut's table name
