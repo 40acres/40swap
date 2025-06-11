@@ -8,7 +8,6 @@
         "eslint-config-prettier"
     ],
     "root": true,
-    "ignorePatterns": [".eslintrc.json"],
     "rules": {
         "prettier/prettier": "error",
         "@typescript-eslint/interface-name-prefix": "off",

@@ -6,4 +6,6 @@ coverage
 .github
 docker
 package-lock.json
-*.d.ts 
+*.d.ts
+server-backend/lnd/**/*
+server-backend/migrations/**/*
