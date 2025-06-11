@@ -20,6 +20,9 @@ import { SwapService } from './SwapService.js';
 import { TerminusModule } from '@nestjs/terminus';
 import { LiquidService } from './LiquidService.js';
 import { HealthController } from './HealthController.js';
+import { PrometheusService } from './metrics/PrometheusService.js';
+import { PrometheusController } from './metrics/PrometheusController.js';
+import { LndChannelInfoMetricProvider } from './metrics/LndChannelInfoMetricProvider.js';
 
 @Module({
     imports: [
@@ -44,7 +47,7 @@ import { HealthController } from './HealthController.js';
         EventEmitterModule.forRoot(),
         TerminusModule,
     ],
-    controllers: [SwapInController, SwapOutController, ConfigurationController, HealthController],
+    controllers: [SwapInController, SwapOutController, ConfigurationController, HealthController, PrometheusController],
     providers: [
         NbxplorerService,
         LndService,
@@ -52,6 +55,8 @@ import { HealthController } from './HealthController.js';
         MempoolDotSpaceService,
         SwapService,
         LiquidService,
+        PrometheusService,
+        LndChannelInfoMetricProvider,
         {
             inject: [BitcoinService],
             useFactory: (bitcoinService: BitcoinService) => {
