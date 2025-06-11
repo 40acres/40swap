@@ -1,22 +1,19 @@
 {
     "parser": "@typescript-eslint/parser",
-    "plugins": ["@typescript-eslint/eslint-plugin"],
+    "plugins": ["@typescript-eslint/eslint-plugin", "prettier"],
     "extends": [
         "eslint:recommended",
         "plugin:@typescript-eslint/eslint-recommended",
-        "plugin:@typescript-eslint/recommended"
+        "plugin:@typescript-eslint/recommended",
+        "eslint-config-prettier"
     ],
     "root": true,
     "ignorePatterns": [".eslintrc.json"],
     "rules": {
-        "max-len": ["warn", { "code": 160 }],
-        "indent": ["error", 4, { "ignoredNodes": ["PropertyDefinition"] } ],
-        "comma-dangle": ["warn", "always-multiline"],
+        "prettier/prettier": "error",
         "@typescript-eslint/interface-name-prefix": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",
         "@typescript-eslint/no-explicit-any": "error",
-        "quotes": ["error", "single"],
-        "semi": ["error", "always"],
         "@typescript-eslint/explicit-function-return-type": ["error", { "allowExpressions": true }],
         "@typescript-eslint/ban-ts-comment": "off",
         "@typescript-eslint/no-non-null-assertion": "off",

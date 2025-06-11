@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+coverage
+.vscode
+.github
+docker
+package-lock.json
+*.d.ts 
