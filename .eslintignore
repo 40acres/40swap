@@ -5,4 +5,7 @@ coverage
 .vscode
 .github
 docker
-*.d.ts 
+package-lock.json
+*.d.ts
+server-backend/lnd/**/*
+server-backend/migrations/**/*
