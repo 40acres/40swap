@@ -1,15 +1,18 @@
 // Original file: src/lnd/lightning.proto
 
-import type { MacaroonPermission as _lnrpc_MacaroonPermission, MacaroonPermission__Output as _lnrpc_MacaroonPermission__Output } from '../lnrpc/MacaroonPermission';
+import type {
+    MacaroonPermission as _lnrpc_MacaroonPermission,
+    MacaroonPermission__Output as _lnrpc_MacaroonPermission__Output,
+} from '../lnrpc/MacaroonPermission';
 
 export interface CheckMacPermRequest {
-  'macaroon'?: (Buffer | Uint8Array | string);
-  'permissions'?: (_lnrpc_MacaroonPermission)[];
-  'fullMethod'?: (string);
+    macaroon?: Buffer | Uint8Array | string;
+    permissions?: _lnrpc_MacaroonPermission[];
+    fullMethod?: string;
 }
 
 export interface CheckMacPermRequest__Output {
-  'macaroon': (Buffer);
-  'permissions': (_lnrpc_MacaroonPermission__Output)[];
-  'fullMethod': (string);
+    macaroon: Buffer;
+    permissions: _lnrpc_MacaroonPermission__Output[];
+    fullMethod: string;
 }

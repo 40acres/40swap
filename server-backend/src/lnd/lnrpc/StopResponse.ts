@@ -1,8 +1,5 @@
 // Original file: src/lnd/lightning.proto
 
+export interface StopResponse {}
 
-export interface StopResponse {
-}
-
-export interface StopResponse__Output {
-}
+export interface StopResponse__Output {}

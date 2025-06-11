@@ -4,15 +4,15 @@ import type { ChannelFeeReport as _lnrpc_ChannelFeeReport, ChannelFeeReport__Out
 import type { Long } from '@grpc/proto-loader';
 
 export interface FeeReportResponse {
-  'channelFees'?: (_lnrpc_ChannelFeeReport)[];
-  'dayFeeSum'?: (number | string | Long);
-  'weekFeeSum'?: (number | string | Long);
-  'monthFeeSum'?: (number | string | Long);
+    channelFees?: _lnrpc_ChannelFeeReport[];
+    dayFeeSum?: number | string | Long;
+    weekFeeSum?: number | string | Long;
+    monthFeeSum?: number | string | Long;
 }
 
 export interface FeeReportResponse__Output {
-  'channelFees': (_lnrpc_ChannelFeeReport__Output)[];
-  'dayFeeSum': (string);
-  'weekFeeSum': (string);
-  'monthFeeSum': (string);
+    channelFees: _lnrpc_ChannelFeeReport__Output[];
+    dayFeeSum: string;
+    weekFeeSum: string;
+    monthFeeSum: string;
 }

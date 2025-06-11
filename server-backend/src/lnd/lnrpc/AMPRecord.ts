@@ -1,14 +1,13 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface AMPRecord {
-  'rootShare'?: (Buffer | Uint8Array | string);
-  'setId'?: (Buffer | Uint8Array | string);
-  'childIndex'?: (number);
+    rootShare?: Buffer | Uint8Array | string;
+    setId?: Buffer | Uint8Array | string;
+    childIndex?: number;
 }
 
 export interface AMPRecord__Output {
-  'rootShare': (Buffer);
-  'setId': (Buffer);
-  'childIndex': (number);
+    rootShare: Buffer;
+    setId: Buffer;
+    childIndex: number;
 }

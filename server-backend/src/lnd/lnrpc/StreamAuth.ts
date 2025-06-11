@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface StreamAuth {
-  'methodFullUri'?: (string);
+    methodFullUri?: string;
 }
 
 export interface StreamAuth__Output {
-  'methodFullUri': (string);
+    methodFullUri: string;
 }

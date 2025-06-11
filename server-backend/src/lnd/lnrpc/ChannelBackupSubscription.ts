@@ -1,8 +1,5 @@
 // Original file: src/lnd/lightning.proto
 
+export interface ChannelBackupSubscription {}
 
-export interface ChannelBackupSubscription {
-}
-
-export interface ChannelBackupSubscription__Output {
-}
+export interface ChannelBackupSubscription__Output {}

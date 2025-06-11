@@ -1,8 +1,12 @@
 import {
     GetSwapInResponse,
-    getSwapInResponseSchema, GetSwapOutResponse, getSwapOutResponseSchema, PsbtResponse,
+    getSwapInResponseSchema,
+    GetSwapOutResponse,
+    getSwapOutResponseSchema,
+    PsbtResponse,
     psbtResponseSchema,
-    SwapInRequest, SwapOutRequest,
+    SwapInRequest,
+    SwapOutRequest,
     TxRequest,
 } from '../api.types.js';
 
@@ -31,9 +35,12 @@ export class FortySwapClient {
             return getSwapInResponseSchema.parse(await resp.json());
         },
         getRefundPsbt: async (swapId: string, address: string): Promise<string> => {
-            const resp = await fetch(`${this.baseUrl}/api/swap/in/${swapId}/refund-psbt?` + new URLSearchParams({
-                address,
-            }));
+            const resp = await fetch(
+                `${this.baseUrl}/api/swap/in/${swapId}/refund-psbt?` +
+                    new URLSearchParams({
+                        address,
+                    }),
+            );
             if (resp.status >= 300) {
                 throw new Error(`Unknown error getting refund psbt for swap-in with id ${swapId}. ${await resp.text()}`);
             }
@@ -77,15 +84,18 @@ export class FortySwapClient {
             return getSwapOutResponseSchema.parse(await resp.json());
         },
         getClaimPsbt: async (swapId: string, address: string): Promise<PsbtResponse> => {
-            const resp = await fetch(`${this.baseUrl}/api/swap/out/${swapId}/claim-psbt?` + new URLSearchParams({
-                address,
-            }));
+            const resp = await fetch(
+                `${this.baseUrl}/api/swap/out/${swapId}/claim-psbt?` +
+                    new URLSearchParams({
+                        address,
+                    }),
+            );
             if (resp.status >= 300) {
                 throw new Error(`Unknown error getting claim psbt for swap-out with id ${swapId}. ${await resp.text()}`);
             }
             return psbtResponseSchema.parse(await resp.json());
         },
-        publishClaimTx: async(swapId: string, txHex: string): Promise<void> => {
+        publishClaimTx: async (swapId: string, txHex: string): Promise<void> => {
             const resp = await fetch(`${this.baseUrl}/api/swap/out/${swapId}/claim`, {
                 method: 'POST',
                 body: JSON.stringify({ tx: txHex }),

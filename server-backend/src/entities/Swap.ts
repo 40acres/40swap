@@ -23,16 +23,16 @@ export class Swap {
     invoice!: string;
 
     @Column({ type: 'bytea', nullable: true })
-    preImage: Buffer|null = null;
+    preImage: Buffer | null = null;
 
     @Column({ type: 'bytea', nullable: true })
-    lockTx: Buffer|null  = null;
+    lockTx: Buffer | null = null;
 
     @Column({ type: 'integer' })
     lockTxHeight!: number;
 
     @Column({ type: 'bytea', nullable: true })
-    unlockTx: Buffer|null  = null;
+    unlockTx: Buffer | null = null;
 
     @Column({ type: 'integer' })
     unlockTxHeight!: number;
@@ -40,14 +40,14 @@ export class Swap {
     @Column({ type: 'text' })
     sweepAddress!: string;
 
-    @Column({ type: 'bytea'})
+    @Column({ type: 'bytea' })
     unlockPrivKey!: Buffer;
 
-    @Column({ type: 'bytea'})
+    @Column({ type: 'bytea' })
     counterpartyPubKey!: Buffer;
 
     @Column({ type: 'text', nullable: true })
-    outcome: SwapOutcome|null = null;
+    outcome: SwapOutcome | null = null;
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date;

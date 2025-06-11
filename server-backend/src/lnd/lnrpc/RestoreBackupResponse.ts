@@ -1,8 +1,5 @@
 // Original file: src/lnd/lightning.proto
 
+export interface RestoreBackupResponse {}
 
-export interface RestoreBackupResponse {
-}
-
-export interface RestoreBackupResponse__Output {
-}
+export interface RestoreBackupResponse__Output {}

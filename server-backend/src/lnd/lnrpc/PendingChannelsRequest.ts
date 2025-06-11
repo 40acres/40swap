@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface PendingChannelsRequest {
-  'includeRawTx'?: (boolean);
+    includeRawTx?: boolean;
 }
 
 export interface PendingChannelsRequest__Output {
-  'includeRawTx': (boolean);
+    includeRawTx: boolean;
 }

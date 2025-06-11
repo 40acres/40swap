@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface SignMessageResponse {
-  'signature'?: (string);
+    signature?: string;
 }
 
 export interface SignMessageResponse__Output {
-  'signature': (string);
+    signature: string;
 }

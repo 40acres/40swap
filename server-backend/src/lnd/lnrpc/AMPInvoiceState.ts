@@ -4,15 +4,15 @@ import type { InvoiceHTLCState as _lnrpc_InvoiceHTLCState, InvoiceHTLCState__Out
 import type { Long } from '@grpc/proto-loader';
 
 export interface AMPInvoiceState {
-  'state'?: (_lnrpc_InvoiceHTLCState);
-  'settleIndex'?: (number | string | Long);
-  'settleTime'?: (number | string | Long);
-  'amtPaidMsat'?: (number | string | Long);
+    state?: _lnrpc_InvoiceHTLCState;
+    settleIndex?: number | string | Long;
+    settleTime?: number | string | Long;
+    amtPaidMsat?: number | string | Long;
 }
 
 export interface AMPInvoiceState__Output {
-  'state': (_lnrpc_InvoiceHTLCState__Output);
-  'settleIndex': (string);
-  'settleTime': (string);
-  'amtPaidMsat': (string);
+    state: _lnrpc_InvoiceHTLCState__Output;
+    settleIndex: string;
+    settleTime: string;
+    amtPaidMsat: string;
 }

@@ -1,7 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class Initial1729860373268 implements MigrationInterface {
-
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`
             CREATE TABLE "application_state" (
@@ -59,7 +58,5 @@ export class Initial1729860373268 implements MigrationInterface {
         `);
     }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-    }
-
+    public async down(queryRunner: QueryRunner): Promise<void> {}
 }

@@ -30,12 +30,8 @@ import { HealthController } from './HealthController.js';
                 return {
                     ...config,
                     type: 'postgres',
-                    entities: [
-                        dirname(fileURLToPath(import.meta.url)) + '/**/entities/*{.ts,.js}',
-                    ],
-                    migrations: [
-                        dirname(fileURLToPath(import.meta.url)) + '/migrations/*{.ts,.js}',
-                    ],
+                    entities: [dirname(fileURLToPath(import.meta.url)) + '/**/entities/*{.ts,.js}'],
+                    migrations: [dirname(fileURLToPath(import.meta.url)) + '/migrations/*{.ts,.js}'],
                     logging: ['schema', 'migration', 'info'],
                 };
             },
@@ -48,12 +44,7 @@ import { HealthController } from './HealthController.js';
         EventEmitterModule.forRoot(),
         TerminusModule,
     ],
-    controllers: [
-        SwapInController,
-        SwapOutController,
-        ConfigurationController,
-        HealthController,
-    ],
+    controllers: [SwapInController, SwapOutController, ConfigurationController, HealthController],
     providers: [
         NbxplorerService,
         LndService,
@@ -87,7 +78,7 @@ import { HealthController } from './HealthController.js';
                 const macaroonCreds = credentials.createFromMetadataGenerator((_, callback) => {
                     const metadata = new Metadata();
                     metadata.add('macaroon', Buffer.from(config.macaroon, 'base64').toString('hex'));
-                    callback(null,  metadata);
+                    callback(null, metadata);
                 });
                 return new grpcType.lnrpc.Lightning(config.socket, credentials.combineChannelCredentials(sslCreds, macaroonCreds));
             },
@@ -105,7 +96,7 @@ import { HealthController } from './HealthController.js';
                 const macaroonCreds = credentials.createFromMetadataGenerator((_, callback) => {
                     const metadata = new Metadata();
                     metadata.add('macaroon', Buffer.from(config.macaroon, 'base64').toString('hex'));
-                    callback(null,  metadata);
+                    callback(null, metadata);
                 });
                 return new grpcType.invoicesrpc.Invoices(config.socket, credentials.combineChannelCredentials(sslCreds, macaroonCreds));
             },
@@ -125,5 +116,4 @@ import { HealthController } from './HealthController.js';
         },
     ],
 })
-export class AppModule {
-}
+export class AppModule {}

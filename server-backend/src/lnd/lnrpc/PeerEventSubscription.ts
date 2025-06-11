@@ -1,8 +1,5 @@
 // Original file: src/lnd/lightning.proto
 
+export interface PeerEventSubscription {}
 
-export interface PeerEventSubscription {
-}
-
-export interface PeerEventSubscription__Output {
-}
+export interface PeerEventSubscription__Output {}

@@ -1,7 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CounterpartyPubKey1730294913323 implements MigrationInterface {
-
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`
             ALTER TABLE "swap_in"
@@ -22,7 +21,5 @@ export class CounterpartyPubKey1730294913323 implements MigrationInterface {
         `);
     }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-    }
-
+    public async down(queryRunner: QueryRunner): Promise<void> {}
 }

@@ -12,7 +12,6 @@ import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
 import { ProtoGrpcType as LndGrpcType } from '../src/lnd/lightning.js';
 
 export class Lnd {
-
     public uri = '';
     public address = '';
     public pubkey = '';
@@ -28,12 +27,7 @@ export class Lnd {
         const cert = (await container.exec('base64 -w0 /root/.lnd/tls.cert')).stdout;
         const macaroon = (await container.exec('base64 -w0 /root/.lnd/data/chain/bitcoin/regtest/admin.macaroon')).stdout;
         const client = await Lnd.createClient(container);
-        const obj = new Lnd(
-            client,
-            container,
-            cert,
-            macaroon
-        );
+        const obj = new Lnd(client, container, cert, macaroon);
         const info = await obj.getInfo();
         obj.pubkey = info.identityPubkey ?? 'unkown';
         obj.uri = info.uris?.[0] ?? 'unknown';
@@ -45,7 +39,6 @@ export class Lnd {
         const socket = `${container.getHost()}:${container.getMappedPort(10009)}`;
         const cert = (await container.exec('base64 -w0 /root/.lnd/tls.cert')).stdout;
         const macaroon = (await container.exec('base64 -w0 /root/.lnd/data/chain/bitcoin/regtest/admin.macaroon')).stdout;
-
 
         const pd = loadSync('./src/lnd/lightning.proto', {
             enums: String,
@@ -78,49 +71,58 @@ export class Lnd {
 
     async newAddress(): Promise<string> {
         return new Promise((resolve, reject) => {
-            this.client.newAddress({
-                type: 'WITNESS_PUBKEY_HASH',
-            }, (err, value) => {
-                if (err != null || value == null) {
-                    reject(err);
-                } else {
-                    resolve(value.address);
-                }
-            });
+            this.client.newAddress(
+                {
+                    type: 'WITNESS_PUBKEY_HASH',
+                },
+                (err, value) => {
+                    if (err != null || value == null) {
+                        reject(err);
+                    } else {
+                        resolve(value.address);
+                    }
+                },
+            );
         });
     }
 
     async connect(uri: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const [pubkey, host] = uri.split('@');
-            this.client.connectPeer({
-                addr: {
-                    pubkey,
-                    host,
+            this.client.connectPeer(
+                {
+                    addr: {
+                        pubkey,
+                        host,
+                    },
                 },
-            }, (err, value) => {
-                if (err != null || value == null) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
+                (err, value) => {
+                    if (err != null || value == null) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                },
+            );
         });
     }
 
     async openChannel(pubkey: string, amount: number): Promise<ChannelPoint> {
         return new Promise((resolve, reject) => {
-            this.client.openChannelSync({
-                nodePubkey: Buffer.from(pubkey, 'hex'),
-                localFundingAmount: new Decimal(amount).mul(1e8).toDecimalPlaces(8).toNumber(),
-                commitmentType: 'STATIC_REMOTE_KEY',
-            }, (err, value) => {
-                if (err != null || value == null) {
-                    reject(err);
-                } else {
-                    resolve(value);
-                }
-            });
+            this.client.openChannelSync(
+                {
+                    nodePubkey: Buffer.from(pubkey, 'hex'),
+                    localFundingAmount: new Decimal(amount).mul(1e8).toDecimalPlaces(8).toNumber(),
+                    commitmentType: 'STATIC_REMOTE_KEY',
+                },
+                (err, value) => {
+                    if (err != null || value == null) {
+                        reject(err);
+                    } else {
+                        resolve(value);
+                    }
+                },
+            );
         });
     }
 
@@ -136,7 +138,7 @@ export class Lnd {
                     call.cancel();
                 }
             });
-            call.on('error', err => {
+            call.on('error', (err) => {
                 reject(err);
             });
         });
@@ -144,15 +146,18 @@ export class Lnd {
 
     async createInvoice(amount: number): Promise<AddInvoiceResponse> {
         return new Promise((resolve, reject) => {
-            this.client.addInvoice({
-                value: new Decimal(amount).mul(1e8).toDecimalPlaces(8).toNumber(),
-            }, (err, value) => {
-                if (err != null || value == null) {
-                    reject(err);
-                } else {
-                    resolve(value);
-                }
-            });
+            this.client.addInvoice(
+                {
+                    value: new Decimal(amount).mul(1e8).toDecimalPlaces(8).toNumber(),
+                },
+                (err, value) => {
+                    if (err != null || value == null) {
+                        reject(err);
+                    } else {
+                        resolve(value);
+                    }
+                },
+            );
         });
     }
 
@@ -188,7 +193,7 @@ export class Lnd {
                 } else {
                     resolve(value);
                 }
-            }); 
+            });
         });
     }
 }

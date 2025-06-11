@@ -5,12 +5,12 @@ import { Swap } from './Swap.js';
 @Entity()
 export class SwapOut extends Swap {
     @Column({ type: 'text' })
-    contractAddress: string|null = null;
+    contractAddress: string | null = null;
 
     @Column({ type: 'bytea', nullable: true })
-    lockScript: Buffer|null = null;
+    lockScript: Buffer | null = null;
 
-    @Column({ type: 'bytea'})
+    @Column({ type: 'bytea' })
     preImageHash!: Buffer;
 
     @Column({ type: 'text' })

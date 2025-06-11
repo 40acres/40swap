@@ -1,9 +1,7 @@
 import { StartedGenericContainer } from 'testcontainers/build/generic-container/started-generic-container.js';
 
 export class Bitcoind {
-    constructor(
-        private container: StartedGenericContainer,
-    ) {}
+    constructor(private container: StartedGenericContainer) {}
 
     async mine(blocks = 3): Promise<void> {
         const res = await this.container.exec(`bitcoin-cli -regtest -generate ${blocks}`, {

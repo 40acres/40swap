@@ -1,10 +1,9 @@
 // Original file: src/lnd/lightning.proto
 
-
 export interface BakeMacaroonResponse {
-  'macaroon'?: (string);
+    macaroon?: string;
 }
 
 export interface BakeMacaroonResponse__Output {
-  'macaroon': (string);
+    macaroon: string;
 }
