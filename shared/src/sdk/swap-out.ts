@@ -12,7 +12,7 @@ type ErrorListener = (errorType: 'CLAIM', error: Error) => void;
 export class SwapOutTracker {
     private pollInterval: ReturnType<typeof setInterval> | undefined;
     private currentStatus: PersistedSwapOut | null = null;
-    private listeners: { change: ChangeListener[], error: ErrorListener[] } = {
+    private listeners: { change: ChangeListener[]; error: ErrorListener[] } = {
         change: [],
         error: [],
     };
@@ -59,11 +59,11 @@ export class SwapOutTracker {
         const swap = await this.client.find(this.id);
         await this.persistence.update({ type: 'out', ...swap });
         const newStatus = await this.persistence.findById('out', this.id);
-        if (newStatus ==  null) {
+        if (newStatus == null) {
             throw new Error('could not find a swap that was just persisted');
         }
         if (!jsonEquals(this.currentStatus ?? {}, newStatus)) {
-            this.listeners.change.forEach(listener => {
+            this.listeners.change.forEach((listener) => {
                 try {
                     listener(newStatus);
                 } catch (e) {
@@ -78,7 +78,7 @@ export class SwapOutTracker {
                 await this.claim();
                 await this.persistence.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
             } catch (error) {
-                this.listeners.error.forEach(listener => {
+                this.listeners.error.forEach((listener) => {
                     try {
                         listener('CLAIM', error as Error);
                     } catch (e) {
@@ -135,7 +135,6 @@ export class SwapOutTracker {
             return false;
         }
         return outs[0].address === address;
-
     }
 
     private isValidLiquidClaimTx(pset: liquid.Pset, address: string): boolean {

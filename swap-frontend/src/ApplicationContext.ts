@@ -8,13 +8,13 @@ export class ApplicationContext {
     get config(): Promise<FrontendConfiguration> {
         if (this._config == null) {
             this._config = fetch('/api/configuration')
-                .then(response => {
+                .then((response) => {
                     if (response.status >= 300) {
                         return Promise.reject(new Error('error fetching configuration'));
                     }
                     return response.json();
                 })
-                .then(value => frontendConfigurationSchema.parse(value));
+                .then((value) => frontendConfigurationSchema.parse(value));
         }
         return this._config;
     }

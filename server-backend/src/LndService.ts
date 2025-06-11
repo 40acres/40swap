@@ -15,71 +15,80 @@ export class LndService {
     async sendPayment(invoice: string, cltvLimit: number): Promise<Buffer> {
         this.logger.debug(`paying invoice ${invoice} with cltvLimit=${cltvLimit}`);
         return new Promise((resolve, reject) => {
-            this.lightning.sendPaymentSync({
-                paymentRequest: invoice,
-                cltvLimit,
-                finalCltvDelta: 20,
-            }, (err, value) => {
-                if (err) {
-                    this.logger.debug(`error paying invoice ${err}`);
-                    reject(err);
-                } else if (value?.paymentPreimage != null) {
-                    this.logger.debug(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
-                    resolve(value.paymentPreimage!);
-                } else {
-                    this.logger.debug(`error paying invoice ${value?.paymentError}`);
-                    reject(new Error(`error paying invoice ${value?.paymentError}`));
-                }
-            });
+            this.lightning.sendPaymentSync(
+                {
+                    paymentRequest: invoice,
+                    cltvLimit,
+                    finalCltvDelta: 20,
+                },
+                (err, value) => {
+                    if (err) {
+                        this.logger.debug(`error paying invoice ${err}`);
+                        reject(err);
+                    } else if (value?.paymentPreimage != null) {
+                        this.logger.debug(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
+                        resolve(value.paymentPreimage!);
+                    } else {
+                        this.logger.debug(`error paying invoice ${value?.paymentError}`);
+                        reject(new Error(`error paying invoice ${value?.paymentError}`));
+                    }
+                },
+            );
         });
     }
-
 
     getNewAddress(): Promise<string> {
         return new Promise((resolve, reject) => {
-            this.lightning.newAddress({
-                type: 'WITNESS_PUBKEY_HASH',
-            }, (err, value) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(value!.address);
-                }
-            });
+            this.lightning.newAddress(
+                {
+                    type: 'WITNESS_PUBKEY_HASH',
+                },
+                (err, value) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(value!.address);
+                    }
+                },
+            );
         });
     }
 
-    async addHodlInvoice(
-        { hash, amount, expiry, cltvExpiry }: { hash: Buffer, amount: number, expiry: number, cltvExpiry: number },
-    ): Promise<string> {
+    async addHodlInvoice({ hash, amount, expiry, cltvExpiry }: { hash: Buffer; amount: number; expiry: number; cltvExpiry: number }): Promise<string> {
         return new Promise((resolve, reject) => {
-            this.invoices.addHoldInvoice({
-                hash,
-                value: amount,
-                expiry,
-                cltvExpiry,
-            }, (err, value) => {
-                if (err != null) {
-                    reject(err);
-                } else {
-                    resolve(value!.paymentRequest);
-                }
-            });
+            this.invoices.addHoldInvoice(
+                {
+                    hash,
+                    value: amount,
+                    expiry,
+                    cltvExpiry,
+                },
+                (err, value) => {
+                    if (err != null) {
+                        reject(err);
+                    } else {
+                        resolve(value!.paymentRequest);
+                    }
+                },
+            );
         });
     }
 
     async lookUpInvoice(hash: Buffer): Promise<Invoice__Output> {
         return new Promise((resolve, reject) => {
-            this.invoices.lookupInvoiceV2({
-                invoiceRef: 'paymentHash',
-                paymentHash: hash,
-            }, (err, value) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(value!);
-                }
-            });
+            this.invoices.lookupInvoiceV2(
+                {
+                    invoiceRef: 'paymentHash',
+                    paymentHash: hash,
+                },
+                (err, value) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(value!);
+                    }
+                },
+            );
         });
     }
 

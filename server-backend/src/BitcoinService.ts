@@ -34,12 +34,14 @@ export class BitcoinService {
         return (await this.nbxplorer.getNetworkStatus()).chainHeight;
     }
 
-    public async getMinerFeeRate(priority: 'high_prio'|'low_prio'): Promise<number> {
+    public async getMinerFeeRate(priority: 'high_prio' | 'low_prio'): Promise<number> {
         try {
             const feeRates = await this.mempoolDotSpace.getFeeRate();
             switch (priority) {
-            case 'high_prio': return feeRates.fastestFee;
-            case 'low_prio': return feeRates.halfHourFee;
+                case 'high_prio':
+                    return feeRates.fastestFee;
+                case 'low_prio':
+                    return feeRates.halfHourFee;
             }
         } catch (e) {
             this.logger.warn('failed to get miner fee rate from mempool.space. Trying with nbxplorer');
@@ -49,6 +51,6 @@ export class BitcoinService {
     }
 
     public hasEnoughConfirmations(txHeight: number, blockchainHeight: number): boolean {
-        return txHeight > 0 && blockchainHeight - txHeight + 1  >= this.configurationDetails.requiredConfirmations;
+        return txHeight > 0 && blockchainHeight - txHeight + 1 >= this.configurationDetails.requiredConfirmations;
     }
 }
