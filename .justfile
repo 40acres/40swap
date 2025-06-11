@@ -100,6 +100,23 @@ elements-cli *cmd:
 test-igtest-backend: build-shared 
     npm run build && npm run test
 
+# Format code
+format:
+    npm run format
+
+# Check code formatting
+check-format:
+    npm run format:check
+
+# Run linter
+lint:
+    npm run lint
+
+# Check linting
+check-lint:
+    npm run lint:check
+
+# Build docs
 [working-directory: 'docs']
 build-docs:
     docker run -v ./:/book peaceiris/mdbook:v0.4.40 build

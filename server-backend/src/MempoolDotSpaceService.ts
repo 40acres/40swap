@@ -36,6 +36,4 @@ export class MempoolDotSpaceService {
         }
         return recommendedFeesResponseSchema.parse(await response.json());
     }
-
-
 }

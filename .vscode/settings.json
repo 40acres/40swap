@@ -1,12 +1,12 @@
 {
     "[json]": {
         "editor.formatOnSave": false,
-        "editor.defaultFormatter": null
+        "editor.defaultFormatter": "dbaeumer.vscode-eslint"
     },
     "[typescript]": {
         "editor.formatOnSave": false,
-        "editor.defaultFormatter": null
+        "editor.defaultFormatter": "dbaeumer.vscode-eslint"
     },
     "editor.formatOnSave": false,
-    "json.format.enable": false,
+    "json.format.enable": false
 }

@@ -7,7 +7,6 @@ import mkcert from 'vite-plugin-mkcert';
 import inject from '@rollup/plugin-inject';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
-
 export default defineConfig({
     root: 'src',
     plugins: [
