@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
     app.enableShutdownHooks();
     const config = app.get(ConfigService<FortySwapConfiguration>);
     const port = config.getOrThrow('server.port', { infer: true });
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix('api', { exclude: ['metrics'] });
     const swaggerConfig = new DocumentBuilder().setTitle('40Swap').setDescription('The 40Swap REST API').setVersion('1.0').build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup('api/docs', app, document);
