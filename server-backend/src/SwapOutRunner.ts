@@ -160,7 +160,7 @@ export class SwapOutRunner {
         const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
         const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
         assert(cltvExpiry > currentBitcoinHeight, `invoiceExpiry=${cltvExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
-        return currentLiquidHeight + ((cltvExpiry - currentBitcoinHeight - 20) * ratio);
+        return currentLiquidHeight + ((cltvExpiry - currentBitcoinHeight - BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS) * ratio);
     }
 
     private async waitForLightningPaymentIntent(): Promise<void> {
