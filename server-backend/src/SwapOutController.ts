@@ -156,10 +156,17 @@ export class SwapOutController {
                     key: ECPair.fromPrivateKey(swap.unlockPrivKey),
                     preImage: Buffer.alloc(32).fill(0),
                 });
-            }
-            psbt.locktime = swap.timeoutBlockHeight;
-            return psbt;
-        });
+                if (isFeeCalculationRun) {
+                    signContractSpend({
+                        psbt,
+                        network,
+                        key: ECPair.fromPrivateKey(swap.unlockPrivKey),
+                        preImage: Buffer.alloc(32).fill(0),
+                    });
+                }
+                return psbt;
+            },
+        );
     }
 
     async buildLiquidClaimPset(swap: SwapOut, destinationAddress: string): Promise<liquid.Pset> {

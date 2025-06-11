@@ -54,14 +54,14 @@ export class LndService {
         });
     }
 
-    async addHodlInvoice({ hash, amount, expiry }: { hash: Buffer; amount: number; expiry: number }): Promise<string> {
+    async addHodlInvoice({ hash, amount, expiry, cltvExpiry }: { hash: Buffer; amount: number; expiry: number; cltvExpiry: number }): Promise<string> {
         return new Promise((resolve, reject) => {
             this.invoices.addHoldInvoice(
                 {
                     hash,
                     value: amount,
                     expiry,
-                    cltvExpiry: 18,
+                    cltvExpiry,
                 },
                 (err, value) => {
                     if (err != null) {

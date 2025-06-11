@@ -25,9 +25,10 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
 import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
-import { getLiquidCltvExpiry, LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
+import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 
 const ECPair = ECPairFactory(ecc);
+export const BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS = 20;
 
 export class SwapOutRunner {
     private readonly logger = new Logger(SwapOutRunner.name);
@@ -94,7 +95,7 @@ export class SwapOutRunner {
         } else if (status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
             if (swap.chain === 'LIQUID') {
                 const invoiceExpiry = await this.getCltvExpiry();
-                swap.timeoutBlockHeight = await getLiquidCltvExpiry(this.nbxplorer, invoiceExpiry);
+                swap.timeoutBlockHeight = await this.getLiquidTimeoutBlockHeight(this.nbxplorer, invoiceExpiry);
                 swap.lockScript = reverseSwapScript(
                     swap.preImageHash,
                     swap.counterpartyPubKey,
@@ -117,7 +118,7 @@ export class SwapOutRunner {
                 const psetTx = await psetBuilder.getTx(pset);
                 await this.nbxplorer.broadcastTx(psetTx, 'lbtc');
             } else if (swap.chain === 'BITCOIN') {
-                swap.timeoutBlockHeight = (await this.getCltvExpiry()) - this.swapConfig.lockBlockDelta.out;
+                swap.timeoutBlockHeight = (await this.getCltvExpiry()) - BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS;
                 swap.lockScript = reverseSwapScript(
                     this.swap.preImageHash,
                     swap.counterpartyPubKey,
@@ -155,6 +156,14 @@ export class SwapOutRunner {
         assert(invoice.state === 'ACCEPTED');
         assert(invoice.htlcs.length === 1);
         return invoice.htlcs[0].expiryHeight;
+    }
+
+    private async getLiquidTimeoutBlockHeight(nbxplorer: NbxplorerService, cltvExpiry: number): Promise<number> {
+        const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
+        const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
+        const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
+        assert(cltvExpiry > currentBitcoinHeight, `invoiceExpiry=${cltvExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
+        return currentLiquidHeight + (cltvExpiry - currentBitcoinHeight - BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS) * ratio;
     }
 
     private async waitForLightningPaymentIntent(): Promise<void> {
