@@ -85,38 +85,30 @@ describe('40Swap backend', () => {
     });
 
     it('should properly handle a liquid swap out expiration', async () => {
+        const claimAddress = await elements.getNewAddress();
         const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
             inputAmount: 0.002,
-            sweepAddress: await elements.getNewAddress(),
+            sweepAddress: claimAddress,
         });
         swap.start();
 
         await waitForSwapStatus(swap, 'CREATED');
 
         assert(swap.value != null);
-        void lndUser.sendPayment(swap.value.invoice);
+        lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
         swap.stop(); // so that it doesn't get claimed
         await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
-
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        await elements.mine(blocksToMine); // to trigger expiration
-
-        swap.start();
-        await waitForSwapStatus(swap, 'CONTRACT_EXPIRED');
-        swap.stop();
-
-        // TODO liquid refunds seem to be broken, this doesn't work
-        // await sleep(1000); // give it a second to start the refund
-        // swap.start();
-        // await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED');
-        // await elements.mine(5);
-        // await waitForSwapStatus(swap, 'DONE');
-        // expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
+        await elements.mine(blocksToMine);
+        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
+        await elements.mine(10);
+        await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
+        expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
     it('should complete a swap in with custom lockBlockDeltaIn', async () => {

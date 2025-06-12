@@ -256,11 +256,15 @@ export class SwapOutRunner {
         const isSendingToRefundAddress =
             unlockTx.outs.find((o) => {
                 try {
-                    const sweepAddress =
-                        swap.chain === 'LIQUID'
-                            ? liquid.address.fromOutputScript(o.script, this.bitcoinConfig.network === bitcoin ? liquidNetwork : liquidRegtest)
-                            : address.fromOutputScript(o.script, this.bitcoinConfig.network);
-                    return sweepAddress === swap.sweepAddress;
+                    if (swap.chain === 'BITCOIN') {
+                        const sweepAddress = address.fromOutputScript(o.script, this.bitcoinConfig.network);
+                        return sweepAddress === swap.sweepAddress;
+                    } else if (swap.chain === 'LIQUID') {
+                        const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+                        const unconfidentialAddress = liquid.address.fromConfidential(swap.sweepAddress).unconfidentialAddress;
+                        const outputAddress = liquid.address.fromOutputScript(o.script, liquidNetwork);
+                        return outputAddress === unconfidentialAddress;
+                    }
                 } catch (e) {
                     return false;
                 }

@@ -53,7 +53,7 @@ export abstract class LiquidPSETBuilder {
 
     abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
-    async getCommissionAmount(): Promise<number> {
+    public async getCommissionAmount(): Promise<number> {
         const mempoolInfo = await this.liquidService.getMempoolInfo();
         return mempoolInfo.minrelaytxfee * 1e8;
     }
