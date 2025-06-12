@@ -50,7 +50,7 @@ export class Swap {
     outcome: SwapOutcome | null = null;
 
     @Column({ type: 'bytea', nullable: true })
-    blindingPrivKey: Buffer|null = null;
+    blindingPrivKey: Buffer | null = null;
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date;

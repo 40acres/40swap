@@ -105,7 +105,6 @@ export class SwapOutController {
     @ApiParam({ name: 'id', required: true, description: 'The swap-out ID to claim.' })
     @ApiOkResponse({ type: PsbtResponseDto })
     async getClaimPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
-        
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
         }
