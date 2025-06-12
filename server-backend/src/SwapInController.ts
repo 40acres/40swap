@@ -171,18 +171,7 @@ export class SwapInController {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
         assert(this.liquidService.configurationDetails != null, 'liquid is not available');
         assert(this.liquidService.xpub != null, 'liquid is not available');
-        const psetBuilder = new LiquidRefundPSETBuilder(
-            this.nbxplorer,
-            {
-                xpub: this.liquidService.xpub,
-                rpcUrl: this.liquidService.configurationDetails.rpcUrl,
-                rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
-                rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
-                rpcWallet: this.liquidService.configurationDetails.rpcAuth.wallet,
-                esploraUrl: this.liquidService.configurationDetails.esploraUrl,
-            },
-            network,
-        );
+        const psetBuilder = new LiquidRefundPSETBuilder(this.nbxplorer, this.liquidService, network);
         const pset = await psetBuilder.getPset(swap, liquid.Transaction.fromBuffer(swap.lockTx!), outputAddress);
         return pset;
     }
