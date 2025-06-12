@@ -66,14 +66,16 @@ export class InMemoryPersistence implements SwapPersistence {
 interface SwapServiceOptions {
     baseUrl: string;
     persistence: SwapPersistence;
-    network?: Network;
+    network?: 'bitcoin' | 'regtest' | 'testnet' | Network;
 }
 
 export class SwapService {
     private client: FortySwapClient;
+    private network: Network;
 
     constructor(private readonly opts: SwapServiceOptions) {
         this.client = new FortySwapClient(opts.baseUrl);
+        this.network = (typeof opts.network === 'string' ? networks[opts.network] : opts.network) ?? networks.bitcoin;
     }
 
     async createSwapIn(
@@ -103,7 +105,7 @@ export class SwapService {
     }
 
     trackSwapIn({ id, refundAddress }: { id: string; refundAddress: () => Promise<string> }): SwapInTracker {
-        return new SwapInTracker(id, this.client.in, this.opts.persistence, refundAddress, this.opts.network ?? networks.bitcoin);
+        return new SwapInTracker(id, this.client.in, this.opts.persistence, refundAddress, this.network);
     }
 
     async createSwapOut(
@@ -142,7 +144,7 @@ export class SwapService {
     }
 
     trackSwapOut({ id }: { id: string }): SwapOutTracker {
-        return new SwapOutTracker(id, this.client.out, this.opts.persistence, this.opts.network ?? networks.bitcoin);
+        return new SwapOutTracker(id, this.client.out, this.opts.persistence, this.network);
     }
 
     private async sha256(message: Buffer): Promise<Buffer> {

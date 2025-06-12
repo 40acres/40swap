@@ -43,7 +43,7 @@ export const SwapOutDetails: Component = () => {
             swapOut.on('error', (errorType: 'CLAIM', error: Error) => {
                 if (errorType === 'CLAIM') {
                     toast.error('Error while claiming the on-chain funds');
-                    console.error(`Error while requesting refund: ${error.message}`);
+                    console.error(`Error while claiming: ${error.message}`);
                 }
             });
             swapOut.start();
