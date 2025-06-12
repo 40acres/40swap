@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import Decimal from 'decimal.js';
@@ -91,18 +91,25 @@ export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
 export type AddressInfo = z.infer<typeof AddressInfoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
-export class LiquidService implements OnApplicationBootstrap  {
-
-    configurationDetails: LiquidConfigurationDetails;
-    public readonly xpub: string;
+export class LiquidService implements OnApplicationBootstrap {
+    configurationDetails?: LiquidConfigurationDetails;
+    public readonly xpub?: string;
     private readonly logger = new Logger(LiquidService.name);
-    private readonly rpcUrl: string;
-    private readonly rpcAuth: {username: string, password: string, wallet: string};
+    private readonly rpcUrl?: string;
+    private readonly rpcAuth?: { username: string; password: string; wallet: string };
+    private readonly isLiquidEnabled: boolean = false;
 
     constructor(
         private nbxplorer: NbxplorerService,
-        @Inject('ELEMENTS_CONFIG') private elementsConfig: FourtySwapConfiguration['elements'],
+        @Inject('ELEMENTS_CONFIG') private elementsConfig: FortySwapConfiguration['elements'] | undefined,
     ) {
+        if (!this.elementsConfig) {
+            this.logger.warn('Elements configuration not provided. Liquid functionality will be disabled.');
+            this.isLiquidEnabled = false;
+            return;
+        }
+
+        this.isLiquidEnabled = true;
         this.xpub = this.elementsConfig.xpub;
         this.rpcUrl = this.elementsConfig.rpcUrl;
         this.rpcAuth = {
@@ -110,16 +117,27 @@ export class LiquidService implements OnApplicationBootstrap  {
             password: this.elementsConfig.rpcPassword,
             wallet: this.elementsConfig.rpcWallet,
         };
-        this.configurationDetails = LiquidConfigurationDetailsSchema.parse({
-            wallet: this.elementsConfig.rpcWallet,
-            rpcUrl: this.rpcUrl,
-            rpcAuth: this.rpcAuth,
-            xpub: this.xpub,
-            esploraUrl: this.elementsConfig.esploraUrl,
-        });
+
+        try {
+            this.configurationDetails = LiquidConfigurationDetailsSchema.parse({
+                wallet: this.elementsConfig.rpcWallet,
+                rpcUrl: this.rpcUrl,
+                rpcAuth: this.rpcAuth,
+                xpub: this.xpub,
+                esploraUrl: this.elementsConfig.esploraUrl,
+            });
+        } catch (error) {
+            this.logger.error(`Failed to parse Liquid configuration: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.isLiquidEnabled = false;
+        }
     }
-    
+
     async onApplicationBootstrap(): Promise<void> {
+        if (!this.isLiquidEnabled || !this.xpub) {
+            this.logger.log('Liquid functionality is disabled. Skipping LiquidService initialization.');
+            return;
+        }
+
         this.logger.debug('Initializing LiquidService xpub');
         try {
             await this.nbxplorer.track(this.xpub, 'lbtc');
@@ -130,14 +148,20 @@ export class LiquidService implements OnApplicationBootstrap  {
         }
     }
 
-    async callRPC(method: string, params: unknown[] = []): Promise<unknown> {
+    async callRPC(method: string, params: unknown[] = [], wallet?: string): Promise<unknown> {
+        if (!this.isLiquidEnabled || !this.rpcUrl || !this.rpcAuth) {
+            this.logger.warn(`Liquid functionality is disabled. Cannot call RPC method: ${method}`);
+            throw new Error('Liquid functionality is disabled');
+        }
+
+        wallet = wallet || this.rpcAuth.wallet;
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
             const response = await fetch(`${this.rpcUrl}/wallet/${this.rpcAuth.wallet}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Basic ${authString}`,
+                    Authorization: `Basic ${authString}`,
                 },
                 body: JSON.stringify({
                     jsonrpc: '1.0',
@@ -146,12 +170,12 @@ export class LiquidService implements OnApplicationBootstrap  {
                     params,
                 }),
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}, ${await response.text()}`);
             }
-            
-            const data = await response.json() as { result: unknown };
+
+            const data = (await response.json()) as { result: unknown };
             return data.result;
         } catch (error) {
             this.logger.error(`Error calling Elements RPC ${method}: ${(error as Error).message}`);
@@ -166,13 +190,17 @@ export class LiquidService implements OnApplicationBootstrap  {
      * @returns An array of unspent UTXOs.
      */
     async getUnspentUtxos(amount: Decimal | null = null): Promise<RPCUtxo[]> {
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot get unspent UTXOs.');
+            return [];
+        }
         // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
         // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
         let utxoResponse: unknown;
         if (amount === null) {
             utxoResponse = await this.callRPC('listunspent');
         } else {
-            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumSumAmount': amount } ]);
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [], false, { minimumSumAmount: amount }]);
         }
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
@@ -182,10 +210,14 @@ export class LiquidService implements OnApplicationBootstrap  {
      * @param amount Total amount in BTC/L-BTC format (satoshis/1e8).
      * @returns An object with the unspent UTXOs and the total input value (total sum of all UTXOs values).
      */
-    async getConfirmedUtxosAndInputValueForAmount(amount: Decimal): Promise<{ 
-        utxos: RPCUtxo[], 
-        totalInputValue: number,
+    async getConfirmedUtxosAndInputValueForAmount(amount: Decimal): Promise<{
+        utxos: RPCUtxo[];
+        totalInputValue: number;
     }> {
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot get confirmed UTXOs.');
+            throw new Error('Liquid functionality is disabled');
+        }
         let totalInputValue = 0;
         const confirmedUtxos = await this.getUnspentUtxos(amount);
         if (confirmedUtxos.length === 0) {
@@ -199,6 +231,10 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
 
     async getNewAddress(): Promise<string> {
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot get new address.');
+            throw new Error('Liquid functionality is disabled');
+        }
         const address = await this.callRPC('getnewaddress');
         return z.string().parse(address);
     }
@@ -209,19 +245,29 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
 
     async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot get UTXO transaction.');
+            throw new Error('Liquid functionality is disabled');
+        }
         const hexTx = await this.callRPC('getrawtransaction', [utxo.txid]);
         return liquid.Transaction.fromBuffer(Buffer.from(z.string().parse(hexTx), 'hex'));
     }
 
     async getMempoolInfo(): Promise<MempoolInfo> {
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot get mempool info.');
+            throw new Error('Liquid functionality is disabled');
+        }
         const mempoolInfo = await this.callRPC('getmempoolinfo');
         return MempoolInfoSchema.parse(mempoolInfo);
     }
 
     async signPset(psetBase64: string): Promise<liquid.Pset> {
-        const result = WalletProcessPsbtResultSchema.parse(
-            await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL'])
-        );
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot sign PSET.');
+            throw new Error('Liquid functionality is disabled');
+        }
+        const result = WalletProcessPsbtResultSchema.parse(await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL']));
         if (!result.complete) {
             throw new Error(`Could not process PSET: ${psetBase64}`);
         }
@@ -233,9 +279,11 @@ export class LiquidService implements OnApplicationBootstrap  {
     }
 
     async getFinalizedPsetHex(pset: string): Promise<string> {
-        const response = FinalizedPsbtResultSchema.parse(
-            await this.callRPC('finalizepsbt', [pset])
-        );
+        if (!this.isLiquidEnabled) {
+            this.logger.warn('Liquid functionality is disabled. Cannot finalize PSET.');
+            throw new Error('Liquid functionality is disabled');
+        }
+        const response = FinalizedPsbtResultSchema.parse(await this.callRPC('finalizepsbt', [pset]));
         if (!response.complete) {
             throw new Error('PSET is not complete');
         }

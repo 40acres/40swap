@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
 import { Chain, SwapOutcome } from '@40swap/shared';
@@ -23,16 +23,16 @@ export class Swap {
     invoice!: string;
 
     @Column({ type: 'bytea', nullable: true })
-    preImage: Buffer|null = null;
+    preImage: Buffer | null = null;
 
     @Column({ type: 'bytea', nullable: true })
-    lockTx: Buffer|null  = null;
+    lockTx: Buffer | null = null;
 
     @Column({ type: 'integer' })
     lockTxHeight!: number;
 
     @Column({ type: 'bytea', nullable: true })
-    unlockTx: Buffer|null  = null;
+    unlockTx: Buffer | null = null;
 
     @Column({ type: 'integer' })
     unlockTxHeight!: number;
@@ -40,14 +40,14 @@ export class Swap {
     @Column({ type: 'text' })
     sweepAddress!: string;
 
-    @Column({ type: 'bytea'})
+    @Column({ type: 'bytea' })
     unlockPrivKey!: Buffer;
 
-    @Column({ type: 'bytea'})
+    @Column({ type: 'bytea' })
     counterpartyPubKey!: Buffer;
 
     @Column({ type: 'text', nullable: true })
-    outcome: SwapOutcome|null = null;
+    outcome: SwapOutcome | null = null;
 
     @Column({ type: 'bytea', nullable: true })
     blindingPrivKey: Buffer|null = null;
@@ -55,6 +55,6 @@ export class Swap {
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt!: Date;
 
-    @CreateDateColumn({ type: 'timestamptz' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     modifiedAt!: Date;
 }

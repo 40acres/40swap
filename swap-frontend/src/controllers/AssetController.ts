@@ -8,45 +8,40 @@ export interface AssetConfig {
 
 export const assetsConfiguration = [
     {
-        'name': 'ON_CHAIN_BITCOIN',
-        'displayName': 'BTC',
-        'icon': '/bitcoin-logo.svg',
-        'available': true,
-        'restrictedAssets': [
-            'ON_CHAIN_LIQUID',
-        ],
+        name: 'ON_CHAIN_BITCOIN',
+        displayName: 'BTC',
+        icon: '/bitcoin-logo.svg',
+        available: true,
+        restrictedAssets: ['ON_CHAIN_LIQUID'],
     },
     {
-        'name': 'LIGHTNING_BITCOIN',
-        'displayName': 'Lightning',
-        'icon': '/lightning-logo.svg',
-        'available': true,
-        'restrictedAssets': [],
+        name: 'LIGHTNING_BITCOIN',
+        displayName: 'Lightning',
+        icon: '/lightning-logo.svg',
+        available: true,
+        restrictedAssets: [],
     },
     {
-        'name': 'ON_CHAIN_LIQUID',
-        'displayName': 'Liquid',
-        'icon': '/liquid-logo.svg',
-        'available': true,
-        'restrictedAssets': [
-            'ON_CHAIN_BITCOIN',
-        ],
+        name: 'ON_CHAIN_LIQUID',
+        displayName: 'Liquid',
+        icon: '/liquid-logo.svg',
+        available: true,
+        restrictedAssets: ['ON_CHAIN_BITCOIN'],
     },
 ] as AssetConfig[];
 
-export type Asset = typeof assetsConfiguration[number]['name'];
+export type Asset = (typeof assetsConfiguration)[number]['name'];
 
 export interface AssetConfigWithTypes extends Omit<AssetConfig, 'name' | 'restrictedAssets'> {
     name: Asset;
     restrictedAssets: Asset[];
 }
 
-export const typedAssetsConfiguration: AssetConfigWithTypes[] = assetsConfiguration.map(asset => ({
+export const typedAssetsConfiguration: AssetConfigWithTypes[] = assetsConfiguration.map((asset) => ({
     ...asset,
     name: asset.name,
     restrictedAssets: [...asset.restrictedAssets] as Asset[],
 }));
-
 
 export class AssetController {
     getAvailableAssets(): AssetConfig[] {

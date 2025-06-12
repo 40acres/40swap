@@ -7,12 +7,11 @@ import mkcert from 'vite-plugin-mkcert';
 import inject from '@rollup/plugin-inject';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
-
 export default defineConfig({
     root: 'src',
     plugins: [
         solidPlugin(),
-        pluginChecker({typescript: true}),
+        pluginChecker({ typescript: true }),
         wasm(),
         devtools({
             autoname: true,
@@ -20,12 +19,22 @@ export default defineConfig({
         mkcert(),
         nodePolyfills(),
     ],
+    css: {
+        preprocessorOptions: {
+            scss: {
+                silenceDeprecations: ['color-functions', 'mixed-decls'], // These are Bootstrap-side warnings
+            },
+        },
+    },
     server: {
         https: true,
         host: '0.0.0.0',
         port: 7080,
         proxy: {
             '/api': {
+                target: 'http://localhost:7081',
+            },
+            '/docs': {
                 target: 'http://localhost:7081',
             },
         },

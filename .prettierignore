@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+coverage
+.vscode
+.github
+docker
+package-lock.json
+*.d.ts
+server-backend/src/lnd/**/*
+server-backend/src/migrations/**/*

@@ -1,4 +1,4 @@
-import { Chain, getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest } from '@40swap/shared';
+import { Chain, getSwapInInputAmount, getSwapOutOutputAmount, SwapInRequest, SwapOutRequest, SwapType } from '@40swap/shared';
 import { SwapInRunner } from './SwapInRunner.js';
 import { BadRequestException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { decode } from 'bolt11';
@@ -14,16 +14,14 @@ import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } f
 import { DataSource, Not } from 'typeorm';
 import { LndService } from './LndService.js';
 import { OnEvent } from '@nestjs/event-emitter';
-import { SwapOutRunner } from './SwapOutRunner.js';
+import { BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS, SwapOutRunner } from './SwapOutRunner.js';
 import { SwapOut } from './entities/SwapOut.js';
 import { base58Id } from './utils.js';
 import { ConfigService } from '@nestjs/config';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
-import { getLiquidBlockHeight } from './LiquidUtils.js';
-
 
 const ECPair = ECPairFactory(ecc);
 
@@ -31,8 +29,8 @@ const ECPair = ECPairFactory(ecc);
 export class SwapService implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly logger = new Logger(SwapService.name);
     private readonly runningSwaps: Map<string, SwapInRunner | SwapOutRunner>;
-    private readonly swapConfig: FourtySwapConfiguration['swap'];
-    private readonly elementsConfig: FourtySwapConfiguration['elements'];
+    private readonly swapConfig: FortySwapConfiguration['swap'];
+    private readonly elementsConfig?: FortySwapConfiguration['elements'];
 
     constructor(
         private bitcoinConfig: BitcoinConfigurationDetails,
@@ -41,11 +39,15 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         private nbxplorer: NbxplorerService,
         private dataSource: DataSource,
         private lnd: LndService,
-        config: ConfigService<FourtySwapConfiguration>,
+        config: ConfigService<FortySwapConfiguration>,
     ) {
         this.runningSwaps = new Map();
         this.swapConfig = config.getOrThrow('swap', { infer: true });
-        this.elementsConfig = config.getOrThrow('elements', { infer: true });
+        try {
+            this.elementsConfig = config.get('elements', { infer: true });
+        } catch (error) {
+            this.logger.warn('Elements configuration not found. Liquid functionality will be disabled.');
+        }
     }
 
     getCheckedAmount(amount: Decimal): Decimal {
@@ -61,13 +63,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         if (invoiceNetwork == null || invoiceNetwork.bech32 !== network.bech32) {
             throw new BadRequestException('invalid bitcoin network');
         }
-        const hashTag = tags.find(t => t.tagName === 'payment_hash');
+        const hashTag = tags.find((t) => t.tagName === 'payment_hash');
         assert(hashTag);
         assert(typeof hashTag.data === 'string');
         assert(satoshis != null);
         const paymentHash = hashTag.data;
         let blindingPrivKey: Buffer | null = null;
-        
 
         const outputAmount = this.getCheckedAmount(new Decimal(satoshis).div(1e8).toDecimalPlaces(8));
         /**
@@ -80,16 +81,12 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         }
         let timeoutBlockHeight = (await this.bitcoinService.getBlockHeight()) + lockBlockDeltaIn;
         if (request.chain === 'LIQUID') {
-            timeoutBlockHeight = await getLiquidBlockHeight(timeoutBlockHeight, this.nbxplorer);
+            assert(this.liquidService.xpub != null, 'liquid is not available');
+            timeoutBlockHeight = (await this.nbxplorer.getNetworkStatus('lbtc')).chainHeight + lockBlockDeltaIn * 10;
         }
         const claimKey = ECPair.makeRandom();
         const counterpartyPubKey = Buffer.from(request.refundPublicKey, 'hex');
-        const lockScript = swapScript(
-            Buffer.from(paymentHash, 'hex'),
-            claimKey.publicKey,
-            counterpartyPubKey,
-            timeoutBlockHeight,
-        );
+        const lockScript = swapScript(Buffer.from(paymentHash, 'hex'), claimKey.publicKey, counterpartyPubKey, timeoutBlockHeight);
         let address: string | undefined;
         let sweepAddress: string | undefined;
         if (request.chain === 'BITCOIN') {
@@ -98,6 +95,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             await this.nbxplorer.trackAddress(address);
             sweepAddress = await this.lnd.getNewAddress();
         } else if (request.chain === 'LIQUID') {
+            assert(this.liquidService.xpub != null, 'liquid is not available');
             const blindingKeyPair = ECPair.makeRandom();
             blindingPrivKey = blindingKeyPair.privateKey!;
             const liquidNetworkToUse = getLiquidNetworkFromBitcoinNetwork(network);
@@ -150,7 +148,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.swapConfig,
             this.elementsConfig,
         );
-        this.runAndMonitor(swap, runner);
+        this.runAndMonitor('in', swap, runner);
         return swap;
     }
 
@@ -161,16 +159,19 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             sweepAddress = await this.lnd.getNewAddress();
         }
         if (request.chain === 'LIQUID') {
+            assert(this.liquidService.xpub != null, 'liquid is not available');
             sweepAddress = (await this.nbxplorer.getUnusedAddress(this.liquidService.xpub, 'lbtc', { reserve: true })).address;
             blindingPrivKey = ECPair.makeRandom().privateKey!;
         }
         assert(sweepAddress, 'Could not create sweep address for requested chain');
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
+        const cltvExpiry = this.swapConfig.lockBlockDelta.out + BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS;
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
             expiry: this.swapConfig.expiryDuration.asSeconds(),
+            cltvExpiry,
         });
         const refundKey = ECPair.makeRandom();
         const repository = this.dataSource.getRepository(SwapOut);
@@ -206,27 +207,27 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.swapConfig,
             this.elementsConfig,
         );
-        this.runAndMonitor(swap, runner);
+        this.runAndMonitor('out', swap, runner);
         return swap;
     }
 
-    private async runAndMonitor(swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
-        this.logger.log(`Starting swap (id=${swap.id})`);
+    private async runAndMonitor(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
+        this.logger.log(`Starting swap-${type} (id=${swap.id})`);
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
-        this.logger.log(`Swap finished (id=${swap.id})`);
+        this.logger.log(`Swap-${type} finished (id=${swap.id})`);
         this.runningSwaps.delete(swap.id);
     }
 
     @OnEvent('nbxplorer.newblock')
     private async processNewBlock(event: NBXplorerBlockEvent, cryptoCode: Chain): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewBlock(event, cryptoCode));
+        const promises = Array.from(this.runningSwaps.values()).map((runner) => runner.processNewBlock(event, cryptoCode));
         await Promise.all(promises);
     }
 
     @OnEvent('nbxplorer.newtransaction')
     private async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
-        const promises = Array.from(this.runningSwaps.values()).map(runner => runner.processNewTransaction(event, cryptoCode));
+        const promises = Array.from(this.runningSwaps.values()).map((runner) => runner.processNewTransaction(event, cryptoCode));
         await Promise.all(promises);
     }
 
@@ -241,27 +242,30 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             status: Not('DONE'),
         });
         for (const swap of [...resumableSwapIns, ...resumableSwapOuts]) {
-            const runner = swap instanceof SwapIn ? new SwapInRunner(
-                swap,
-                swapInRepository,
-                this.bitcoinConfig,
-                this.bitcoinService,
-                this.nbxplorer,
-                this.lnd,
-                this.swapConfig,
-                this.elementsConfig,
-            ) : new SwapOutRunner(
-                swap,
-                swapOutRepository,
-                this.bitcoinConfig,
-                this.bitcoinService,
-                this.nbxplorer,
-                this.lnd,
-                this.swapConfig,
-                this.elementsConfig,
-            );
+            const runner =
+                swap instanceof SwapIn
+                    ? new SwapInRunner(
+                          swap,
+                          swapInRepository,
+                          this.bitcoinConfig,
+                          this.bitcoinService,
+                          this.nbxplorer,
+                          this.lnd,
+                          this.swapConfig,
+                          this.elementsConfig,
+                      )
+                    : new SwapOutRunner(
+                          swap,
+                          swapOutRepository,
+                          this.bitcoinConfig,
+                          this.bitcoinService,
+                          this.nbxplorer,
+                          this.lnd,
+                          this.swapConfig,
+                          this.elementsConfig,
+                      );
             this.logger.log(`Resuming swap (id=${swap.id})`);
-            this.runAndMonitor(swap, runner);
+            this.runAndMonitor(swap instanceof SwapIn ? 'in' : 'out', swap, runner);
         }
     }
 
