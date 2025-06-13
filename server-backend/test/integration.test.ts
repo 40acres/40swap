@@ -58,31 +58,6 @@ describe('40Swap backend', () => {
         const invoice = await lndUser.lookupInvoice(rHash as Buffer);
         expect(invoice.state).toEqual('SETTLED');
     });
-    it('should complete a swap out', async () => {
-        // Create the swap out
-        const swap = await swapService.createSwapOut({
-            chain: 'BITCOIN',
-            inputAmount: 0.002,
-            sweepAddress: await lndUser.newAddress(),
-        });
-        swap.start();
-        await waitForSwapStatus(swap, 'CREATED');
-        assert(swap.value != null);
-
-        // Pay the Lightning invoice
-        lndUser.sendPayment(swap.value.invoice);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
-
-        await bitcoind.mine();
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
-        await swap.claim();
-        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
-        await bitcoind.mine();
-        await waitForSwapStatus(swap, 'DONE');
-
-        // Verify the swap outcome
-        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
-    });
 
     it('should complete a liquid swap out', async () => {
         const claimAddress = await elements.getNewAddress();
@@ -109,6 +84,32 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
 
         // TODO verify that the funds are in claimAddress
+    });
+
+    it('should complete a swap out', async () => {
+        // Create the swap out
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // Pay the Lightning invoice
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        await bitcoind.mine();
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
+        await swap.claim();
+        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await bitcoind.mine();
+        await waitForSwapStatus(swap, 'DONE');
+
+        // Verify the swap outcome
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
     it('should properly handle a liquid swap out expiration', async () => {
