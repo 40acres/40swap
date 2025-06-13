@@ -73,11 +73,10 @@ describe('40Swap backend', () => {
         lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
-        // Confirm the contract funding
         await bitcoind.mine();
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
-
-        // Mine a block to confirm the claim
+        await swap.claim();
+        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
         await bitcoind.mine();
         await waitForSwapStatus(swap, 'DONE');
 
@@ -103,6 +102,9 @@ describe('40Swap backend', () => {
         await elements.mine(5);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
 
+        await elements.mine();
+        await swap.claim();
+        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
         await elements.mine();
         await waitForSwapStatus(swap, 'DONE');
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
