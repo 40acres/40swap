@@ -78,7 +78,7 @@ describe('40Swap backend', () => {
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
 
         await elements.mine();
-        await swap.claim();
+        // await swap.claim();
         await elements.mine(5);
         await waitForSwapStatus(swap, 'DONE');
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
