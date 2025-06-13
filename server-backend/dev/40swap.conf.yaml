@@ -22,4 +22,4 @@ swap:
   lockBlockDelta:
     minIn: 144
     in: 432
-    out: 144
+    out: 20
