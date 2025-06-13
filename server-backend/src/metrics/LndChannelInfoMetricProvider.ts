@@ -16,7 +16,7 @@ export class LndChannelInfoMetricProvider implements OnApplicationBootstrap, OnA
         if (channels != null) {
             for (const c of channels) {
                 // eslint-disable-next-line no-control-regex
-                this.metrics.channelInfo.labels({ chanId: c.chanId, peerAlias: c.peerAlias.replace(/[^\x00-\x7F]/g, '') }).set(1);
+                this.metrics.channelInfo.labels({ chan_id: c.chanId, peer_alias: c.peerAlias.replace(/[^\x00-\x7F]/g, '') }).set(1);
             }
         }
     }
