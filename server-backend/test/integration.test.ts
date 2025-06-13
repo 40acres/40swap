@@ -59,50 +59,31 @@ describe('40Swap backend', () => {
         expect(invoice.state).toEqual('SETTLED');
     });
     it('should complete a swap out', async () => {
-        const randomBytes = crypto.randomBytes(32);
-        const preImage = Buffer.from(randomBytes);
-        const preImageHash = crypto.createHash('sha256').update(preImage).digest();
-        const claimKey = ECPair.makeRandom();
-
         // Create the swap out
-        let swap = await backend.createSwapOut({
+        const swap = await swapService.createSwapOut({
             chain: 'BITCOIN',
             inputAmount: 0.002,
-            claimPubKey: claimKey.publicKey.toString('hex'),
-            preImageHash: preImageHash.toString('hex'),
+            sweepAddress: await lndUser.newAddress(),
         });
-        expect(swap.status).toEqual('CREATED');
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
 
         // Pay the Lightning invoice
-        lndUser.sendPayment(swap.invoice);
-        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
         // Confirm the contract funding
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'CONTRACT_FUNDED');
-
-        // Claim the funds
-        const claimAddress = await lndUser.newAddress();
-        const claimPsbt = await backend.getClaimPsbt(swap.swapId, claimAddress);
-        const psbt = Psbt.fromBase64(claimPsbt.psbt);
-        signContractSpend({
-            psbt,
-            network: network,
-            key: ECPair.fromPrivateKey(claimKey.privateKey!),
-            preImage: preImage,
-        });
-        const transaction = psbt.extractTransaction();
-        await backend.claimSwap(swap.swapId, transaction.toHex());
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
 
         // Mine a block to confirm the claim
         await bitcoind.mine();
-        await waitFor(async () => (await backend.getSwapOut(swap.swapId)).status === 'DONE');
+        await waitForSwapStatus(swap, 'DONE');
 
         // Verify the swap outcome
-        swap = await backend.getSwapOut(swap.swapId);
-        expect(swap.outcome).toEqual<SwapOutcome>('SUCCESS');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
-
 
     it('should complete a liquid swap out', async () => {
         const claimAddress = await elements.getNewAddress();
@@ -273,7 +254,6 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
-  
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
