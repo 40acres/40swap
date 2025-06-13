@@ -91,7 +91,7 @@ export class FortySwapClient {
                     }),
             );
             if (resp.status >= 300) {
-                throw new Error(`Unknown error getting claim psbt for swap-out with id ${swapId}. ${await resp.text()}, ${resp}`);
+                throw new Error(`Unknown error getting claim psbt for swap-out with id ${swapId}. ${await resp.text()}`);
             }
             return psbtResponseSchema.parse(await resp.json());
         },
