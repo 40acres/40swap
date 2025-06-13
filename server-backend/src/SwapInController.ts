@@ -107,8 +107,8 @@ export class SwapInController {
                 }
                 await this.nbxplorer.broadcastTx(refundTx);
             } else if (swap.chain === 'LIQUID') {
-                const refundTx = liquid.Transaction.fromHex(txRequest.tx);
-                await this.nbxplorer.broadcastTx(refundTx, 'lbtc');
+                const tx = liquid.Transaction.fromHex(txRequest.tx);
+                await this.nbxplorer.broadcastTx(tx, 'lbtc');
             }
         } catch (e) {
             throw new BadRequestException('invalid tx');
