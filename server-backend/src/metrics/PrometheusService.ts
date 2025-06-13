@@ -9,7 +9,7 @@ export class PrometheusService {
     public readonly channelInfo = new Gauge({
         name: 'info_lnd_channel',
         help: 'Maps lightning channel IDs to the peer aliases',
-        labelNames: ['chanId', 'peerAlias'],
+        labelNames: ['chan_id', 'peer_alias'],
     });
 
     constructor() {
