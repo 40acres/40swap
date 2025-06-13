@@ -223,8 +223,19 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 
 export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
     async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, destinationAddress: string): Promise<liquid.Pset> {
+        console.log('LiquidClaimPSETBuilder.getPset called with:', {
+            swapId: swap.id,
+            spendingTxId: spendingTx.getId(),
+            destinationAddress,
+        });
+
         // Find the contract vout info
         const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(spendingTx, swap.contractAddress!, this.network);
+        console.log('Contract vout info:', {
+            contractOutputIndex,
+            outputValue,
+            witnessUtxo: witnessUtxo ? 'present' : 'missing',
+        });
 
         // Create a new pset
         const pset = liquid.Creator.newPset();
@@ -240,6 +251,11 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
         // Calculate output amount and fee
         const feeAmount = await this.getCommissionAmount();
         const outputAmount = outputValue - feeAmount;
+        console.log('Calculated amounts:', {
+            feeAmount,
+            outputAmount,
+            originalValue: outputValue,
+        });
 
         // Add output
         const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
