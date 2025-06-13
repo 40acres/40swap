@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './AppModule.js';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { LogLevel } from '@nestjs/common';
 
 async function bootstrap(): Promise<void> {
@@ -10,14 +10,10 @@ async function bootstrap(): Promise<void> {
         logger: getLogLevels(),
     });
     app.enableShutdownHooks();
-    const config = app.get(ConfigService<FourtySwapConfiguration>);
+    const config = app.get(ConfigService<FortySwapConfiguration>);
     const port = config.getOrThrow('server.port', { infer: true });
-    app.setGlobalPrefix('api');
-    const swaggerConfig = new DocumentBuilder()
-        .setTitle('40Swap')
-        .setDescription('The 40Swap REST API')
-        .setVersion('1.0')
-        .build();
+    app.setGlobalPrefix('api', { exclude: ['metrics'] });
+    const swaggerConfig = new DocumentBuilder().setTitle('40Swap').setDescription('The 40Swap REST API').setVersion('1.0').build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup('api/docs', app, document);
     await app.listen(port);

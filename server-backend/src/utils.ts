@@ -3,11 +3,11 @@ export function sleep(millis: number, abortSignal?: AbortSignal): Promise<void> 
     // We need to make sure that the timeout is at most 1 second, otherwise the integration tests will fail.
     // This is because integration tests runs an image of the server so we cant control time neither mock it
     // More info here: https://github.com/40acres/40swap/pull/96
-    const timeoutPromise = new Promise<void>(r => setTimeout(r, process.env.IS_TESTING ? safeTestingTime : millis));
+    const timeoutPromise = new Promise<void>((r) => setTimeout(r, process.env.IS_TESTING ? safeTestingTime : millis));
     if (abortSignal != null) {
         return Promise.any([
             timeoutPromise,
-            new Promise<void>(resolve => {
+            new Promise<void>((resolve) => {
                 const aborter = (): void => resolve();
                 abortSignal.addEventListener('abort', aborter);
                 timeoutPromise.then(() => abortSignal.removeEventListener('abort', aborter));

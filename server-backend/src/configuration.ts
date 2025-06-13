@@ -8,12 +8,7 @@ import moment from 'moment';
 
 const YAML_CONFIG_FILENAME = '40swap.conf.yaml';
 
-const SEARCH_PATHS = [
-    'dev',
-    homedir(),
-    '/etc',
-    '/etc/40swap',
-];
+const SEARCH_PATHS = ['dev', homedir(), '/etc', '/etc/40swap'];
 
 export const configSchema = z.object({
     server: z.object({
@@ -32,7 +27,7 @@ export const configSchema = z.object({
         network: z.enum(['bitcoin', 'regtest', 'testnet']),
         requiredConfirmations: z.number().int().nonnegative(),
     }),
-    nbxplorer:  z.object({
+    nbxplorer: z.object({
         baseUrl: z.string().url(),
         fallbackFeeRate: z.number().int().positive(),
         longPollingTimeoutSeconds: z.number().int().positive().default(60),
@@ -55,37 +50,38 @@ export const configSchema = z.object({
             in: z.number().int().positive(),
             out: z.number().int().positive(),
         }),
-        expiryDuration: z.string()
-            .transform(d => moment.duration(d))
-            .refine(d => d.toISOString() !== 'P0D'),
+        expiryDuration: z
+            .string()
+            .transform((d) => moment.duration(d))
+            .refine((d) => d.toISOString() !== 'P0D'),
     }),
-    elements: z.object({
-        xpub: z.string(),
-        rpcUrl: z.string().url(),
-        rpcUsername: z.string(),
-        rpcPassword: z.string(),
-        rpcWallet: z.string(),
-        esploraUrl: z.string().url(),
-    }).optional(),
+    elements: z
+        .object({
+            xpub: z.string(),
+            rpcUrl: z.string().url(),
+            rpcUsername: z.string(),
+            rpcPassword: z.string(),
+            rpcWallet: z.string(),
+            esploraUrl: z.string().url(),
+        })
+        .optional(),
 });
 
-export type FourtySwapConfiguration = z.infer<typeof configSchema>;
+export type FortySwapConfiguration = z.infer<typeof configSchema>;
 
-export default (): FourtySwapConfiguration => {
-    const filePath = SEARCH_PATHS
-        .map(p => path.join(p, YAML_CONFIG_FILENAME))
-        .find(f => fs.existsSync(f));
+export default (): FortySwapConfiguration => {
+    const filePath = SEARCH_PATHS.map((p) => path.join(p, YAML_CONFIG_FILENAME)).find((f) => fs.existsSync(f));
     assert(filePath, 'config file not found');
     const config = yaml.load(fs.readFileSync(filePath).toString()) as object;
 
     const lightningDevFilePath = 'dev/40swap.lightning.yml';
-    let lightningDevConfig: object|undefined;
+    let lightningDevConfig: object | undefined;
     if (fs.existsSync(lightningDevFilePath)) {
         const lightningDevFileContent = fs.readFileSync(lightningDevFilePath).toString();
         lightningDevConfig = yaml.load(lightningDevFileContent) as object;
     }
     const elementsDevFilePath = 'dev/40swap.elements.yml';
-    let elementsDevConfig: object|undefined;
+    let elementsDevConfig: object | undefined;
     if (fs.existsSync(elementsDevFilePath)) {
         const elementsDevFileContent = fs.readFileSync(elementsDevFilePath).toString();
         elementsDevConfig = yaml.load(elementsDevFileContent) as object;
@@ -106,17 +102,19 @@ export default (): FourtySwapConfiguration => {
         ...lightningDevConfig,
         ...elementsDevConfig,
     };
-    
+
     // If elements exists but has null values, remove the entire elements object
-    if (mergedConfig.elements && 
-        (mergedConfig.elements.xpub === null || 
-         mergedConfig.elements.rpcUrl === null || 
-         mergedConfig.elements.rpcUsername === null || 
-         mergedConfig.elements.rpcPassword === null || 
-         mergedConfig.elements.rpcWallet === null || 
-         mergedConfig.elements.esploraUrl === null)) {
+    if (
+        mergedConfig.elements &&
+        (mergedConfig.elements.xpub === null ||
+            mergedConfig.elements.rpcUrl === null ||
+            mergedConfig.elements.rpcUsername === null ||
+            mergedConfig.elements.rpcPassword === null ||
+            mergedConfig.elements.rpcWallet === null ||
+            mergedConfig.elements.esploraUrl === null)
+    ) {
         delete mergedConfig.elements;
     }
-    
+
     return configSchema.parse(mergedConfig);
 };

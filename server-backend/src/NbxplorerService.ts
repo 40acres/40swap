@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { clearTimeout } from 'timers';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, EntityManager } from 'typeorm';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { ApplicationState } from './entities/ApplicationState.js';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Chain } from '@40swap/shared';
@@ -90,18 +90,18 @@ const nbxplorerTransactionSchema = z.object({
 });
 export type NBXplorerTransaction = z.infer<typeof nbxplorerTransactionSchema>;
 
-const nbxplorerWalletTransactionSchema = nbxplorerTransactionSchema
-    .omit({ transactionHash: true })
-    .extend({
-        transactionId: z.string(),
-        outputs: z.object({
+const nbxplorerWalletTransactionSchema = nbxplorerTransactionSchema.omit({ transactionHash: true }).extend({
+    transactionId: z.string(),
+    outputs: z
+        .object({
             keyPath: z.string(),
             scriptPubKey: z.string(),
             index: z.number().int(),
             value: z.number().int(),
-        }).array(),
-        balanceChange: z.number().int(),
-    });
+        })
+        .array(),
+    balanceChange: z.number().int(),
+});
 
 const nbxplorerWalletTransactionsResponseSchema = z.object({
     height: z.number(),
@@ -228,34 +228,39 @@ export type NBXplorerEvent = z.infer<typeof nbxplorerEvent>;
 type CreatePsbtParams = {
     xpub: string;
     rebasePath: string;
-    masterFingerprint: string,
-    feeRate: number,
-} & ({
-    inputTxId: string
-    inputTxVout: number,
-} | {
-    destinationAddress: string;
-    amount: number,
-});
+    masterFingerprint: string;
+    feeRate: number;
+} & (
+    | {
+          inputTxId: string;
+          inputTxVout: number;
+      }
+    | {
+          destinationAddress: string;
+          amount: number;
+      }
+);
 
 interface NBXplorerCreatePsbtRequest {
-    includeGlobalXPub: boolean,
-    minConfirmations?: number,
+    includeGlobalXPub: boolean;
+    minConfirmations?: number;
     destinations: {
-        destination: string,
-        amount: number,
-    }[],
+        destination: string;
+        amount: number;
+    }[];
     feePreference: {
-        explicitFeeRate?: number,
-        explicitFee?: number,
-        blockTarget?: number,
-        fallbackFeeRate?: number,
-    },
-    rebaseKeyPaths?: [{
-        accountKey: string,
-        accountKeyPath: string,
-    }];
-    includeOnlyOutpoints?: string[],
+        explicitFeeRate?: number;
+        explicitFee?: number;
+        blockTarget?: number;
+        fallbackFeeRate?: number;
+    };
+    rebaseKeyPaths?: [
+        {
+            accountKey: string;
+            accountKeyPath: string;
+        },
+    ];
+    includeOnlyOutpoints?: string[];
 }
 
 const nbxplorerNetworkStatus = z.object({
@@ -267,19 +272,17 @@ export type NBXplorerNetworkStatus = z.infer<typeof nbxplorerNetworkStatus>;
 const STATE_KEY = 'NBXplorer.lastEventId';
 const LIQUID_STATE_KEY = 'NBXplorer.lastLiquidEventId';
 
-
 @Injectable()
 export class NbxplorerService implements OnApplicationBootstrap, OnApplicationShutdown {
-
     private readonly logger = new Logger(NbxplorerService.name);
-    private readonly config: FourtySwapConfiguration['nbxplorer'];
-    private readonly elementsConfig?: FourtySwapConfiguration['elements'];
+    private readonly config: FortySwapConfiguration['nbxplorer'];
+    private readonly elementsConfig?: FortySwapConfiguration['elements'];
     private eventProcessingPromise?: Promise<unknown>;
     private shutdownRequested = false;
     private isLiquidEnabled = false;
 
     constructor(
-        private configService: ConfigService<FourtySwapConfiguration>,
+        private configService: ConfigService<FortySwapConfiguration>,
         private dataSource: DataSource,
         private eventEmitter: EventEmitter2,
     ) {
@@ -331,10 +334,14 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    async getUnusedAddress(xpub: string, cryptoCode: string = 'btc', opts?: {
-        change?: boolean,
-        reserve?: boolean,
-    }): Promise<NBXplorerAddress> {
+    async getUnusedAddress(
+        xpub: string,
+        cryptoCode: string = 'btc',
+        opts?: {
+            change?: boolean;
+            reserve?: boolean;
+        },
+    ): Promise<NBXplorerAddress> {
         const change = opts?.change ?? false;
         const reserve = opts?.reserve ?? false;
         const params = new URLSearchParams({
@@ -354,7 +361,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         // we should probably fix it in nbxplorer itself
 
         // TODO: remove this once we have a better way to check the tx broadcasted result. PS: tested only with liquid.
-        const body = await response.json() as { success?: boolean };
+        const body = (await response.json()) as { success?: boolean };
         if (!body.success) {
             this.logger.debug('tx broadcast result: ', body);
         }
@@ -363,7 +370,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         }
     }
 
-    async getTx(id: string, cryptoCode: string = 'btc'): Promise<NBXplorerTransaction|null> {
+    async getTx(id: string, cryptoCode: string = 'btc'): Promise<NBXplorerTransaction | null> {
         const response = await fetch(`${this.getUrl(cryptoCode)}/transactions/${id}`, {
             method: 'GET',
         });
@@ -411,8 +418,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     private abortController?: AbortController;
-    private liquidAbortController?: AbortController;    
-
+    private liquidAbortController?: AbortController;
 
     async processBitcoinEvents(): Promise<void> {
         while (!this.shutdownRequested) {
@@ -422,7 +428,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 if (this.shutdownRequested) {
                     break;
                 }
-                await this.dataSource.transaction(async dbTx => {
+                await this.dataSource.transaction(async (dbTx) => {
                     await this.saveLastEventId(event.eventId, dbTx);
                     if (event.type === 'newblock' || event.type === 'newtransaction') {
                         const cryptoCode = this.getChainFromCryptoCode('BTC'); // BTC events do not have a cryptoCode
@@ -434,13 +440,12 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.logger.log('Bitcoin event listener stopped');
     }
 
-
     async processLiquidEvents(): Promise<void> {
         if (!this.isLiquidEnabled) {
             this.logger.log('Liquid functionality is disabled. Skipping liquid events processing.');
             return;
         }
-        
+
         while (!this.shutdownRequested) {
             const lastEventId = await this.getLastLiquidEventId();
             const events = await this.getLiquidEvents({ lastEventId });
@@ -448,8 +453,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 if (this.shutdownRequested) {
                     break;
                 }
-                try{
-                    await this.dataSource.transaction(async dbTx => {
+                try {
+                    await this.dataSource.transaction(async (dbTx) => {
                         await this.saveLastLiquidEventId(event.eventId, dbTx);
                         if (event.type === 'newblock' || event.type === 'newtransaction') {
                             const cryptoCode = this.getChainFromCryptoCode(event.data.cryptoCode);
@@ -457,7 +462,6 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                         }
                     });
                 } catch (e) {
-                    console.log('event', event);
                     this.logger.error('Error processing liquid event', e);
                 }
             }
@@ -465,11 +469,9 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         this.logger.log('Liquid event listener stopped');
     }
 
-    private lastEventId = 0;
-
     private async getLastEventId(): Promise<number> {
         const applicationStateRepo = this.dataSource.getRepository(ApplicationState);
-        const lastEventId = (await applicationStateRepo.findOne({ where: { key: STATE_KEY } }))?.value as number ?? 0;
+        const lastEventId = ((await applicationStateRepo.findOne({ where: { key: STATE_KEY } }))?.value as number) ?? 0;
         if (lastEventId === 0) {
             await applicationStateRepo.save({ key: STATE_KEY, value: 0 });
         }
@@ -482,7 +484,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
     private async getLastLiquidEventId(): Promise<number> {
         const applicationStateRepo = this.dataSource.getRepository(ApplicationState);
-        const lastEventId = (await applicationStateRepo.findOne({ where: { key: LIQUID_STATE_KEY } }))?.value as number ?? 0;
+        const lastEventId = ((await applicationStateRepo.findOne({ where: { key: LIQUID_STATE_KEY } }))?.value as number) ?? 0;
         if (lastEventId === 0) {
             await applicationStateRepo.save({ key: LIQUID_STATE_KEY, value: 0 });
         }
@@ -499,19 +501,21 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         const timeout = setTimeout(() => this.abortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
             const response = await fetch(
-                `${this.getUrl()}/events?` + new URLSearchParams({
-                    lastEventId: params.lastEventId.toFixed(0),
-                    limit: '200',
-                    longPolling: 'true',
-                }),
+                `${this.getUrl()}/events?` +
+                    new URLSearchParams({
+                        lastEventId: params.lastEventId.toFixed(0),
+                        limit: '200',
+                        longPolling: 'true',
+                    }),
                 {
                     // @ts-ignore
                     signal: this.abortController.signal,
-                });
+                },
+            );
             this.abortController = undefined;
             clearTimeout(timeout);
             return bitcoinNbxplorerEvent.array().parse(await response.json());
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
                 return [];
@@ -526,34 +530,36 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         const timeout = setTimeout(() => this.liquidAbortController?.abort(), this.config.longPollingTimeoutSeconds * 1000);
         try {
             const response = await fetch(
-                `${this.getUrl('lbtc')}/events?` + new URLSearchParams({
-                    lastEventId: params.lastEventId.toFixed(0),
-                    limit: '200',
-                    longPolling: 'true',
-                }),
+                `${this.getUrl('lbtc')}/events?` +
+                    new URLSearchParams({
+                        lastEventId: params.lastEventId.toFixed(0),
+                        limit: '200',
+                        longPolling: 'true',
+                    }),
                 {
                     // @ts-ignore
                     signal: this.liquidAbortController.signal,
-                });
+                },
+            );
             this.liquidAbortController = undefined;
             clearTimeout(timeout);
-            
+
             // Check if the response is successful
             if (!response.ok) {
                 this.logger.warn(`Failed to fetch liquid events: ${response.status} ${response.statusText}`);
                 return [];
             }
-            
+
             const responseJson = await response.json();
-            
+
             // Check if the response is an array
             if (!Array.isArray(responseJson)) {
                 this.logger.warn('Liquid events response is not an array, possibly due to disabled Liquid functionality');
                 return [];
             }
-            
+
             return liquidNbxplorerEvent.array().parse(responseJson);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (e: any) {
             if (e.type === 'aborted') {
                 return [];
@@ -572,10 +578,12 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
             };
         } else {
             extraParams = {
-                destinations: [{
-                    destination: params.destinationAddress,
-                    amount: params.amount,
-                }],
+                destinations: [
+                    {
+                        destination: params.destinationAddress,
+                        amount: params.amount,
+                    },
+                ],
             };
         }
         const requestBody: NBXplorerCreatePsbtRequest = {
@@ -585,10 +593,12 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
                 explicitFeeRate: params.feeRate,
                 fallbackFeeRate: this.config.fallbackFeeRate,
             },
-            rebaseKeyPaths: [{
-                accountKey: xpub,
-                accountKeyPath: rebasePath.replace('m', masterFingerprint),
-            }],
+            rebaseKeyPaths: [
+                {
+                    accountKey: xpub,
+                    accountKeyPath: rebasePath.replace('m', masterFingerprint),
+                },
+            ],
             ...extraParams,
         };
         const response = await fetch(`${this.config.baseUrl}/derivations/${xpub}/psbt/create`, {
@@ -600,8 +610,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
         });
         if (response.status >= 300) {
             throw new Error(`nbxplorer threw an error when creating PSBT.
-                ${await response.text()}`
-            );
+                ${await response.text()}`);
         }
         return nbxplorerCreatePsbtResponseSchema.parse(await response.json());
     }
@@ -616,10 +625,7 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
 
     onApplicationBootstrap(): void {
         if (this.isLiquidEnabled) {
-            this.eventProcessingPromise = Promise.all([
-                this.processBitcoinEvents(),
-                this.processLiquidEvents(),
-            ]);
+            this.eventProcessingPromise = Promise.all([this.processBitcoinEvents(), this.processLiquidEvents()]);
         } else {
             this.eventProcessingPromise = this.processBitcoinEvents();
         }

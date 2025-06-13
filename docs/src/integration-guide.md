@@ -104,7 +104,7 @@ const resp = await fetch(`${BASE_URL}/api/swap/in/${swap.swapId}/refund-tx`, {
 ```
 After the tx is broadcast, the swap should end up in state `DONE` with outcome `REFUNDED`.
 
-# Swap-out
+## Swap-out
 
 A swap-out can be used to convert bitcoin from lightning to on-chain. 
 

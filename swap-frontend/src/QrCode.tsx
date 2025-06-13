@@ -8,7 +8,7 @@ interface Props {
 }
 
 export const QrCode: Component<Props> = (props) => {
-    let div: HTMLDivElement|undefined;
+    let div: HTMLDivElement | undefined;
 
     createEffect(() => {
         const qr = new QRCodeStyling({

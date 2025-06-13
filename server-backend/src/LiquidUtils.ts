@@ -1,5 +1,5 @@
 import { LiquidService, RPCUtxo } from './LiquidService.js';
-import { FourtySwapConfiguration } from './configuration';
+import { FortySwapConfiguration } from './configuration';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import { NbxplorerService } from './NbxplorerService';
 import { SwapOut } from './entities/SwapOut';
@@ -27,14 +27,6 @@ export function getRelativePathFromDescriptor(descriptor: string): string {
     return match[1];
 }
 
-export async function getLiquidCltvExpiry(nbxplorer: NbxplorerService, cltvExpiry: number): Promise<number> {
-    const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
-    const currentLiquidHeight = (await nbxplorer.getNetworkStatus('lbtc')).chainHeight;
-    const currentBitcoinHeight = (await nbxplorer.getNetworkStatus()).chainHeight;
-    assert(cltvExpiry > currentBitcoinHeight, `invoiceExpiry=${cltvExpiry} is not greater than currentBitcoinHeight=${currentBitcoinHeight}`);
-    return currentLiquidHeight + ((cltvExpiry-currentBitcoinHeight)*ratio);
-}
-
 export function liquidBlocksToBitcoinBlocks(blocks: number): number {
     const ratio = 10; // Each bitcoin block is worth 10 liquid blocks (10min - 1min)
     return Math.floor(blocks / ratio);
@@ -52,7 +44,7 @@ export abstract class LiquidPSETBuilder {
 
     constructor(
         protected nbxplorer: NbxplorerService,
-        protected elementsConfig: FourtySwapConfiguration['elements'],
+        protected elementsConfig: FortySwapConfiguration['elements'],
         network: liquid.networks.Network,
     ) {
         this.network = network;
@@ -61,19 +53,17 @@ export abstract class LiquidPSETBuilder {
 
     abstract getPset(...args: unknown[]): Promise<liquid.Pset>;
 
-    async getCommissionAmount(): Promise<number> {
+    public async getCommissionAmount(): Promise<number> {
         const mempoolInfo = await this.liquidService.getMempoolInfo();
         return mempoolInfo.minrelaytxfee * 1e8;
     }
 
-    addInput(pset: liquid.Pset, txId: string, inputIndex: number,  sequence: number): void {
+    addInput(pset: liquid.Pset, txId: string, inputIndex: number, sequence: number): void {
         const input = new liquid.CreatorInput(txId, inputIndex, sequence);
         pset.addInput(input.toPartialInput());
     }
 
-    addOutput(
-        updater: liquid.Updater, amount: number, script?: Buffer | undefined, blindingKey?: Buffer | undefined
-    ): void {
+    addOutput(updater: liquid.Updater, amount: number, script?: Buffer | undefined, blindingKey?: Buffer | undefined): void {
         const changeOutput = new liquid.CreatorOutput(
             this.network.assetHash,
             amount,
@@ -85,16 +75,13 @@ export abstract class LiquidPSETBuilder {
     }
 
     signIndex(
-        pset: liquid.Pset, 
-        signer: liquid.Signer, 
-        signingKeyPair: ECPairInterface, 
-        index: number, 
-        sigHashType: number = liquid.Transaction.SIGHASH_ALL
+        pset: liquid.Pset,
+        signer: liquid.Signer,
+        signingKeyPair: ECPairInterface,
+        index: number,
+        sigHashType: number = liquid.Transaction.SIGHASH_ALL,
     ): Buffer {
-        const signature = liquid.script.signature.encode(
-            signingKeyPair.sign(pset.getInputPreimage(index, sigHashType)),
-            sigHashType
-        );
+        const signature = liquid.script.signature.encode(signingKeyPair.sign(pset.getInputPreimage(index, sigHashType)), sigHashType);
         signer.addSignature(
             index,
             {
@@ -111,12 +98,14 @@ export abstract class LiquidPSETBuilder {
     finalizeIndexWithStack(finalizer: liquid.Finalizer, index: number, stack: Buffer[]): void {
         finalizer.finalizeInput(index, () => {
             const finalScriptWitness = liquid.witnessStackToScriptWitness(stack);
-            return {finalScriptWitness};
+            return { finalScriptWitness };
         });
     }
 
     getContractVoutInfo(
-        spendingTx: liquid.Transaction, contractAddress: string, network: liquid.networks.Network
+        spendingTx: liquid.Transaction,
+        contractAddress: string,
+        network: liquid.networks.Network,
     ): {
         contractOutputIndex: number;
         outputValue: number;
@@ -125,14 +114,14 @@ export abstract class LiquidPSETBuilder {
         let outputValue = 0;
         let contractOutputIndex = -1;
         let witnessUtxo: liquid.TxOutput | null = null;
-        
+
         for (let i = 0; i < spendingTx.outs.length; i++) {
             try {
                 const outputScript = spendingTx.outs[i].script;
                 const outputAddress = liquid.address.fromOutputScript(outputScript, network);
                 if (outputAddress === contractAddress) {
                     contractOutputIndex = i;
-                    outputValue = Buffer.isBuffer(spendingTx.outs[i].value) 
+                    outputValue = Buffer.isBuffer(spendingTx.outs[i].value)
                         ? Number(Buffer.from(spendingTx.outs[i].value).reverse().readBigUInt64LE(0))
                         : Number(spendingTx.outs[i].value);
                     witnessUtxo = spendingTx.outs[i];
@@ -153,20 +142,14 @@ export abstract class LiquidPSETBuilder {
 }
 
 export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
-
-    async getPset(
-        amount: number, 
-        contractAddress: string, 
-        blindingKey: Buffer, 
-        timeoutBlockHeight: number
-    ): Promise<liquid.Pset> {
+    async getPset(amount: number, contractAddress: string, blindingKey: Buffer, timeoutBlockHeight: number): Promise<liquid.Pset> {
         const commision = await this.getCommissionAmount();
         const totalAmount = amount + commision;
         const amountInFloat = new Decimal(totalAmount).div(1e8);
         const { utxos, totalInputValue } = await this.liquidService.getConfirmedUtxosAndInputValueForAmount(amountInFloat);
 
         // Create a new pset
-        const pset = liquid.Creator.newPset({locktime: timeoutBlockHeight});
+        const pset = liquid.Creator.newPset({ locktime: timeoutBlockHeight });
         const updater = new liquid.Updater(pset);
 
         // Add inputs to pset
@@ -182,29 +165,31 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
     }
 
     async addInputs(utxos: RPCUtxo[], pset: liquid.Pset, updater: liquid.Updater): Promise<void> {
-        await Promise.all(utxos.map(async (utxo, i) => {
-            const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub!);
-            const witnessUtxo = liquidTx.outs[utxo.vout];
-            this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
-            updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
-            updater.addInWitnessUtxo(i, witnessUtxo);
-            const relativePath = getRelativePathFromDescriptor(utxo.desc);
-            try {
-                const node = bip32.fromBase58(this.liquidService.xpub!, this.network);
-                const childNode = node.derivePath(relativePath);
-                updater.addInBIP32Derivation(i, {
-                    masterFingerprint: Buffer.from(node.fingerprint),
-                    pubkey: Buffer.from(childNode.publicKey),
-                    path: relativePath,
-                });
-            } catch (error) {
-                throw new Error(`Failed to derive path ${relativePath}: ${error}`);
-            }
-        })).catch((error) => {
+        await Promise.all(
+            utxos.map(async (utxo, i) => {
+                const liquidTx = await this.liquidService.getUtxoTx(utxo, this.liquidService.xpub!);
+                const witnessUtxo = liquidTx.outs[utxo.vout];
+                this.addInput(pset, liquidTx.getId(), utxo.vout, this.lockSequence);
+                updater.addInSighashType(i, liquid.Transaction.SIGHASH_ALL);
+                updater.addInWitnessUtxo(i, witnessUtxo);
+                const relativePath = getRelativePathFromDescriptor(utxo.desc);
+                try {
+                    const node = bip32.fromBase58(this.liquidService.xpub!, this.network);
+                    const childNode = node.derivePath(relativePath);
+                    updater.addInBIP32Derivation(i, {
+                        masterFingerprint: Buffer.from(node.fingerprint),
+                        pubkey: Buffer.from(childNode.publicKey),
+                        path: relativePath,
+                    });
+                } catch (error) {
+                    throw new Error(`Failed to derive path ${relativePath}: ${error}`);
+                }
+            }),
+        ).catch((error) => {
             throw new Error(`Error adding inputs: ${error}`);
         });
     }
-    
+
     async addRequiredOutputs(
         amount: number,
         totalInputValue: number,
@@ -237,31 +222,29 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 }
 
 export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
-    async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, destinationAddress: string,): Promise<liquid.Pset> {
+    async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, destinationAddress: string): Promise<liquid.Pset> {
         // Find the contract vout info
-        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(
-            spendingTx, swap.contractAddress!, this.network
-        );
-        
+        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(spendingTx, swap.contractAddress!, this.network);
+
         // Create a new pset
         const pset = liquid.Creator.newPset();
         const updater = new liquid.Updater(pset);
-        
+
         // Add input - use contractOutputIndex for the vout
         const psetInputIndex = 0;
         this.addInput(pset, spendingTx.getId(), contractOutputIndex, this.claimSequence);
         updater.addInSighashType(psetInputIndex, liquid.Transaction.SIGHASH_ALL);
         updater.addInWitnessUtxo(psetInputIndex, witnessUtxo);
         updater.addInWitnessScript(psetInputIndex, swap.lockScript!);
-        
+
         // Calculate output amount and fee
         const feeAmount = await this.getCommissionAmount();
         const outputAmount = outputValue - feeAmount;
-        
+
         // Add output
         const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
         this.addOutput(updater, outputAmount, outputScript);
-        
+
         // Add fee output - required for Liquid
         this.addOutput(updater, feeAmount);
 
@@ -270,37 +253,34 @@ export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
 }
 
 export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
-
     async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, outputAddress: string | null = null): Promise<liquid.Pset> {
         // Find the contract vout info
-        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(
-            spendingTx, swap.contractAddress!, this.network
-        );
-        
+        const { contractOutputIndex, outputValue, witnessUtxo } = this.getContractVoutInfo(spendingTx, swap.contractAddress!, this.network);
+
         // Create a new pset
         const pset = liquid.Creator.newPset({
             locktime: swap.timeoutBlockHeight,
         });
         const updater = new liquid.Updater(pset);
         const psetInputIndex = 0;
-        
+
         // Add input
         this.addRefundInput(pset, updater, psetInputIndex, spendingTx, contractOutputIndex, witnessUtxo, swap);
 
         // Add required outputs
         await this.addRequiredOutputs(swap, updater, outputValue, outputAddress);
-        
+
         return pset;
     }
 
     addRefundInput(
-        pset: liquid.Pset, 
-        updater: liquid.Updater, 
+        pset: liquid.Pset,
+        updater: liquid.Updater,
         psetInputIndex: number,
-        spendingTx: liquid.Transaction, 
-        contractOutputIndex: number, 
-        witnessUtxo: liquid.TxOutput, 
-        swap: SwapOut | SwapIn
+        spendingTx: liquid.Transaction,
+        contractOutputIndex: number,
+        witnessUtxo: liquid.TxOutput,
+        swap: SwapOut | SwapIn,
     ): void {
         this.addInput(pset, spendingTx.getId(), contractOutputIndex, this.refundSequence);
         updater.addInSighashType(psetInputIndex, liquid.Transaction.SIGHASH_ALL);
@@ -312,12 +292,12 @@ export class LiquidRefundPSETBuilder extends LiquidPSETBuilder {
         // Calculate output amount and fee
         const feeAmount = await this.getCommissionAmount();
         const outputAmount = outputValue - feeAmount;
-        
+
         // Add output
         const destinationAddress = outputAddress ?? swap.sweepAddress!;
         const outputScript = liquid.address.toOutputScript(destinationAddress, this.network);
         this.addOutput(updater, outputAmount, outputScript);
-        
+
         // Add fee output - required for Liquid
         this.addOutput(updater, feeAmount);
     }
