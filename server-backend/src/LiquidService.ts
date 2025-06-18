@@ -48,6 +48,30 @@ const MempoolInfoSchema = z.object({
     unbroadcastcount: z.number(),
 });
 
+const AddressInfoSchema = z.object({
+    address: z.string(),
+    scriptPubKey: z.string(),
+    ismine: z.boolean(),
+    solvable: z.boolean(),
+    desc: z.string(),
+    parent_desc: z.string(),
+    iswatchonly: z.boolean(),
+    isscript: z.boolean(),
+    iswitness: z.boolean(),
+    witness_version: z.number().optional(),
+    witness_program: z.string().optional(),
+    pubkey: z.string().optional(),
+    confidential: z.string().optional(),
+    confidential_key: z.string().optional(),
+    unconfidential: z.string().optional(),
+    ischange: z.boolean(),
+    timestamp: z.number().optional(),
+    hdkeypath: z.string().optional(),
+    hdseedid: z.string().optional(),
+    hdmasterfingerprint: z.string().optional(),
+    labels: z.array(z.string()).optional(),
+});
+
 const WalletProcessPsbtResultSchema = z.object({
     complete: z.boolean(),
     psbt: z.string(),
@@ -64,6 +88,7 @@ export type FinalizedPsbtResult = z.infer<typeof FinalizedPsbtResultSchema>;
 
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
+export type AddressInfo = z.infer<typeof AddressInfoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class LiquidService implements OnApplicationBootstrap {
@@ -132,7 +157,7 @@ export class LiquidService implements OnApplicationBootstrap {
         wallet = wallet || this.rpcAuth.wallet;
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
-            const response = await fetch(`${this.rpcUrl}/wallet/${wallet}`, {
+            const response = await fetch(`${this.rpcUrl}/wallet/${this.rpcAuth.wallet}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -214,6 +239,11 @@ export class LiquidService implements OnApplicationBootstrap {
         return z.string().parse(address);
     }
 
+    async getAddressInfo(address: string): Promise<AddressInfo> {
+        const addressInfo = await this.callRPC('getaddressinfo', [address]);
+        return AddressInfoSchema.parse(addressInfo);
+    }
+
     async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
         if (!this.isLiquidEnabled) {
             this.logger.warn('Liquid functionality is disabled. Cannot get UTXO transaction.');
@@ -239,7 +269,7 @@ export class LiquidService implements OnApplicationBootstrap {
         }
         const result = WalletProcessPsbtResultSchema.parse(await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL']));
         if (!result.complete) {
-            throw new Error('Could not process PSET');
+            throw new Error(`Could not process PSET: ${psetBase64}`);
         }
         const processedPset = liquid.Pset.fromBase64(result.psbt);
         if (!processedPset.isComplete()) {

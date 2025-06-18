@@ -136,6 +136,7 @@ services:
       - "bitcoind-data:/root/.bitcoin"
     links:
       - bitcoind
+      - elements
   rtl-user:
     profiles: ["rtl"]
     container_name: 40swap_rtl_user
