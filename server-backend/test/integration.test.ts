@@ -77,11 +77,39 @@ describe('40Swap backend', () => {
         await elements.mine(5);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
 
-        await elements.mine();
+        await elements.mine(5);
+        await swap.claim();
+        await elements.mine(5);
         await waitForSwapStatus(swap, 'DONE');
-        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
+        expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('SUCCESS');
 
         // TODO verify that the funds are in claimAddress
+    });
+
+    it('should complete a swap out', async () => {
+        // Create the swap out
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // Pay the Lightning invoice
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        await bitcoind.mine();
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
+        await swap.claim();
+        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
+        await bitcoind.mine();
+        await waitForSwapStatus(swap, 'DONE');
+
+        // Verify the swap outcome
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
     it('should properly handle a liquid swap out expiration', async () => {
@@ -278,7 +306,7 @@ describe('40Swap backend', () => {
                 lockBlockDelta: {
                     minIn: 144,
                     in: 432,
-                    out: 20,
+                    out: 144,
                 },
             },
             lnd: {
