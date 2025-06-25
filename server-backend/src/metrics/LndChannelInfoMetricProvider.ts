@@ -23,7 +23,7 @@ export class LndChannelInfoMetricProvider implements OnApplicationBootstrap, OnA
 
     onApplicationBootstrap(): void {
         void this.run();
-        this.pollInterval = setInterval(() => this.run, 5 * 60 * 1000);
+        this.pollInterval = setInterval(() => this.run(), 5 * 60 * 1000);
     }
 
     onApplicationShutdown(signal?: string): void {
