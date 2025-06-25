@@ -74,11 +74,15 @@ describe('40Swap backend', () => {
         lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
-        await elements.mine(5);
+        await elements.mine(3);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
 
-        await elements.mine();
+        await elements.mine(3);
+        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
+
+        await elements.mine(3);
         await waitForSwapStatus(swap, 'DONE');
+
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
 
         // TODO verify that the funds are in claimAddress
