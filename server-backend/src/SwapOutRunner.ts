@@ -23,8 +23,6 @@ import moment from 'moment/moment.js';
 import { FortySwapConfiguration } from './configuration.js';
 import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
-import { liquid as liquidNetwork, regtest as liquidRegtest } from 'liquidjs-lib/src/networks.js';
-import { bitcoin } from 'bitcoinjs-lib/src/networks.js';
 import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 import { LiquidService } from './LiquidService.js';
 
