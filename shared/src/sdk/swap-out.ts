@@ -73,7 +73,15 @@ export class SwapOutTracker {
         }
         this.currentStatus = newStatus;
 
-        if (this.currentStatus.status === 'CONTRACT_FUNDED' && this.currentStatus.claimRequestDate == null) {
+        // Check if we should attempt to claim
+        if (this.currentStatus.status === 'CONTRACT_FUNDED' && this.shouldAttemptClaim()) {
+            // Mark claim attempt immediately to prevent retries
+            await this.persistence.update({
+                type: 'out',
+                swapId: swap.swapId,
+                claimRequestDate: new Date(),
+            });
+
             try {
                 await this.claim();
                 await this.persistence.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
@@ -89,6 +97,21 @@ export class SwapOutTracker {
         } else if (this.currentStatus.status === 'DONE') {
             clearInterval(this.pollInterval);
         }
+    }
+
+    private shouldAttemptClaim(): boolean {
+        const { claimRequestDate } = this.currentStatus!;
+
+        // If no previous claim attempt, allow it
+        if (claimRequestDate == null) {
+            return true;
+        }
+
+        // If there was a previous attempt, only retry after 30 seconds cooldown
+        const timeSinceLastAttempt = Date.now() - claimRequestDate.getTime();
+        const cooldownPeriod = 30 * 1000; // 30 seconds
+
+        return timeSinceLastAttempt > cooldownPeriod;
     }
 
     private async claim(): Promise<void> {
