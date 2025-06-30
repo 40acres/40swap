@@ -75,13 +75,6 @@ export class SwapOutTracker {
 
         // Check if we should attempt to claim
         if (this.currentStatus.status === 'CONTRACT_FUNDED' && this.shouldAttemptClaim()) {
-            // Mark claim attempt immediately to prevent retries
-            await this.persistence.update({
-                type: 'out',
-                swapId: swap.swapId,
-                claimRequestDate: new Date(),
-            });
-
             try {
                 await this.claim();
                 await this.persistence.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
