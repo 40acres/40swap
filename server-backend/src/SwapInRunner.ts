@@ -1,10 +1,4 @@
-import {
-    NBXplorerBlockEvent,
-    NBXplorerBitcoinTransactionOutput,
-    NBXplorerLiquidTransactionOutput,
-    NBXplorerNewTransactionEvent,
-    NbxplorerService,
-} from './NbxplorerService.js';
+import { NBXplorerBlockEvent, NBXplorerBitcoinTransactionOutput, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { Logger } from '@nestjs/common';
 import { SwapIn } from './entities/SwapIn.js';
 import { Repository } from 'typeorm';
@@ -14,7 +8,7 @@ import { address, Transaction } from 'bitcoinjs-lib';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
-import { Chain, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
+import { Chain, findUnblindableOutputs, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import moment from 'moment';
@@ -23,6 +17,7 @@ import { clearInterval } from 'node:timers';
 import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
 import { liquidBlocksToBitcoinBlocks, LiquidClaimPSETBuilder } from './LiquidUtils.js';
+import { LiquidService } from './LiquidService.js';
 
 const ECPair = ECPairFactory(ecc);
 
@@ -40,7 +35,7 @@ export class SwapInRunner {
         private nbxplorer: NbxplorerService,
         private lnd: LndService,
         private swapConfig: FortySwapConfiguration['swap'],
-        private elementsConfig?: FortySwapConfiguration['elements'],
+        private liquidService: LiquidService,
     ) {
         this.runningPromise = new Promise((resolve) => {
             this.notifyFinished = resolve;
@@ -141,11 +136,22 @@ export class SwapInRunner {
         const match = event.data.trackedSource.match(addressRegex);
         if (match != null) {
             const txAddress = match[1];
-            if (swap.contractAddress === txAddress) {
-                if (event.data.outputs.find((o) => o.address === swap.contractAddress) != null) {
-                    await this.processContractFundingTx(event);
-                } else {
-                    await this.processContractSpendingTx(event);
+            if (swap.chain === 'BITCOIN') {
+                if (swap.contractAddress === txAddress) {
+                    if (event.data.outputs.find((o) => o.address === swap.contractAddress) != null) {
+                        await this.processContractFundingTx(event);
+                    } else {
+                        await this.processContractSpendingTx(event);
+                    }
+                }
+            } else if (swap.chain === 'LIQUID') {
+                const confidentialAddress = liquid.address.fromConfidential(swap.contractAddress);
+                if (confidentialAddress.unconfidentialAddress === txAddress) {
+                    if (event.data.outputs.find((o) => o.address === confidentialAddress.unconfidentialAddress) != null) {
+                        await this.processContractFundingTx(event);
+                    } else {
+                        await this.processContractSpendingTx(event);
+                    }
                 }
             }
         }
@@ -156,13 +162,29 @@ export class SwapInRunner {
 
         const { swap } = this;
         // TODO: the output is also found by buildClaimTx(), needs refactor
-        const output = event.data.outputs.find((o) => o.address === swap.contractAddress);
+        let output = null;
+        if (swap.chain === 'BITCOIN') {
+            output = event.data.outputs.find((o) => o.address === swap.contractAddress);
+        } else if (swap.chain === 'LIQUID') {
+            const confidentialAddress = liquid.address.fromConfidential(swap.contractAddress);
+            output = event.data.outputs.find((o) => o.address === confidentialAddress.unconfidentialAddress);
+        }
         assert(output != null, 'There was a problem finding the output');
 
         // Handle both Bitcoin and Liquid outputs by checking if it's a Liquid transaction
         const isLiquidTx = 'cryptoCode' in event.data && event.data.cryptoCode === 'LBTC';
+        if (isLiquidTx) {
+            const tx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
+            const unblindableOutputs = await findUnblindableOutputs(tx, swap.blindingPrivKey!);
+            if (unblindableOutputs.length > 0) {
+                output = unblindableOutputs[0];
+            } else {
+                this.logger.warn(`Could not unblind any outputs (id=${this.swap.id})`);
+                return;
+            }
+        }
         const outputValue = isLiquidTx
-            ? new Decimal((output as NBXplorerLiquidTransactionOutput).value.value)
+            ? new Decimal((output as liquid.confidential.UnblindOutputResult).value)
             : new Decimal((output as NBXplorerBitcoinTransactionOutput).value);
 
         const receivedAmount = new Decimal(outputValue).div(1e8);
@@ -200,7 +222,7 @@ export class SwapInRunner {
 
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
-        assert(swap.lockTx != null);
+        assert(swap.lockTx != null, 'There was a problem finding the lock transaction');
         let unlockTx: Transaction | liquid.Transaction | null = null;
         let isPayingToExternalAddress = false;
         let isSpendingFromContract = false;
@@ -223,8 +245,14 @@ export class SwapInRunner {
             unlockTx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
             isPayingToExternalAddress = event.data.outputs.length === 0;
             isSpendingFromContract = unlockTx.ins.find((i) => i.hash.equals(liquid.Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
-            const sweepScript = liquid.address.toOutputScript(swap.sweepAddress, network);
-            isPayingToSweepAddress = unlockTx.outs.some((o) => o.script.equals(sweepScript));
+            const sweepScript = liquid.address.fromConfidential(swap.sweepAddress).unconfidentialAddress;
+            isPayingToSweepAddress = unlockTx.outs.some((o) => {
+                try {
+                    return address.fromOutputScript(o.script, network) === sweepScript;
+                } catch (e) {
+                    return false;
+                }
+            });
         }
 
         assert(unlockTx != null, 'There was a problem building the unlock transaction');
@@ -308,7 +336,7 @@ export class SwapInRunner {
 
     async buildLiquidClaimTx(swap: SwapIn, spendingTx: liquid.Transaction): Promise<liquid.Transaction> {
         const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
-        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.elementsConfig, network);
+        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.liquidService, network);
         const pset = await psetBuilder.getPset(swap, spendingTx, swap.sweepAddress);
         const signer = new liquid.Signer(pset);
         const finalizer = new liquid.Finalizer(pset);

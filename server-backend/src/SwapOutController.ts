@@ -177,18 +177,7 @@ export class SwapOutController {
         assert(this.liquidService.xpub != null, 'liquid is not available');
         assert(this.liquidService.configurationDetails != null, 'liquid is not available');
         const liquidNetwork = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
-        const psetBuilder = new LiquidClaimPSETBuilder(
-            this.nbxplorer,
-            {
-                xpub: this.liquidService.xpub,
-                rpcUrl: this.liquidService.configurationDetails.rpcUrl,
-                rpcUsername: this.liquidService.configurationDetails.rpcAuth.username,
-                rpcPassword: this.liquidService.configurationDetails.rpcAuth.password,
-                rpcWallet: this.liquidService.configurationDetails.rpcAuth.wallet,
-                esploraUrl: this.liquidService.configurationDetails.esploraUrl,
-            },
-            liquidNetwork,
-        );
+        const psetBuilder = new LiquidClaimPSETBuilder(this.nbxplorer, this.liquidService, liquidNetwork);
         const lockTx = liquid.Transaction.fromBuffer(swap.lockTx!);
         return await psetBuilder.getPset(swap, lockTx, destinationAddress);
     }
