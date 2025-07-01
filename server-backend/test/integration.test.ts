@@ -30,33 +30,50 @@ describe('40Swap backend', () => {
         await setUpBlockchains();
     });
 
+    beforeEach(async () => {
+        // Reset SwapService with fresh persistence
+        const backendContainer = compose.getContainer('40swap_backend');
+        const backendBaseUrl = `http://${backendContainer.getHost()}:${backendContainer.getMappedPort(8081)}`;
+
+        swapService = new SwapService({
+            network,
+            baseUrl: backendBaseUrl,
+            persistence: new InMemoryPersistence(), // Fresh instance each time
+        });
+
+        // Stabilize blockchain state
+        await bitcoind.mine(1);
+        await elements.mine(1);
+        await waitForChainSync([lndLsp, lndUser, lndAlice]);
+    });
+
     afterAll(async () => {
         await compose.down();
     });
 
-    // it('should complete a swap out', async () => {
-    //     // Create the swap out
-    //     const swap = await swapService.createSwapOut({
-    //         chain: 'BITCOIN',
-    //         inputAmount: 0.002,
-    //         sweepAddress: await lndUser.newAddress(),
-    //     });
-    //     swap.start();
-    //     await waitForSwapStatus(swap, 'CREATED');
-    //     assert(swap.value != null);
+    it('should complete a swap out', async () => {
+        // Create the swap out
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
 
-    //     // Pay the Lightning invoice
-    //     lndUser.sendPayment(swap.value.invoice);
-    //     await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+        // Pay the Lightning invoice
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
-    //     await bitcoind.mine(5);
-    //     await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
-    //     await bitcoind.mine(5);
-    //     await waitForSwapStatus(swap, 'DONE');
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'DONE');
 
-    //     // Verify the swap outcome
-    //     expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
-    // });
+        // Verify the swap outcome
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
+    });
 
     it('should complete a swap in', async () => {
         const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
