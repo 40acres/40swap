@@ -115,10 +115,11 @@ jobs:
         if: steps.changed-files-docker.outputs.any_modified == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: swap-frontend/
-          file: docker/Dockerfile
+          context: .
+          file: swap-frontend/docker/Dockerfile
           push: false
           platforms: linux/amd64
+          provenance: false
           tags: test-frontend:latest
       - name: Build backend Docker image (test only)
         if: steps.changed-files-docker.outputs.any_modified == 'true'
@@ -128,6 +129,7 @@ jobs:
           file: server-backend/docker/Dockerfile
           push: false
           platforms: linux/amd64
+          provenance: false
           tags: test-backend:latest
 
   build:
