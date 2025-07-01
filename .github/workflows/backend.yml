@@ -91,6 +91,45 @@ jobs:
         working-directory: server-backend
         run: npm test
 
+  build-check:
+    # Run this job on pull requests to verify Docker builds work
+    if: github.event_name == 'pull_request'
+    needs: [code-quality, integration-testing]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check if Docker builds should be tested
+        uses: tj-actions/changed-files@v46
+        id: changed-files-docker
+        with:
+          files: |
+            server-backend/**
+            swap-frontend/**
+            shared/**
+            docker/**
+            Dockerfile
+            **/*Dockerfile*
+      - name: Build frontend Docker image (test only)
+        if: steps.changed-files-docker.outputs.any_modified == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: swap-frontend/docker/Dockerfile
+          push: false
+          platforms: linux/amd64
+          tags: test-frontend:latest
+      - name: Build backend Docker image (test only)
+        if: steps.changed-files-docker.outputs.any_modified == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server-backend/docker/Dockerfile
+          push: false
+          platforms: linux/amd64
+          tags: test-backend:latest
+
   build:
     # Run this only when we are merging to :master or a new tag is created.
     if: |
