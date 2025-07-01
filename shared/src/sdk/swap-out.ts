@@ -74,7 +74,7 @@ export class SwapOutTracker {
         this.currentStatus = newStatus;
 
         // Check if we should attempt to claim
-        if (this.currentStatus.status === 'CONTRACT_FUNDED' && this.currentStatus!.claimRequestDate == null) {
+        if (this.currentStatus.status === 'CONTRACT_FUNDED' && this.currentStatus?.claimRequestDate == null) {
             try {
                 await this.claim();
                 await this.persistence.update({ type: 'out', swapId: swap.swapId, claimRequestDate: new Date() });
