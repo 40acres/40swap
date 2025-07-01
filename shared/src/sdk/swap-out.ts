@@ -91,7 +91,7 @@ export class SwapOutTracker {
         }
     }
 
-    public async claim(): Promise<void> {
+    private async claim(): Promise<void> {
         if (this.currentStatus == null) {
             throw new Error('invalid state');
         }

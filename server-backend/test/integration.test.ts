@@ -132,7 +132,7 @@ describe('40Swap backend', () => {
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        await elements.mine(blocksToMine);
+        await elements.mine(blocksToMine + 1);
         await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
         await elements.mine(10);
         await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
