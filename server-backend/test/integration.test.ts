@@ -121,17 +121,12 @@ describe('40Swap backend', () => {
             inputAmount: 0.002,
             sweepAddress: claimAddress,
         });
-        swap.start();
 
-        await waitForSwapStatus(swap, 'CREATED');
-
-        assert(swap.value != null);
-        lndUser.sendPayment(swap.value.invoice);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
-
-        swap.stop(); // so that it doesn't get claimed
+        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CREATED');
+        lndUser.sendPayment((await backend.out.find(swap.id)).invoice);
+        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
         await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
-        const timeoutBlockHeight = swap.value.timeoutBlockHeight;
+        const timeoutBlockHeight = (await backend.out.find(swap.id)).timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
         await elements.mine(blocksToMine);
