@@ -34,6 +34,30 @@ describe('40Swap backend', () => {
         await compose.down();
     });
 
+    it('should complete a swap out', async () => {
+        // Create the swap out
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // Pay the Lightning invoice
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'DONE');
+
+        // Verify the swap outcome
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
+    });
+
     it('should complete a swap in', async () => {
         const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
         const swap = await swapService.createSwapIn({
@@ -88,30 +112,6 @@ describe('40Swap backend', () => {
         // TODO verify that the funds are in claimAddress
     });
 
-    it('should complete a swap out', async () => {
-        // Create the swap out
-        const swap = await swapService.createSwapOut({
-            chain: 'BITCOIN',
-            inputAmount: 0.002,
-            sweepAddress: await lndUser.newAddress(),
-        });
-        swap.start();
-        await waitForSwapStatus(swap, 'CREATED');
-        assert(swap.value != null);
-
-        // Pay the Lightning invoice
-        lndUser.sendPayment(swap.value.invoice);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
-
-        await bitcoind.mine(5);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
-        await bitcoind.mine(5);
-        await waitForSwapStatus(swap, 'DONE');
-
-        // Verify the swap outcome
-        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
-    });
-
     it('should properly handle a liquid swap out expiration', async () => {
         const claimAddress = await elements.getNewAddress();
         const swap = await swapService.createSwapOut({
@@ -132,7 +132,7 @@ describe('40Swap backend', () => {
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        await elements.mine(blocksToMine + 1);
+        await elements.mine(blocksToMine);
         await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
         await elements.mine(10);
         await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
