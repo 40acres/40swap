@@ -248,12 +248,6 @@ export class LiquidLockPSETBuilder extends LiquidPSETBuilder {
 
 export class LiquidClaimPSETBuilder extends LiquidPSETBuilder {
     async getPset(swap: SwapOut | SwapIn, spendingTx: liquid.Transaction, destinationAddress: string): Promise<liquid.Pset> {
-        console.log('LiquidClaimPSETBuilder.getPset called with:', {
-            swapId: swap.id,
-            spendingTxId: spendingTx.getId(),
-            destinationAddress,
-        });
-
         // Find the contract vout info
         const { contractOutputIndex, outputValue, witnessUtxo } = await this.getContractVoutInfo(
             spendingTx,

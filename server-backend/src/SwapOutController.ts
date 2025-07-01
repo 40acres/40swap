@@ -130,20 +130,8 @@ export class SwapOutController {
             } catch (e) {
                 throw new BadRequestException(`invalid address ${outputAddress}`);
             }
-            console.log('Building Liquid claim PSET for swap:', {
-                id: swap.id,
-                status: swap.status,
-                contractAddress: swap.contractAddress,
-                lockTx: swap.lockTx ? 'present' : 'missing',
-                lockScript: swap.lockScript ? 'present' : 'missing',
-            });
-            try {
-                const pset = await this.buildLiquidClaimPset(swap, outputAddress);
-                return { psbt: pset.toBase64() };
-            } catch (error) {
-                console.error('Error building Liquid claim PSET:', error);
-                throw error;
-            }
+            const pset = await this.buildLiquidClaimPset(swap, outputAddress);
+            return { psbt: pset.toBase64() };
         }
         throw new BadRequestException('invalid chain');
     }
