@@ -115,8 +115,8 @@ jobs:
         if: steps.changed-files-docker.outputs.any_modified == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: swap-frontend/docker/Dockerfile
+          context: swap-frontend/
+          file: docker/Dockerfile
           push: false
           platforms: linux/amd64
           tags: test-frontend:latest
