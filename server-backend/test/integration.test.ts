@@ -30,23 +30,6 @@ describe('40Swap backend', () => {
         await setUpBlockchains();
     });
 
-    beforeEach(async () => {
-        // Reset SwapService with fresh persistence
-        const backendContainer = compose.getContainer('40swap_backend');
-        const backendBaseUrl = `http://${backendContainer.getHost()}:${backendContainer.getMappedPort(8081)}`;
-
-        swapService = new SwapService({
-            network,
-            baseUrl: backendBaseUrl,
-            persistence: new InMemoryPersistence(), // Fresh instance each time
-        });
-
-        // Stabilize blockchain state
-        await bitcoind.mine(1);
-        await elements.mine(1);
-        await waitForChainSync([lndLsp, lndUser, lndAlice]);
-    });
-
     afterAll(async () => {
         await compose.down();
     });

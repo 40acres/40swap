@@ -7,5 +7,4 @@ const presetConfig = createDefaultEsmPreset({
 
 export default {
     ...presetConfig,
-    maxWorkers: 1,
 } satisfies Config;
