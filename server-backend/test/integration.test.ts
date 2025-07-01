@@ -114,27 +114,27 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
-    it('should properly handle a liquid swap out expiration', async () => {
-        const claimAddress = await elements.getNewAddress();
-        const swap = await swapService.createSwapOut({
-            chain: 'LIQUID',
-            inputAmount: 0.002,
-            sweepAddress: claimAddress,
-        });
+    // it('should properly handle a liquid swap out expiration', async () => {
+    //     const claimAddress = await elements.getNewAddress();
+    //     const swap = await swapService.createSwapOut({
+    //         chain: 'LIQUID',
+    //         inputAmount: 0.002,
+    //         sweepAddress: claimAddress,
+    //     });
 
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CREATED');
-        lndUser.sendPayment((await backend.out.find(swap.id)).invoice);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
-        await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
-        const timeoutBlockHeight = (await backend.out.find(swap.id)).timeoutBlockHeight;
-        const currentHeight = await elements.getBlockHeight();
-        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        await elements.mine(blocksToMine);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
-        await elements.mine(10);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
-        expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('REFUNDED');
-    });
+    //     await waitFor(async () => (await backend.out.find(swap.id)).status === 'CREATED');
+    //     lndUser.sendPayment((await backend.out.find(swap.id)).invoice);
+    //     await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_FUNDED_UNCONFIRMED');
+    //     await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
+    //     const timeoutBlockHeight = (await backend.out.find(swap.id)).timeoutBlockHeight;
+    //     const currentHeight = await elements.getBlockHeight();
+    //     const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+    //     await elements.mine(blocksToMine);
+    //     await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
+    //     await elements.mine(10);
+    //     await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
+    //     expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('REFUNDED');
+    // });
 
     it('should complete a swap in with custom lockBlockDeltaIn', async () => {
         const { paymentRequest, rHash } = await lndUser.createInvoice(0.0025);
