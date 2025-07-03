@@ -89,7 +89,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/40swapd
           labels: |
