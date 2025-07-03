@@ -68,17 +68,16 @@ jobs:
     permissions:
       contents: read
       packages: write
-    needs:
-      - go-lint
-      - go-test
+    # needs:
+    #   - go-lint
+    #   - go-test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Subtract '40swapd/' from tag name
         id: clean_tag_name
         run: |
-          echo "tag_name=${GITHUB_REF##refs/tags/}" >> $GITHUB_ENV
-          echo "clean_tag_name=${tag_name##40swapd\/}" >> $GITHUB_OUTPUT
+          echo "CLEAN_TAG_NAME=${GITHUB_REF_NAME##40swapd\/}" >> $GITHUB_OUTPUT
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Log into the Container registry
@@ -103,7 +102,7 @@ jobs:
             type=schedule
             type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}},event=tag,value=${{ steps.clean_tag_name.outputs.clean_tag_name }}
+            type=semver,event=tag,pattern={{version}},value=${{ steps.clean_tag_name.outputs.CLEAN_TAG_NAME }}
       - name: Build and push the Docker image
         uses: docker/build-push-action@v6
         with:
