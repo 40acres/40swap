@@ -104,14 +104,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Log into the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v3.4.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Docker meta
         id: meta-fe
-        uses: docker/metadata-action@v5.0.0
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
