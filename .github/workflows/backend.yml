@@ -91,6 +91,38 @@ jobs:
         working-directory: server-backend
         run: npm test
 
+  build-check:
+    # Run this job on pull requests to verify builds work
+    if: github.event_name == 'pull_request'
+    needs: [code-quality, integration-testing]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build shared package
+        working-directory: shared
+        run: npm run build
+      
+      - name: Build backend
+        working-directory: server-backend
+        run: npm run build
+      
+      - name: Build frontend
+        working-directory: swap-frontend
+        run: npm run build
+
   build:
     # Run this only when we are merging to :master or a new tag is created.
     if: |
