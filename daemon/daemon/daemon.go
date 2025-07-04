@@ -45,7 +45,7 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 		// Print auto swap config
 		autoSwapConfigJson, _ := json.MarshalIndent(autoSwapConfig, "", "  ")
 		log.Infof("Starting auto swap loop with config: %v", string(autoSwapConfigJson))
-		go StartAutoSwapLoop(ctx, autoSwapConfig)
+		go StartAutoSwapLoop(ctx, autoSwapConfig, swaps, lightning)
 	}
 
 	// monitor every 10 seconds
@@ -71,17 +71,30 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 	}
 }
 
-// StartAutoSwapLoop prints hello world every config.GetCheckInterval()
-func StartAutoSwapLoop(ctx context.Context, config *swaps.AutoSwapConfig) {
+// StartAutoSwapLoop runs the auto swap check every config.GetCheckInterval()
+func StartAutoSwapLoop(ctx context.Context, config *swaps.AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client) {
 	if config == nil || !config.IsEnabled() {
 		return
 	}
+
+	// Create lightning client adapter
+	lightningAdapter := swaps.NewLightningClientAdapter(lightningClient)
+
+	// Create auto swap service
+	autoSwapService := swaps.NewAutoSwapService(swapClient, lightningAdapter, config)
+
 	for {
 		select {
 		case <-ctx.Done():
+			log.Info("[AutoSwapLoop] Shutting down auto swap loop")
 			return
 		default:
-			log.Infof("[AutoSwapLoop] hello world (interval: %v)", config.GetCheckInterval())
+			// Run the auto swap check
+			if err := autoSwapService.RunAutoSwapCheck(ctx); err != nil {
+				log.Errorf("[AutoSwapLoop] Auto swap check failed: %v", err)
+			}
+
+			// Wait for the configured interval
 			time.Sleep(config.GetCheckInterval())
 		}
 	}
