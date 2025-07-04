@@ -54,8 +54,9 @@ describe('40Swap backend', () => {
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+        console.log(`mining ${blocksToMine} blocks`);
         await elements.mine(blocksToMine);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
+        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED', 400, 100);
         await elements.mine(10);
         await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
         expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('REFUNDED');

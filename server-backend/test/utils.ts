@@ -16,7 +16,7 @@ export async function waitForSwapStatus<T extends SwapInTracker | SwapOutTracker
     status: T extends SwapInTracker ? SwapInStatus : SwapOutStatus,
 ): Promise<void> {
     try {
-        return await waitFor(() => swap.value?.status === status, 300, 100);
+        return await waitFor(() => swap.value?.status === status, 90, 100);
     } catch (error) {
         throw new Error(`timeout waiting for swap status to become ${status} (current status is ${swap.value?.status})`);
     }
