@@ -141,6 +141,54 @@ func main() {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("MEMPOOL_TOKEN")),
 			},
+			&cli.BoolFlag{
+				Name:    "auto-swap-enabled",
+				Usage:   "Enable or disable auto swap out feature",
+				Value:   false,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_ENABLED")),
+			},
+			&cli.IntFlag{
+				Name:    "auto-swap-interval",
+				Usage:   "Interval in minutes to check for auto swap out",
+				Value:   10,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_INTERVAL")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-target-balance",
+				Usage:   "Target outbound liquidity in BTC",
+				Value:   1.0,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_TARGET_BALANCE")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-backoff-factor",
+				Usage:   "Backoff factor to reduce swap size on failure",
+				Value:   0.5,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_BACKOFF_FACTOR")),
+			},
+			&cli.IntFlag{
+				Name:    "auto-swap-max-attempts",
+				Usage:   "Maximum attempts per auto swap out",
+				Value:   3,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_MAX_ATTEMPTS")),
+			},
+			&cli.IntFlag{
+				Name:    "auto-swap-routing-fee-limit",
+				Usage:   "Routing fee limit in parts per million (ppm)",
+				Value:   1000,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_ROUTING_FEE_LIMIT")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-min-size",
+				Usage:   "Minimum size per auto swap out (BTC)",
+				Value:   0.001,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_MIN_SIZE")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-max-size",
+				Usage:   "Maximum size per auto swap out (BTC)",
+				Value:   0.1,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_MAX_SIZE")),
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -187,6 +235,27 @@ func main() {
 					} else if c.Bool("testnet") {
 						network = rpc.Network_TESTNET
 					}
+
+					// Create auto swap config from CLI flags
+					autoSwapConfig := swaps.NewAutoSwapConfigFromFlags(
+						c.Bool("auto-swap-enabled"),
+						int(c.Int("auto-swap-interval")),
+						c.Float("auto-swap-target-balance"),
+						c.Float("auto-swap-backoff-factor"),
+						int(c.Int("auto-swap-max-attempts")),
+						int(c.Int("auto-swap-routing-fee-limit")),
+						c.Float("auto-swap-min-size"),
+						c.Float("auto-swap-max-size"),
+					)
+
+					// Validate auto swap config
+					if err := autoSwapConfig.Validate(); err != nil {
+						return fmt.Errorf("invalid auto swap config: %w", err)
+					}
+
+					// Print auto swap config
+					autoSwapConfigJson, _ := json.MarshalIndent(autoSwapConfig, "", "  ")
+					fmt.Println("[AutoSwap Config]", string(autoSwapConfigJson))
 
 					swapClient, err := swaps.NewClient(c.String("server-url"))
 					if err != nil {
