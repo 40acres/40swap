@@ -46,89 +46,13 @@ jobs:
       - name: Check linting
         run: npm run lint
 
-  integration-testing:
-    runs-on: ubuntu-latest
-    needs: code-quality
-    permissions:
-      contents: read
-      packages: read
-    services:
-      docker:
-        image: docker:dind
-        options: --privileged --shm-size=2g
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock:ro
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check if the integrations tests should be run
-        uses: tj-actions/changed-files@v46
-        id: changed-files
-        with:
-          files: |
-            server-backend/**
-            shared/**
-            swap-frontend/**
-            docker/**
-      - name: Setup Node.js
-        if: steps.changed-files.outputs.any_modified == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-      
-      - name: Install dependencies
-        if: steps.changed-files.outputs.any_modified == 'true'
-        run: npm ci
-      
-      - name: Build shared
-        if: steps.changed-files.outputs.any_modified == 'true'
-        working-directory: shared
-        run: npm run build
-      
-      - name: Run tests
-        if: steps.changed-files.outputs.any_modified == 'true'
-        working-directory: server-backend
-        run: npm test
-
-  build-check:
-    # Run this job on pull requests to verify builds work
-    if: github.event_name == 'pull_request'
-    needs: [code-quality, integration-testing]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build shared package
-        working-directory: shared
-        run: npm run build
-      
-      - name: Build backend
-        working-directory: server-backend
-        run: npm run build
-      
-      - name: Build frontend
-        working-directory: swap-frontend
-        run: npm run build
-
   build:
-    # Run this only when we are merging to :master or a new tag is created.
+    # Run this only when we are merging to :master, a new tag is created or a PR is created.
     if: |
       github.ref == 'refs/heads/master' ||
-      startsWith(github.ref, 'refs/tags/')
-    needs: [code-quality, integration-testing]
+      startsWith(github.ref, 'refs/tags/')||
+      github.event_name == 'pull_request'
+    needs: code-quality
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -201,3 +125,48 @@ jobs:
           provenance: false
           tags: ${{ steps.meta-be.outputs.tags }}
           labels: ${{ steps.meta-be.outputs.labels }}
+
+  integration-testing:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: read
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged --shm-size=2g
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check if the integrations tests should be run
+        uses: tj-actions/changed-files@v46
+        id: changed-files
+        with:
+          files: |
+            server-backend/**
+            shared/**
+            swap-frontend/**
+            docker/**
+      - name: Setup Node.js
+        if: steps.changed-files.outputs.any_modified == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      
+      - name: Install dependencies
+        if: steps.changed-files.outputs.any_modified == 'true'
+        run: npm ci
+      
+      - name: Build shared
+        if: steps.changed-files.outputs.any_modified == 'true'
+        working-directory: shared
+        run: npm run build
+      
+      - name: Run tests
+        if: steps.changed-files.outputs.any_modified == 'true'
+        working-directory: server-backend
+        run: npm test
