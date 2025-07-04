@@ -14,9 +14,11 @@ export async function waitForChainSync(lnds: Lnd[]): Promise<void> {
 export async function waitForSwapStatus<T extends SwapInTracker | SwapOutTracker>(
     swap: T,
     status: T extends SwapInTracker ? SwapInStatus : SwapOutStatus,
+    maxIterations = 90,
+    delay = 100,
 ): Promise<void> {
     try {
-        return await waitFor(() => swap.value?.status === status, 90, 100);
+        return await waitFor(() => swap.value?.status === status, maxIterations, delay);
     } catch (error) {
         throw new Error(`timeout waiting for swap status to become ${status} (current status is ${swap.value?.status})`);
     }
