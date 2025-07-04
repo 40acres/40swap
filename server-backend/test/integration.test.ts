@@ -6,7 +6,7 @@ import { FortySwapClient, InMemoryPersistence, SwapService, SwapOutcome } from '
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
-import { ECPair, waitFor, waitForChainSync, waitForSwapStatus } from './utils';
+import { ECPair, sleep, waitFor, waitForChainSync, waitForSwapStatus } from './utils';
 import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
 import assert from 'node:assert';
@@ -34,7 +34,7 @@ describe('40Swap backend', () => {
         await compose.down();
     });
 
-    it.only('should properly handle a liquid swap out expiration', async () => {
+    it('should properly handle a liquid swap out expiration', async () => {
         const claimAddress = await elements.getNewAddress();
         const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
@@ -54,12 +54,14 @@ describe('40Swap backend', () => {
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        console.log(`mining ${blocksToMine} blocks`);
         await elements.mine(blocksToMine);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED', 400, 100);
+        await sleep(1000);
+        swap.start();
+        // this takes a while because there are many blocks to process. Need to wait longer because CI is slow...
+        await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED', 400);
         await elements.mine(10);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
-        expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('REFUNDED');
+        await waitForSwapStatus(swap, 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
     it('should complete a swap out', async () => {
