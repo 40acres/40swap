@@ -3,6 +3,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -21,7 +22,7 @@ type Repository interface {
 	database.SwapOutRepository
 }
 
-func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network) error {
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network, autoSwapConfig *swaps.AutoSwapConfig) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -38,6 +39,14 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 			log.Fatalf("couldn't start server: %v", err)
 		}
 	}()
+
+	// Start the auto swap loop in a goroutine if auto swap is enabled
+	if autoSwapConfig != nil && autoSwapConfig.IsEnabled() {
+		// Print auto swap config
+		autoSwapConfigJson, _ := json.MarshalIndent(autoSwapConfig, "", "  ")
+		log.Infof("Starting auto swap loop with config: %v", string(autoSwapConfigJson))
+		go StartAutoSwapLoop(ctx, autoSwapConfig)
+	}
 
 	// monitor every 10 seconds
 	for {
@@ -58,6 +67,22 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 			monitor.MonitorSwaps(ctx)
 
 			time.Sleep(MONITORING_INTERVAL_SECONDS * time.Second)
+		}
+	}
+}
+
+// StartAutoSwapLoop prints hello world every config.GetCheckInterval()
+func StartAutoSwapLoop(ctx context.Context, config *swaps.AutoSwapConfig) {
+	if config == nil || !config.IsEnabled() {
+		return
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			log.Infof("[AutoSwapLoop] hello world (interval: %v)", config.GetCheckInterval())
+			time.Sleep(config.GetCheckInterval())
 		}
 	}
 }

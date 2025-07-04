@@ -253,10 +253,6 @@ func main() {
 						return fmt.Errorf("invalid auto swap config: %w", err)
 					}
 
-					// Print auto swap config
-					autoSwapConfigJson, _ := json.MarshalIndent(autoSwapConfig, "", "  ")
-					fmt.Println("[AutoSwap Config]", string(autoSwapConfigJson))
-
 					swapClient, err := swaps.NewClient(c.String("server-url"))
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
@@ -285,7 +281,7 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, c.Int("minrelayfee"), network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network))
+					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network), autoSwapConfig)
 					if err != nil {
 						return err
 					}
