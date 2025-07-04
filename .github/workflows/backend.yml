@@ -75,8 +75,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=ref,event=pr
-            type=raw,event=push,value={{branch}}-${{github.run_number}}-{{sha}}
-            type=raw,event=push,value={{branch}}-${{github.run_number}}
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}-{{sha}}
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}
           labels: |
             commit=${{ github.sha }}
             actions_run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -105,8 +105,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=ref,event=pr
-            type=raw,event=push,value={{branch}}-${{github.run_number}}-{{sha}}
-            type=raw,event=push,value={{branch}}-${{github.run_number}}
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}-{{sha}}
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}
           labels: |
             commit=${{ github.sha }}
             actions_run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
