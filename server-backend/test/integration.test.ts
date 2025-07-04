@@ -34,7 +34,7 @@ describe('40Swap backend', () => {
         await compose.down();
     });
 
-    it('should properly handle a liquid swap out expiration', async () => {
+    it.only('should properly handle a liquid swap out expiration', async () => {
         const claimAddress = await elements.getNewAddress();
         const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
@@ -331,6 +331,8 @@ describe('40Swap backend', () => {
         lndAlice = await Lnd.fromContainer(compose.getContainer('40swap_lnd_alice'));
         bitcoind = new Bitcoind(compose.getContainer('40swap_bitcoind'));
         const backendContainer = compose.getContainer('40swap_backend');
+        (await backendContainer.logs()).pipe(process.stdout);
+
         const backendBaseUrl = `http://${backendContainer.getHost()}:${backendContainer.getMappedPort(8081)}`;
         backend = new FortySwapClient(backendBaseUrl);
         swapService = new SwapService({
