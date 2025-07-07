@@ -23,7 +23,7 @@ type LightningClient interface {
 
 // LightningInfo represents LND node information
 type LightningInfo struct {
-	LocalBalance  float64 // in BTC
+	LocalBalance float64 // in BTC
 }
 
 // LightningClientAdapter adapts lightning.Client to LightningClient interface
@@ -49,7 +49,7 @@ func (a *LightningClientAdapter) GetInfo(ctx context.Context) (*LightningInfo, e
 	localBalanceBTC := localBalance.Div(decimal.NewFromInt(100000000)).InexactFloat64()
 
 	return &LightningInfo{
-		LocalBalance:  localBalanceBTC,
+		LocalBalance: localBalanceBTC,
 	}, nil
 }
 

@@ -31,7 +31,7 @@ func TestAutoSwapService(t *testing.T) {
 
 		// Setup lightning mock to return balance above target
 		mockLightning.On("GetInfo", mock.Anything).Return(&LightningInfo{
-			LocalBalance:  1.5, // Above target of 1.0
+			LocalBalance: 1.5, // Above target of 1.0
 		}, nil)
 
 		// Create service
@@ -57,7 +57,7 @@ func TestAutoSwapService(t *testing.T) {
 
 		// Setup lightning mock to return balance below target
 		mockLightning.On("GetInfo", mock.Anything).Return(&LightningInfo{
-			LocalBalance:  0.5, // Below target of 1.0
+			LocalBalance: 0.5, // Below target of 1.0
 		}, nil)
 
 		// Create service
@@ -94,4 +94,3 @@ func TestAutoSwapService(t *testing.T) {
 		mockLightning.AssertExpectations(t)
 	})
 }
- 
