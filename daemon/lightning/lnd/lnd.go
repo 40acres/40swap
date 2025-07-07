@@ -372,6 +372,20 @@ func (c *Client) GenerateAddress(ctx context.Context) (string, error) {
 	return res.Address, nil
 }
 
+// GetChannelBalance retrieves the local channel balance from the LND node
+func (c *Client) GetChannelBalance(ctx context.Context) (decimal.Decimal, error) {
+	// Get channel balance
+	channelBalance, err := c.lndClient.ChannelBalance(ctx, &lnrpc.ChannelBalanceRequest{})
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("failed to get channel balance: %w", err)
+	}
+
+	// Convert from satoshis to decimal
+	localBalance := decimal.NewFromInt(int64(channelBalance.LocalBalance.Sat))
+
+	return localBalance, nil
+}
+
 // CloseConnection closes the connection with the lnd node
 func (c *Client) CloseConnection() {
 	c.closeConnection()

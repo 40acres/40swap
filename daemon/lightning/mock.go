@@ -73,6 +73,21 @@ func (mr *MockClientMockRecorder) GenerateInvoice(ctx, amountSats, expiry, memo 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateInvoice", reflect.TypeOf((*MockClient)(nil).GenerateInvoice), ctx, amountSats, expiry, memo)
 }
 
+// GetChannelBalance mocks base method.
+func (m *MockClient) GetChannelBalance(ctx context.Context) (decimal.Decimal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetChannelBalance", ctx)
+	ret0, _ := ret[0].(decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetChannelBalance indicates an expected call of GetChannelBalance.
+func (mr *MockClientMockRecorder) GetChannelBalance(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChannelBalance", reflect.TypeOf((*MockClient)(nil).GetChannelBalance), ctx)
+}
+
 // MonitorPaymentReception mocks base method.
 func (m *MockClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error) {
 	m.ctrl.T.Helper()

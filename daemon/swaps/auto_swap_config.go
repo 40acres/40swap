@@ -94,3 +94,4 @@ func (c *AutoSwapConfig) Validate() error {
 	}
 	return nil
 }
+ 

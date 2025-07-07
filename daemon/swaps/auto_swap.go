@@ -2,8 +2,10 @@ package swaps
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,8 +24,6 @@ type LightningClient interface {
 // LightningInfo represents LND node information
 type LightningInfo struct {
 	LocalBalance  float64 // in BTC
-	RemoteBalance float64 // in BTC
-	// Add other fields as needed
 }
 
 // LightningClientAdapter adapts lightning.Client to LightningClient interface
@@ -38,13 +38,18 @@ func NewLightningClientAdapter(client lightning.Client) LightningClient {
 
 // GetInfo implements LightningClient interface
 func (a *LightningClientAdapter) GetInfo(ctx context.Context) (*LightningInfo, error) {
-	// TODO: Implement actual LND GetInfo call
-	// For now, return mock data
-	log.Info("[AutoSwap] Getting LND info (mock implementation)")
+	log.Info("[AutoSwap] Getting LND info from real LND node")
+
+	localBalance, err := a.client.GetChannelBalance(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get channel balance: %w", err)
+	}
+
+	// Convert from satoshis to BTC (1 BTC = 100,000,000 sats)
+	localBalanceBTC := localBalance.Div(decimal.NewFromInt(100000000)).InexactFloat64()
 
 	return &LightningInfo{
-		LocalBalance:  1.5, // Mock data - replace with actual LND call
-		RemoteBalance: 0.5,
+		LocalBalance:  localBalanceBTC,
 	}, nil
 }
 
@@ -77,7 +82,6 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		log.Infof("[AutoSwap] Local balance exceeds target by %.8f BTC", excess)
 
 		// TODO: Implement swap out logic here
-		// For now, just log that we would do a swap
 		log.Info("[AutoSwap] Would perform swap out here...")
 	} else {
 		log.Info("[AutoSwap] Local balance is within target, no action needed")
