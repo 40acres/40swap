@@ -169,31 +169,48 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			return nil
 		}
 
-		log.Infof("[AutoSwap] Creating swap out for %.8f BTC", swapAmount)
+		var attempt int
+		maxAttempts := s.config.MaxAttempts
+		backoffFactor := s.config.BackoffFactor
+		var lastErr error
+		for attempt = 1; attempt <= maxAttempts; attempt++ {
+			log.Infof("[AutoSwap] Attempt %d/%d: Trying swap out for %.8f BTC", attempt, maxAttempts, swapAmount)
 
-		addr, err := s.lightningClient.GenerateAddress(ctx)
-		if err != nil {
-			log.Errorf("[AutoSwap] Failed to generate address: %v", err)
-			return err
+			addr, err := s.lightningClient.GenerateAddress(ctx)
+			if err != nil {
+				log.Errorf("[AutoSwap] Failed to generate address: %v", err)
+				lastErr = err
+				break // Address generation failure is not likely to succeed on retry
+			}
+
+			// Convert routing fee limit from PPM to percent
+			maxRoutingFeePercent := float32(s.config.RoutingFeeLimitPPM) / 10000.0
+			swapOutRequest := rpc.SwapOutRequest{
+				Chain:                rpc.Chain_BITCOIN,
+				AmountSats:           uint64(swapAmount * 100000000), // Convert BTC to sats
+				Address:              addr,
+				MaxRoutingFeePercent: &maxRoutingFeePercent,
+			}
+
+			swap, err := s.rpcClient.SwapOut(ctx, &swapOutRequest)
+			if err != nil {
+				log.Errorf("[AutoSwap] Swap out attempt %d failed: %v", attempt, err)
+				lastErr = err
+				swapAmount = swapAmount * backoffFactor
+				if swapAmount < s.config.MinSwapSizeBTC {
+					log.Warnf("[AutoSwap] Swap amount %.8f BTC dropped below minimum %.8f BTC after backoff. Stopping retries.", swapAmount, s.config.MinSwapSizeBTC)
+					break
+				}
+				continue
+			}
+
+			s.addRunningSwap(swap.SwapId)
+			log.Infof("[AutoSwap] Auto swap out completed successfully: %v", swap)
+			go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
+			return nil // Success, exit
 		}
-
-		// Convert routing fee limit from PPM to percent
-		maxRoutingFeePercent := float32(s.config.RoutingFeeLimitPPM) / 10000.0
-		swapOutRequest := rpc.SwapOutRequest{
-			Chain:                rpc.Chain_BITCOIN,
-			AmountSats:           uint64(swapAmount * 100000000), // Convert BTC to sats
-			Address:              addr,
-			MaxRoutingFeePercent: &maxRoutingFeePercent,
-		}
-
-		swap, err := s.rpcClient.SwapOut(ctx, &swapOutRequest)
-		if err != nil {
-			return err
-		}
-
-		s.addRunningSwap(swap.SwapId)
-		log.Infof("[AutoSwap] Auto swap out completed successfully: %v", swap)
-		go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
+		log.Errorf("[AutoSwap] All swap out attempts failed after %d tries. Last error: %v", attempt-1, lastErr)
+		return lastErr
 	} else {
 		log.Info("[AutoSwap] Local balance is within target, no action needed")
 	}
