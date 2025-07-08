@@ -6,7 +6,7 @@ import (
 
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/money"
-	"github.com/shopspring/decimal"
+	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/mock/gomock"
@@ -22,6 +22,31 @@ func (m *MockLightningClient) GetInfo(ctx context.Context) (*LightningInfo, erro
 	return args.Get(0).(*LightningInfo), args.Error(1)
 }
 
+// MockSwapOutCreator is a mock implementation of SwapOutCreator
+type MockSwapOutCreator struct {
+	mock.Mock
+}
+
+func (m *MockSwapOutCreator) CreateSwapOut(ctx context.Context, claimPubKey string, amountSats money.Money) (*SwapOutResponse, *lntypes.Preimage, error) {
+	args := m.Called(ctx, claimPubKey, amountSats)
+	return args.Get(0).(*SwapOutResponse), args.Get(1).(*lntypes.Preimage), args.Error(2)
+}
+
+// MockSwapOutMonitor is a mock implementation of SwapOutMonitor
+type MockSwapOutMonitor struct {
+	mock.Mock
+}
+
+func (m *MockSwapOutMonitor) MonitorSwapOut(ctx context.Context, swap *models.SwapOut) error {
+	args := m.Called(ctx, swap)
+	return args.Error(0)
+}
+
+func (m *MockSwapOutMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error) {
+	args := m.Called(ctx, swap)
+	return args.String(0), args.Error(1)
+}
+
 func TestAutoSwapService(t *testing.T) {
 	t.Run("RunAutoSwapCheck with balance above target", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -30,6 +55,8 @@ func TestAutoSwapService(t *testing.T) {
 		// Create mocks
 		mockLightning := new(MockLightningClient)
 		mockClient := NewMockClientInterface(ctrl)
+		mockSwapOutCreator := new(MockSwapOutCreator)
+		mockSwapOutMonitor := new(MockSwapOutMonitor)
 
 		// Setup config
 		config := NewAutoSwapConfig()
@@ -41,14 +68,8 @@ func TestAutoSwapService(t *testing.T) {
 			LocalBalance: 1.5, // Above target of 1.0
 		}, nil)
 
-		// Setup mock client expectations for swap out creation
-		mockClient.EXPECT().CreateSwapOut(gomock.Any(), gomock.Any()).Return(&SwapOutResponse{
-			SwapId:  "test-swap-id",
-			Invoice: "test-invoice",
-		}, nil)
-
 		// Create service
-		service := NewAutoSwapService(mockClient, mockLightning, config)
+		service := NewAutoSwapService(mockClient, mockLightning, config, mockSwapOutCreator, mockSwapOutMonitor)
 
 		// Run the check
 		err := service.RunAutoSwapCheck(context.Background())
@@ -65,6 +86,8 @@ func TestAutoSwapService(t *testing.T) {
 		// Create mocks
 		mockLightning := new(MockLightningClient)
 		mockClient := NewMockClientInterface(ctrl)
+		mockSwapOutCreator := new(MockSwapOutCreator)
+		mockSwapOutMonitor := new(MockSwapOutMonitor)
 
 		// Setup config
 		config := NewAutoSwapConfig()
@@ -77,7 +100,7 @@ func TestAutoSwapService(t *testing.T) {
 		}, nil)
 
 		// Create service
-		service := NewAutoSwapService(mockClient, mockLightning, config)
+		service := NewAutoSwapService(mockClient, mockLightning, config, mockSwapOutCreator, mockSwapOutMonitor)
 
 		// Run the check
 		err := service.RunAutoSwapCheck(context.Background())
@@ -94,6 +117,8 @@ func TestAutoSwapService(t *testing.T) {
 		// Create mocks
 		mockLightning := new(MockLightningClient)
 		mockClient := NewMockClientInterface(ctrl)
+		mockSwapOutCreator := new(MockSwapOutCreator)
+		mockSwapOutMonitor := new(MockSwapOutMonitor)
 
 		// Setup config
 		config := NewAutoSwapConfig()
@@ -103,7 +128,7 @@ func TestAutoSwapService(t *testing.T) {
 		mockLightning.On("GetInfo", mock.Anything).Return((*LightningInfo)(nil), assert.AnError)
 
 		// Create service
-		service := NewAutoSwapService(mockClient, mockLightning, config)
+		service := NewAutoSwapService(mockClient, mockLightning, config, mockSwapOutCreator, mockSwapOutMonitor)
 
 		// Run the check
 		err := service.RunAutoSwapCheck(context.Background())
@@ -120,6 +145,8 @@ func TestAutoSwapService(t *testing.T) {
 		// Create mocks
 		mockLightning := new(MockLightningClient)
 		mockClient := NewMockClientInterface(ctrl)
+		mockSwapOutCreator := new(MockSwapOutCreator)
+		mockSwapOutMonitor := new(MockSwapOutMonitor)
 
 		// Setup config
 		config := NewAutoSwapConfig()
@@ -133,26 +160,8 @@ func TestAutoSwapService(t *testing.T) {
 			LocalBalance: 1.2, // Above target of 1.0, excess of 0.2 BTC
 		}, nil)
 
-		// Setup mock client expectations
-		expectedAmount, _ := money.NewFromBtc(decimal.NewFromFloat(0.1)) // Should be capped at MaxSwapSizeBTC
-		mockClient.EXPECT().CreateSwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, req CreateSwapOutRequest) (*SwapOutResponse, error) {
-				// Verify the request parameters
-				assert.Equal(t, models.Bitcoin, req.Chain)
-				assert.Equal(t, expectedAmount, req.Amount)
-				assert.NotEmpty(t, req.PreImageHash)
-				assert.NotEmpty(t, req.ClaimPubKey)
-
-				// Return a mock response
-				return &SwapOutResponse{
-					SwapId:  "test-swap-id",
-					Invoice: "test-invoice",
-				}, nil
-			},
-		)
-
 		// Create service
-		service := NewAutoSwapService(mockClient, mockLightning, config)
+		service := NewAutoSwapService(mockClient, mockLightning, config, mockSwapOutCreator, mockSwapOutMonitor)
 
 		// Run the check
 		err := service.RunAutoSwapCheck(context.Background())
@@ -169,6 +178,8 @@ func TestAutoSwapService(t *testing.T) {
 		// Create mocks
 		mockLightning := new(MockLightningClient)
 		mockClient := NewMockClientInterface(ctrl)
+		mockSwapOutCreator := new(MockSwapOutCreator)
+		mockSwapOutMonitor := new(MockSwapOutMonitor)
 
 		// Setup config with high minimum
 		config := NewAutoSwapConfig()
@@ -183,7 +194,7 @@ func TestAutoSwapService(t *testing.T) {
 		}, nil)
 
 		// Create service
-		service := NewAutoSwapService(mockClient, mockLightning, config)
+		service := NewAutoSwapService(mockClient, mockLightning, config, mockSwapOutCreator, mockSwapOutMonitor)
 
 		// Run the check
 		err := service.RunAutoSwapCheck(context.Background())

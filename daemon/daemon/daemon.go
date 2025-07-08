@@ -3,7 +3,6 @@ package daemon
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -42,10 +41,17 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 
 	// Start the auto swap loop in a goroutine if auto swap is enabled
 	if autoSwapConfig != nil && autoSwapConfig.IsEnabled() {
-		// Print auto swap config
-		autoSwapConfigJson, _ := json.MarshalIndent(autoSwapConfig, "", "  ")
-		log.Infof("Starting auto swap loop with config: %v", string(autoSwapConfigJson))
-		go StartAutoSwapLoop(ctx, autoSwapConfig, swaps, lightning)
+		// Create swap monitor for auto swap
+		swapMonitor := &SwapMonitor{
+			repository:      db,
+			swapClient:      swaps,
+			lightningClient: lightning,
+			network:         network,
+			now:             time.Now,
+			bitcoin:         bitcoin,
+		}
+
+		go StartAutoSwapLoop(ctx, autoSwapConfig, swaps, lightning, server, swapMonitor)
 	}
 
 	// monitor every 10 seconds
@@ -72,26 +78,27 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 }
 
 // StartAutoSwapLoop runs the auto swap check every config.GetCheckInterval()
-func StartAutoSwapLoop(ctx context.Context, config *swaps.AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client) {
-	if config == nil || !config.IsEnabled() {
-		return
-	}
+func StartAutoSwapLoop(ctx context.Context, config *swaps.AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client, rpcServer *rpc.Server, swapMonitor *SwapMonitor) {
+	log.Infof("[AutoSwap] Starting auto swap loop")
 
 	// Create lightning client adapter
 	lightningAdapter := swaps.NewLightningClientAdapter(lightningClient)
+	// Create adapters to reuse existing logic
+	rpcSwapOutCreator := swaps.NewRPCSwapOutCreatorAdapter(rpc.NewRPCServerWrapper(rpcServer))
+	daemonSwapOutMonitor := swaps.NewDaemonSwapOutMonitorAdapter(swapMonitor)
 
-	// Create auto swap service
-	autoSwapService := swaps.NewAutoSwapService(swapClient, lightningAdapter, config)
+	// Create auto swap service with dependencies
+	autoSwapService := swaps.NewAutoSwapService(swapClient, lightningAdapter, config, rpcSwapOutCreator, daemonSwapOutMonitor)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("[AutoSwapLoop] Shutting down auto swap loop")
+			log.Info("[AutoSwap] Shutting down auto swap loop")
 			return
 		default:
 			// Run the auto swap check
 			if err := autoSwapService.RunAutoSwapCheck(ctx); err != nil {
-				log.Errorf("[AutoSwapLoop] Auto swap check failed: %v", err)
+				log.Errorf("[AutoSwap] Auto swap check failed: %v", err)
 			}
 
 			// Wait for the configured interval
