@@ -187,9 +187,8 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		return fmt.Errorf("failed to get channel balance: %w", err)
 	}
 
-	// Convert from satoshis to BTC using money.Money
-	balanceIntPart := balance.IntPart()
-	localBalanceSats := money.Money(balanceIntPart)
+	// Convert from satoshis to BTC using money.Money (safe: balance is always positive)
+	localBalanceSats := money.Money(balance.BigInt().Uint64())
 	log.Infof("[AutoSwap] Local balance: %d sats", localBalanceSats)
 	localBalanceBTC := localBalanceSats.ToBtc().InexactFloat64()
 

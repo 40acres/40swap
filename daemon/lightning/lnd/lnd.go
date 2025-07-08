@@ -381,7 +381,7 @@ func (c *Client) GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, e
 	}
 
 	// Convert from satoshis to decimal
-	localBalance := decimal.NewFromInt(int64(channelBalance.LocalBalance.Sat))
+	localBalance := decimal.NewFromUint64(channelBalance.LocalBalance.Sat)
 
 	return localBalance, nil
 }
