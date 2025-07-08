@@ -88,6 +88,7 @@ func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient s
 		select {
 		case <-ctx.Done():
 			log.Info("[AutoSwap] Shutting down auto swap loop")
+
 			return
 		default:
 			// Run the auto swap check

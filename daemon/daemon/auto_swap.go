@@ -69,6 +69,7 @@ func (s *AutoSwapService) removeRunningSwap(swapID string) {
 	for i, id := range s.runningSwaps {
 		if id == swapID {
 			s.runningSwaps = append(s.runningSwaps[:i], s.runningSwaps[i+1:]...)
+
 			break
 		}
 	}
@@ -78,6 +79,7 @@ func (s *AutoSwapService) removeRunningSwap(swapID string) {
 func (s *AutoSwapService) hasRunningSwap() bool {
 	s.runningSwapsMu.Lock()
 	defer s.runningSwapsMu.Unlock()
+
 	return len(s.runningSwaps) > 0
 }
 
@@ -86,6 +88,7 @@ func (s *AutoSwapService) isSwapBeingMonitored(swapID string) bool {
 	s.monitoredSwapsMu.Lock()
 	defer s.monitoredSwapsMu.Unlock()
 	_, ok := s.monitoredSwaps[swapID]
+
 	return ok
 }
 
@@ -115,15 +118,18 @@ func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID s
 			resp, err := s.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: swapID})
 			if err != nil {
 				log.Errorf("[AutoSwap] Error polling swap %s: %v", swapID, err)
+
 				continue
 			}
 			if resp.Status == rpc.Status_DONE || resp.Status == rpc.Status_CONTRACT_EXPIRED {
 				s.removeRunningSwap(swapID)
 				log.Infof("[AutoSwap] Swap %s removed from running list after reaching terminal state (%v)", swapID, resp.Status)
+
 				return
 			}
 		case <-ctx.Done():
 			log.Infof("[AutoSwap] Context cancelled for swap %s monitor", swapID)
+
 			return
 		}
 	}
@@ -136,6 +142,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	// Check if auto swap is enabled
 	if s.config == nil || !s.config.Enabled {
 		log.Info("[AutoSwap] Auto swap is disabled, skipping check")
+
 		return nil
 	}
 
@@ -150,6 +157,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 				go s.monitorSwapUntilTerminal(ctx, swapID)
 			}
 		}
+
 		return nil
 	}
 
@@ -163,6 +171,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			for _, feature := range info.Features {
 				if feature.Name == "multi-path-payments" && feature.IsKnown {
 					mppSupported = true
+
 					break
 				}
 			}
@@ -179,7 +188,8 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	}
 
 	// Convert from satoshis to BTC using money.Money
-	localBalanceSats := money.Money(balance.IntPart())
+	balanceIntPart := balance.IntPart()
+	localBalanceSats := money.Money(balanceIntPart)
 	log.Infof("[AutoSwap] Local balance: %d sats", localBalanceSats)
 	localBalanceBTC := localBalanceSats.ToBtc().InexactFloat64()
 
@@ -199,6 +209,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		if swapAmount < s.config.MinSwapSizeBTC {
 			log.Infof("[AutoSwap] Excess amount %.8f BTC is below minimum swap size %.8f BTC, skipping",
 				excess, s.config.MinSwapSizeBTC)
+
 			return nil
 		}
 
@@ -230,17 +241,21 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 				swapAmount = swapAmount * backoffFactor
 				if swapAmount < s.config.MinSwapSizeBTC {
 					log.Warnf("[AutoSwap] Swap amount %.8f BTC dropped below minimum %.8f BTC after backoff. Stopping retries.", swapAmount, s.config.MinSwapSizeBTC)
+
 					break
 				}
+
 				continue
 			}
 
 			s.addRunningSwap(swap.SwapId)
 			log.Infof("[AutoSwap] Auto swap out completed successfully: %v", swap)
 			go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
+
 			return nil // Success, exit
 		}
 		log.Errorf("[AutoSwap] All swap out attempts failed after %d tries. Last error: %v", attempt-1, lastErr)
+
 		return lastErr
 	} else {
 		log.Info("[AutoSwap] Local balance is within target, no action needed")

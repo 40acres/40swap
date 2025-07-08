@@ -25,46 +25,55 @@ type MockSwapClient struct {
 
 func (m *MockSwapClient) GetConfiguration(ctx context.Context) (*swaps.ConfigurationResponse, error) {
 	args := m.Called(ctx)
+
 	return args.Get(0).(*swaps.ConfigurationResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) CreateSwapIn(ctx context.Context, req *swaps.CreateSwapInRequest) (*swaps.SwapInResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*swaps.SwapInResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) CreateSwapOut(ctx context.Context, req swaps.CreateSwapOutRequest) (*swaps.SwapOutResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*swaps.SwapOutResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) GetSwapIn(ctx context.Context, id string) (*swaps.SwapInResponse, error) {
 	args := m.Called(ctx, id)
+
 	return args.Get(0).(*swaps.SwapInResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) GetSwapOut(ctx context.Context, id string) (*swaps.SwapOutResponse, error) {
 	args := m.Called(ctx, id)
+
 	return args.Get(0).(*swaps.SwapOutResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) GetClaimPSBT(ctx context.Context, swapId, address string) (*swaps.GetClaimPSBTResponse, error) {
 	args := m.Called(ctx, swapId, address)
+
 	return args.Get(0).(*swaps.GetClaimPSBTResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) PostClaim(ctx context.Context, swapId, tx string) error {
 	args := m.Called(ctx, swapId, tx)
+
 	return args.Error(0)
 }
 
 func (m *MockSwapClient) GetRefundPSBT(ctx context.Context, swapId, address string) (*swaps.RefundPSBTResponse, error) {
 	args := m.Called(ctx, swapId, address)
+
 	return args.Get(0).(*swaps.RefundPSBTResponse), args.Error(1)
 }
 
 func (m *MockSwapClient) PostRefund(ctx context.Context, swapId, tx string) error {
 	args := m.Called(ctx, swapId, tx)
+
 	return args.Error(0)
 }
 
@@ -74,36 +83,43 @@ type MockLightningClient struct {
 
 func (m *MockLightningClient) PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error {
 	args := m.Called(ctx, paymentRequest, feeLimitRatio)
+
 	return args.Error(0)
 }
 
 func (m *MockLightningClient) MonitorPaymentRequest(ctx context.Context, paymentHash string) (lightning.Preimage, lightning.NetworkFeeSats, error) {
 	args := m.Called(ctx, paymentHash)
+
 	return args.String(0), args.Get(1).(lightning.NetworkFeeSats), args.Error(2)
 }
 
 func (m *MockLightningClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (lightning.Preimage, error) {
 	args := m.Called(ctx, rhash)
+
 	return args.String(0), args.Error(1)
 }
 
 func (m *MockLightningClient) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (string, []byte, error) {
 	args := m.Called(ctx, amountSats, expiry, memo)
+
 	return args.String(0), args.Get(1).([]byte), args.Error(2)
 }
 
 func (m *MockLightningClient) GenerateAddress(ctx context.Context) (string, error) {
 	args := m.Called(ctx)
+
 	return args.String(0), args.Error(1)
 }
 
 func (m *MockLightningClient) GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, error) {
 	args := m.Called(ctx)
+
 	return args.Get(0).(decimal.Decimal), args.Error(1)
 }
 
 func (m *MockLightningClient) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {
 	args := m.Called(ctx)
+
 	return args.Get(0).(*lnrpc.GetInfoResponse), args.Error(1)
 }
 
@@ -113,26 +129,31 @@ type MockRPCClient struct {
 
 func (m *MockRPCClient) SwapIn(ctx context.Context, req *rpc.SwapInRequest, opts ...grpc.CallOption) (*rpc.SwapInResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*rpc.SwapInResponse), args.Error(1)
 }
 
 func (m *MockRPCClient) SwapOut(ctx context.Context, req *rpc.SwapOutRequest, opts ...grpc.CallOption) (*rpc.SwapOutResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*rpc.SwapOutResponse), args.Error(1)
 }
 
 func (m *MockRPCClient) GetSwapIn(ctx context.Context, req *rpc.GetSwapInRequest, opts ...grpc.CallOption) (*rpc.GetSwapInResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*rpc.GetSwapInResponse), args.Error(1)
 }
 
 func (m *MockRPCClient) GetSwapOut(ctx context.Context, req *rpc.GetSwapOutRequest, opts ...grpc.CallOption) (*rpc.GetSwapOutResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*rpc.GetSwapOutResponse), args.Error(1)
 }
 
 func (m *MockRPCClient) RecoverReusedSwapAddress(ctx context.Context, req *rpc.RecoverReusedSwapAddressRequest, opts ...grpc.CallOption) (*rpc.RecoverReusedSwapAddressResponse, error) {
 	args := m.Called(ctx, req)
+
 	return args.Get(0).(*rpc.RecoverReusedSwapAddressResponse), args.Error(1)
 }
 
@@ -491,66 +512,45 @@ func TestAutoSwapService(t *testing.T) {
 }
 
 func TestAutoSwapService_MonitorSwapUntilTerminal(t *testing.T) {
-	t.Run("MonitorSwapUntilTerminal_Success", func(t *testing.T) {
-		mockSwapClient := &MockSwapClient{}
-		mockRPCClient := &MockRPCClient{}
-		mockLightningClient := &MockLightningClient{}
-		config := NewAutoSwapConfig()
+	// Helper function to test monitoring with different terminal statuses
+	testMonitorSwapUntilTerminal := func(t *testing.T, testName string, expectedStatus rpc.Status) {
+		t.Run(testName, func(t *testing.T) {
+			mockSwapClient := &MockSwapClient{}
+			mockRPCClient := &MockRPCClient{}
+			mockLightningClient := &MockLightningClient{}
+			config := NewAutoSwapConfig()
 
-		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, config)
-		service.addRunningSwap("test-swap")
+			service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, config)
+			service.addRunningSwap("test-swap")
 
-		// Mock GetSwapOut to return DONE status
-		mockRPCClient.On("GetSwapOut", mock.Anything, &rpc.GetSwapOutRequest{Id: "test-swap"}).Return(
-			&rpc.GetSwapOutResponse{
-				Id:     "test-swap",
-				Status: rpc.Status_DONE,
-			}, nil)
+			// Mock GetSwapOut to return the expected status
+			mockRPCClient.On("GetSwapOut", mock.Anything, &rpc.GetSwapOutRequest{Id: "test-swap"}).Return(
+				&rpc.GetSwapOutResponse{
+					Id:     "test-swap",
+					Status: expectedStatus,
+				}, nil)
 
-		// Test the core logic by manually calling the polling logic once
-		// Since monitorSwapUntilTerminal uses a 1-minute ticker, we'll test the core logic directly
-		ctx := context.Background()
-		resp, err := service.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: "test-swap"})
-		assert.NoError(t, err)
-		if resp.Status == rpc.Status_DONE || resp.Status == rpc.Status_CONTRACT_EXPIRED {
-			service.removeRunningSwap("test-swap")
-		}
+			// Test the core logic by manually calling the polling logic once
+			// Since monitorSwapUntilTerminal uses a 1-minute ticker, we'll test the core logic directly
+			ctx := context.Background()
+			resp, err := service.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: "test-swap"})
+			assert.NoError(t, err)
+			if resp.Status == rpc.Status_DONE || resp.Status == rpc.Status_CONTRACT_EXPIRED {
+				service.removeRunningSwap("test-swap")
+			}
 
-		// Verify swap was removed from running list
-		assert.False(t, service.hasRunningSwap())
+			// Verify swap was removed from running list
+			assert.False(t, service.hasRunningSwap())
 
-		mockRPCClient.AssertExpectations(t)
-	})
+			mockRPCClient.AssertExpectations(t)
+		})
+	}
 
-	t.Run("MonitorSwapUntilTerminal_Expired", func(t *testing.T) {
-		mockSwapClient := &MockSwapClient{}
-		mockRPCClient := &MockRPCClient{}
-		mockLightningClient := &MockLightningClient{}
-		config := NewAutoSwapConfig()
+	// Test with DONE status
+	testMonitorSwapUntilTerminal(t, "MonitorSwapUntilTerminal_Success", rpc.Status_DONE)
 
-		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, config)
-		service.addRunningSwap("test-swap")
-
-		// Mock GetSwapOut to return CONTRACT_EXPIRED status
-		mockRPCClient.On("GetSwapOut", mock.Anything, &rpc.GetSwapOutRequest{Id: "test-swap"}).Return(
-			&rpc.GetSwapOutResponse{
-				Id:     "test-swap",
-				Status: rpc.Status_CONTRACT_EXPIRED,
-			}, nil)
-
-		// Test the core logic by manually calling the polling logic once
-		ctx := context.Background()
-		resp, err := service.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: "test-swap"})
-		assert.NoError(t, err)
-		if resp.Status == rpc.Status_DONE || resp.Status == rpc.Status_CONTRACT_EXPIRED {
-			service.removeRunningSwap("test-swap")
-		}
-
-		// Verify swap was removed from running list
-		assert.False(t, service.hasRunningSwap())
-
-		mockRPCClient.AssertExpectations(t)
-	})
+	// Test with CONTRACT_EXPIRED status
+	testMonitorSwapUntilTerminal(t, "MonitorSwapUntilTerminal_Expired", rpc.Status_CONTRACT_EXPIRED)
 
 	t.Run("MonitorSwapUntilTerminal_ContextCancelled", func(t *testing.T) {
 		mockSwapClient := &MockSwapClient{}

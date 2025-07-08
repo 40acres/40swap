@@ -92,5 +92,6 @@ func (c *AutoSwapConfig) Validate() error {
 	if c.MaxSwapSizeBTC <= c.MinSwapSizeBTC {
 		return ErrInvalidConfig("max swap size must be greater than min swap size")
 	}
+
 	return nil
 }
