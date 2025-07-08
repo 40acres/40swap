@@ -408,3 +408,7 @@ func loadCertPool(certBytes []byte) *x509.CertPool {
 
 	return cp
 }
+
+func (c *Client) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {
+	return c.lndClient.GetInfo(ctx, &lnrpc.GetInfoRequest{})
+}

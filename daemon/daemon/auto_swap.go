@@ -139,6 +139,25 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		return nil
 	}
 
+	// Check for MPP support before proceeding
+	info, err := s.lightningClient.GetInfo(ctx)
+	if err != nil {
+		log.Warnf("[AutoSwap] Could not fetch LND node info to check MPP support: %v", err)
+	} else {
+		mppSupported := false
+		if info.Features != nil {
+			for _, feature := range info.Features {
+				if feature.Name == "multi-path-payments" && feature.IsKnown {
+					mppSupported = true
+					break
+				}
+			}
+		}
+		if !mppSupported {
+			log.Warn("[AutoSwap] LND node does not advertise MPP (Multi-Path Payments) support. Swaps may fail or be suboptimal.")
+		}
+	}
+
 	// Get LND info
 	balance, err := s.lightningClient.GetChannelLocalBalance(ctx)
 	if err != nil {

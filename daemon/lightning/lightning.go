@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/shopspring/decimal"
 )
 
@@ -35,4 +36,5 @@ type Client interface {
 	GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error)
 	GenerateAddress(ctx context.Context) (string, error)
 	GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, error)
+	GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error)
 }
