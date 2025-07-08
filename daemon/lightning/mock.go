@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	lnrpc "github.com/lightningnetwork/lnd/lnrpc"
 	decimal "github.com/shopspring/decimal"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -86,6 +87,21 @@ func (m *MockClient) GetChannelLocalBalance(ctx context.Context) (decimal.Decima
 func (mr *MockClientMockRecorder) GetChannelLocalBalance(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChannelLocalBalance", reflect.TypeOf((*MockClient)(nil).GetChannelLocalBalance), ctx)
+}
+
+// GetInfo mocks base method.
+func (m *MockClient) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInfo", ctx)
+	ret0, _ := ret[0].(*lnrpc.GetInfoResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetInfo indicates an expected call of GetInfo.
+func (mr *MockClientMockRecorder) GetInfo(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInfo", reflect.TypeOf((*MockClient)(nil).GetInfo), ctx)
 }
 
 // MonitorPaymentReception mocks base method.
