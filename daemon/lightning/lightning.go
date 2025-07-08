@@ -34,5 +34,5 @@ type Client interface {
 	MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error)
 	GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error)
 	GenerateAddress(ctx context.Context) (string, error)
-	GetChannelBalance(ctx context.Context) (decimal.Decimal, error)
+	GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, error)
 }

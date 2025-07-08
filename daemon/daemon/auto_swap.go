@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/rpc"
 	swaps "github.com/40acres/40swap/daemon/swaps"
-	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -140,14 +140,15 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	}
 
 	// Get LND info
-	info, err := s.lightningClient.GetChannelBalance(ctx)
+	balance, err := s.lightningClient.GetChannelLocalBalance(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get channel balance: %w", err)
 	}
 
-	// Convert from satoshis to BTC (1 BTC = 100,000,000 sats)
-	log.Infof("[AutoSwap] Local balance: %v", info)
-	localBalanceBTC := info.Div(decimal.NewFromInt(100000000)).InexactFloat64()
+	// Convert from satoshis to BTC using money.Money
+	localBalanceSats := money.Money(balance.IntPart())
+	log.Infof("[AutoSwap] Local balance: %d sats", localBalanceSats)
+	localBalanceBTC := localBalanceSats.ToBtc().InexactFloat64()
 
 	log.Infof("[AutoSwap] Current local balance: %.8f BTC, target: %.8f BTC",
 		localBalanceBTC, s.config.TargetBalanceBTC)
