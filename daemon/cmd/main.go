@@ -237,7 +237,7 @@ func main() {
 					}
 
 					// Create auto swap config from CLI flags
-					autoSwapConfig := swaps.NewAutoSwapConfigFromFlags(
+					autoSwapConfig := daemon.NewAutoSwapConfigFromFlags(
 						c.Bool("auto-swap-enabled"),
 						int(c.Int("auto-swap-interval")),
 						c.Float("auto-swap-target-balance"),

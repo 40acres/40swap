@@ -1,4 +1,4 @@
-package swaps
+package daemon
 
 import (
 	"fmt"
@@ -94,4 +94,3 @@ func (c *AutoSwapConfig) Validate() error {
 	}
 	return nil
 }
- 

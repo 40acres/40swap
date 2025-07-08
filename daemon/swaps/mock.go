@@ -70,20 +70,6 @@ func (mr *MockClientInterfaceMockRecorder) CreateSwapOut(ctx, swapReq any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSwapOut", reflect.TypeOf((*MockClientInterface)(nil).CreateSwapOut), ctx, swapReq)
 }
 
-// GetAutoSwapConfig mocks base method.
-func (m *MockClientInterface) GetAutoSwapConfig() *AutoSwapConfig {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAutoSwapConfig")
-	ret0, _ := ret[0].(*AutoSwapConfig)
-	return ret0
-}
-
-// GetAutoSwapConfig indicates an expected call of GetAutoSwapConfig.
-func (mr *MockClientInterfaceMockRecorder) GetAutoSwapConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAutoSwapConfig", reflect.TypeOf((*MockClientInterface)(nil).GetAutoSwapConfig))
-}
-
 // GetClaimPSBT mocks base method.
 func (m *MockClientInterface) GetClaimPSBT(ctx context.Context, swapId, address string) (*GetClaimPSBTResponse, error) {
 	m.ctrl.T.Helper()
@@ -185,16 +171,4 @@ func (m *MockClientInterface) PostRefund(ctx context.Context, swapId, tx string)
 func (mr *MockClientInterfaceMockRecorder) PostRefund(ctx, swapId, tx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostRefund", reflect.TypeOf((*MockClientInterface)(nil).PostRefund), ctx, swapId, tx)
-}
-
-// SetAutoSwapConfig mocks base method.
-func (m *MockClientInterface) SetAutoSwapConfig(config *AutoSwapConfig) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetAutoSwapConfig", config)
-}
-
-// SetAutoSwapConfig indicates an expected call of SetAutoSwapConfig.
-func (mr *MockClientInterfaceMockRecorder) SetAutoSwapConfig(config any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAutoSwapConfig", reflect.TypeOf((*MockClientInterface)(nil).SetAutoSwapConfig), config)
 }

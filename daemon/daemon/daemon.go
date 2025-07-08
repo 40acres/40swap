@@ -10,7 +10,7 @@ import (
 	"github.com/40acres/40swap/daemon/database"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
-	"github.com/40acres/40swap/daemon/swaps"
+	swaps "github.com/40acres/40swap/daemon/swaps"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,7 +21,7 @@ type Repository interface {
 	database.SwapOutRepository
 }
 
-func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network, autoSwapConfig *swaps.AutoSwapConfig) error {
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network, autoSwapConfig *AutoSwapConfig) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -78,17 +78,14 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 }
 
 // StartAutoSwapLoop runs the auto swap check every config.GetCheckInterval()
-func StartAutoSwapLoop(ctx context.Context, config *swaps.AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client, rpcServer *rpc.Server, swapMonitor *SwapMonitor) {
+func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client, rpcServer *rpc.Server, swapMonitor *SwapMonitor) {
 	log.Infof("[AutoSwap] Starting auto swap loop")
 
 	// Create lightning client adapter
-	lightningAdapter := swaps.NewLightningClientAdapter(lightningClient)
-	// Create adapters to reuse existing logic
-	rpcSwapOutCreator := swaps.NewRPCSwapOutCreatorAdapter(rpc.NewRPCServerWrapper(rpcServer))
-	daemonSwapOutMonitor := swaps.NewDaemonSwapOutMonitorAdapter(swapMonitor)
+	lightningAdapter := NewLightningClientAdapter(lightningClient)
 
 	// Create auto swap service with dependencies
-	autoSwapService := swaps.NewAutoSwapService(swapClient, lightningAdapter, config, rpcSwapOutCreator, daemonSwapOutMonitor)
+	autoSwapService := NewAutoSwapService(swapClient, lightningAdapter, config)
 
 	for {
 		select {

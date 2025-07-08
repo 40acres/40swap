@@ -1,36 +1,20 @@
-package swaps
+package daemon
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
-	"github.com/40acres/40swap/daemon/money"
-	"github.com/lightningnetwork/lnd/lntypes"
+	swaps "github.com/40acres/40swap/daemon/swaps"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
 
 // AutoSwapService handles the auto swap functionality
 type AutoSwapService struct {
-	client          ClientInterface
+	client          swaps.ClientInterface
 	lightningClient LightningClient
 	config          *AutoSwapConfig
-	// Add dependencies for reusing existing logic
-	swapOutCreator SwapOutCreator
-	swapOutMonitor SwapOutMonitor
-}
-
-// SwapOutCreator interface for creating swap outs (reusing RPC logic)
-type SwapOutCreator interface {
-	CreateSwapOut(ctx context.Context, claimPubKey string, amountSats money.Money) (*SwapOutResponse, *lntypes.Preimage, error)
-}
-
-// SwapOutMonitor interface for monitoring swap outs (reusing daemon logic)
-type SwapOutMonitor interface {
-	MonitorSwapOut(ctx context.Context, swap *models.SwapOut) error
-	ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error)
 }
 
 // LightningClient interface for LND operations
@@ -72,18 +56,14 @@ func (a *LightningClientAdapter) GetInfo(ctx context.Context) (*LightningInfo, e
 
 // NewAutoSwapService creates a new AutoSwapService with dependencies for reusing existing logic
 func NewAutoSwapService(
-	client ClientInterface,
+	client swaps.ClientInterface,
 	lightningClient LightningClient,
 	config *AutoSwapConfig,
-	swapOutCreator SwapOutCreator,
-	swapOutMonitor SwapOutMonitor,
 ) *AutoSwapService {
 	return &AutoSwapService{
 		client:          client,
 		lightningClient: lightningClient,
 		config:          config,
-		swapOutCreator:  swapOutCreator,
-		swapOutMonitor:  swapOutMonitor,
 	}
 }
 

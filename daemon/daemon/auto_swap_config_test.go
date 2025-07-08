@@ -1,4 +1,4 @@
-package swaps
+package daemon
 
 import (
 	"testing"
@@ -99,4 +99,3 @@ func TestAutoSwapConfig(t *testing.T) {
 		})
 	})
 }
- 

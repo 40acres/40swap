@@ -11,8 +11,7 @@ import (
 )
 
 type Client struct {
-	client         *api.Client
-	autoSwapConfig *AutoSwapConfig
+	client *api.Client
 }
 
 func NewClient(endpoint string) (*Client, error) {
@@ -22,32 +21,8 @@ func NewClient(endpoint string) (*Client, error) {
 	}
 
 	return &Client{
-		client:         client,
-		autoSwapConfig: NewAutoSwapConfig(),
+		client: client,
 	}, nil
-}
-
-// NewClientWithAutoSwapConfig creates a new client with custom auto swap configuration
-func NewClientWithAutoSwapConfig(endpoint string, autoSwapConfig *AutoSwapConfig) (*Client, error) {
-	client, err := api.NewClient(endpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Client{
-		client:         client,
-		autoSwapConfig: autoSwapConfig,
-	}, nil
-}
-
-// GetAutoSwapConfig returns the auto swap configuration
-func (f *Client) GetAutoSwapConfig() *AutoSwapConfig {
-	return f.autoSwapConfig
-}
-
-// SetAutoSwapConfig sets the auto swap configuration
-func (f *Client) SetAutoSwapConfig(config *AutoSwapConfig) {
-	f.autoSwapConfig = config
 }
 
 func chainToDtoChain(chain models.Chain) (api.ChainDtoChain, error) {

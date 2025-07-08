@@ -24,9 +24,6 @@ type ClientInterface interface {
 	GetSwapIn(ctx context.Context, swapId string) (*SwapInResponse, error)
 	GetRefundPSBT(ctx context.Context, swapId, address string) (*RefundPSBTResponse, error)
 	PostRefund(ctx context.Context, swapId, tx string) error
-	// Auto swap methods
-	GetAutoSwapConfig() *AutoSwapConfig
-	SetAutoSwapConfig(config *AutoSwapConfig)
 }
 
 type ConfigurationResponse struct {
