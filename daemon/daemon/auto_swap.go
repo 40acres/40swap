@@ -44,6 +44,8 @@ func NewAutoSwapService(
 		rpcClient:       rpcClient,
 		lightningClient: lightningClient,
 		config:          config,
+		monitoredSwaps:  make(map[string]struct{}),
+		runningSwaps:    make([]string, 0),
 	}
 }
 
@@ -51,6 +53,12 @@ func NewAutoSwapService(
 func (s *AutoSwapService) addRunningSwap(swapID string) {
 	s.runningSwapsMu.Lock()
 	defer s.runningSwapsMu.Unlock()
+	// Check if the swap is already in the list to avoid duplicates
+	for _, id := range s.runningSwaps {
+		if id == swapID {
+			return // Already exists, don't add duplicate
+		}
+	}
 	s.runningSwaps = append(s.runningSwaps, swapID)
 }
 
@@ -125,6 +133,12 @@ func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID s
 func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	log.Info("[AutoSwap] Starting auto swap check...")
 
+	// Check if auto swap is enabled
+	if s.config == nil || !s.config.Enabled {
+		log.Info("[AutoSwap] Auto swap is disabled, skipping check")
+		return nil
+	}
+
 	// Skip if there is already a running auto swap
 	if s.hasRunningSwap() {
 		log.Info("[AutoSwap] There is already a running auto swap. Skipping.")
@@ -143,7 +157,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	info, err := s.lightningClient.GetInfo(ctx)
 	if err != nil {
 		log.Warnf("[AutoSwap] Could not fetch LND node info to check MPP support: %v", err)
-	} else {
+	} else if info != nil {
 		mppSupported := false
 		if info.Features != nil {
 			for _, feature := range info.Features {
@@ -197,9 +211,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 
 			addr, err := s.lightningClient.GenerateAddress(ctx)
 			if err != nil {
-				log.Errorf("[AutoSwap] Failed to generate address: %v", err)
-				lastErr = err
-				break // Address generation failure is not likely to succeed on retry
+				return fmt.Errorf("[AutoSwap] Failed to generate address: %w", err)
 			}
 
 			// Convert routing fee limit from PPM to percent
