@@ -177,7 +177,8 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			return err
 		}
 
-		maxRoutingFeePercent := float32(0.0005)
+		// Convert routing fee limit from PPM to percent
+		maxRoutingFeePercent := float32(s.config.RoutingFeeLimitPPM) / 10000.0
 		swapOutRequest := rpc.SwapOutRequest{
 			Chain:                rpc.Chain_BITCOIN,
 			AmountSats:           uint64(swapAmount * 100000000), // Convert BTC to sats
