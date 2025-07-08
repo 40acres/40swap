@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/40acres/40swap/daemon/rpc"
 	swaps "github.com/40acres/40swap/daemon/swaps"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -13,55 +14,27 @@ import (
 // AutoSwapService handles the auto swap functionality
 type AutoSwapService struct {
 	client          swaps.ClientInterface
-	lightningClient LightningClient
+	lightningClient lightning.Client
+	rpcClient       rpc.SwapServiceClient
 	config          *AutoSwapConfig
 }
 
-// LightningClient interface for LND operations
-type LightningClient interface {
-	GetInfo(ctx context.Context) (*LightningInfo, error)
-}
 
 // LightningInfo represents LND node information
 type LightningInfo struct {
 	LocalBalance float64 // in BTC
 }
 
-// LightningClientAdapter adapts lightning.Client to LightningClient interface
-type LightningClientAdapter struct {
-	client lightning.Client
-}
-
-// NewLightningClientAdapter creates a new adapter
-func NewLightningClientAdapter(client lightning.Client) LightningClient {
-	return &LightningClientAdapter{client: client}
-}
-
-// GetInfo implements LightningClient interface
-func (a *LightningClientAdapter) GetInfo(ctx context.Context) (*LightningInfo, error) {
-	log.Info("[AutoSwap] Getting LND info from real LND node")
-
-	localBalance, err := a.client.GetChannelBalance(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get channel balance: %w", err)
-	}
-
-	// Convert from satoshis to BTC (1 BTC = 100,000,000 sats)
-	localBalanceBTC := localBalance.Div(decimal.NewFromInt(100000000)).InexactFloat64()
-
-	return &LightningInfo{
-		LocalBalance: localBalanceBTC,
-	}, nil
-}
-
 // NewAutoSwapService creates a new AutoSwapService with dependencies for reusing existing logic
 func NewAutoSwapService(
 	client swaps.ClientInterface,
-	lightningClient LightningClient,
+	rpcClient rpc.SwapServiceClient,
+	lightningClient lightning.Client,
 	config *AutoSwapConfig,
 ) *AutoSwapService {
 	return &AutoSwapService{
 		client:          client,
+		rpcClient:       rpcClient,
 		lightningClient: lightningClient,
 		config:          config,
 	}
@@ -72,18 +45,20 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	log.Info("[AutoSwap] Starting auto swap check...")
 
 	// Get LND info
-	info, err := s.lightningClient.GetInfo(ctx)
+	info, err := s.lightningClient.GetChannelBalance(ctx)
 	if err != nil {
-		log.Errorf("[AutoSwap] Failed to get LND info: %v", err)
-		return err
+		return fmt.Errorf("failed to get channel balance: %w", err)
 	}
 
+	// Convert from satoshis to BTC (1 BTC = 100,000,000 sats)
+	localBalanceBTC := info.Div(decimal.NewFromInt(100000000)).InexactFloat64()
+
 	log.Infof("[AutoSwap] Current local balance: %.8f BTC, target: %.8f BTC",
-		info.LocalBalance, s.config.TargetBalanceBTC)
+		localBalanceBTC, s.config.TargetBalanceBTC)
 
 	// Check if local balance exceeds target
-	if info.LocalBalance > s.config.TargetBalanceBTC {
-		excess := info.LocalBalance - s.config.TargetBalanceBTC
+	if localBalanceBTC > s.config.TargetBalanceBTC {
+		excess := localBalanceBTC - s.config.TargetBalanceBTC
 		log.Infof("[AutoSwap] Local balance exceeds target by %.8f BTC", excess)
 
 		// Determine swap amount based on configuration
@@ -99,9 +74,26 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 
 		log.Infof("[AutoSwap] Creating swap out for %.8f BTC", swapAmount)
 
-		// TODO: Create the swap out using existing RPC logic
+		addr, err := s.lightningClient.GenerateAddress(ctx)
+		if err != nil {
+			log.Errorf("[AutoSwap] Failed to generate address: %v", err)
+			return err
+		}
+	
+		maxRoutingFeePercent := float32(0.0005)
+		swapOutRequest := rpc.SwapOutRequest{
+			Chain:                rpc.Chain_BITCOIN,
+			AmountSats:           uint64(swapAmount * 100000000), // Convert BTC to sats
+			Address:              addr,
+			MaxRoutingFeePercent: &maxRoutingFeePercent,
+		}
 
-		// log.Infof("[AutoSwap] Auto swap out %s completed successfully", swapResponse.SwapId)
+		swap, err := s.rpcClient.SwapOut(ctx, &swapOutRequest)
+		if err != nil {
+			return err
+		}
+
+		log.Infof("[AutoSwap] Auto swap out completed successfully: %v", swap)
 	} else {
 		log.Info("[AutoSwap] Local balance is within target, no action needed")
 	}

@@ -63,13 +63,3 @@ func (server *Server) ListenAndServe() error {
 func (server *Server) Stop() {
 	server.grpcServer.GracefulStop()
 }
-
-// RPCServerWrapper wraps the RPC server to match the expected interface
-type RPCServerWrapper struct {
-	server *Server
-}
-
-// NewRPCServerWrapper creates a new wrapper for the RPC server
-func NewRPCServerWrapper(server *Server) *RPCServerWrapper {
-	return &RPCServerWrapper{server: server}
-}

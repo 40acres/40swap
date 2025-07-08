@@ -78,14 +78,11 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 }
 
 // StartAutoSwapLoop runs the auto swap check every config.GetCheckInterval()
-func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client, rpcServer *rpc.Server, swapMonitor *SwapMonitor) {
+func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client, server *rpc.Server, swapMonitor *SwapMonitor) {
 	log.Infof("[AutoSwap] Starting auto swap loop")
 
-	// Create lightning client adapter
-	lightningAdapter := NewLightningClientAdapter(lightningClient)
-
-	// Create auto swap service with dependencies
-	autoSwapService := NewAutoSwapService(swapClient, lightningAdapter, config)
+	rpcClient := rpc.NewRPCClient("localhost", server.Port)
+	autoSwapService := NewAutoSwapService(swapClient, rpcClient, lightningClient, config)
 
 	for {
 		select {
