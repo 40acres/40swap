@@ -34,7 +34,6 @@ func createTestConfig() *AutoSwapConfig {
 func setupTestService(t *testing.T) (*AutoSwapService, *rpc.MockSwapServiceClient, *lightning.MockClient, *gomock.Controller) {
 	ctrl := gomock.NewController(t)
 
-	// Use existing GoMock-generated mocks
 	mockSwapClient := swaps.NewMockClientInterface(ctrl)
 	mockLightningClient := lightning.NewMockClient(ctrl)
 	mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
@@ -52,8 +51,6 @@ func mockLNDInfoWithMPP() *lnrpc.GetInfoResponse {
 		},
 	}
 }
-
-// IMPROVED TESTS: Focus on Business Logic and Real Scenarios
 
 func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 	tests := []struct {
@@ -127,7 +124,7 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 			service.config.MaxSwapSizeBTC = tt.maxSwapSize
 			service.config.MinSwapSizeBTC = tt.minSwapSize
 
-			// Setup mocks with GoMock
+			// Setup mocks
 			mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
 			mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 				decimal.NewFromFloat(tt.currentBalance*100000000), nil) // Convert to sats
@@ -135,7 +132,7 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 			if tt.shouldSwap {
 				mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil)
 
-				// Mock swap out with expected amount verification using GoMock
+				// Mock swap out with expected amount verification
 				mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
 						expectedSats := uint64(tt.expectedAmount * 100000000)
@@ -175,13 +172,13 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 		service.config.BackoffFactor = 0.5
 		service.config.MaxAttempts = 3
 
-		// Setup GoMock expectations - GenerateAddress will be called multiple times during retries
+		// Setup GoMock expectations
 		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
 		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.5*100000000), nil) // 1.5 BTC
 		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil).Times(3)
 
-		// Track the amounts in each attempt with GoMock
+		// Track the amounts in each attempt
 		var attemptAmounts []uint64
 		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
@@ -312,7 +309,6 @@ func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 		service.config.Enabled = false
 
 		// When disabled, auto swap should skip without calling lightning methods
-
 		err := service.RunAutoSwapCheck(context.Background())
 
 		require.NoError(t, err)
@@ -424,7 +420,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
-		// Setup realistic scenario: node with 1.2 BTC wants to maintain 1.0 BTC
+		// Setup scenario: node with 1.2 BTC wants to maintain 1.0 BTC
 		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
 		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.2*100000000), nil) // 1.2 BTC in sats
@@ -488,7 +484,6 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 		service.addRunningSwap("existing-swap")
 
 		// When there's already a running swap, should skip without calling lightning methods
-
 		err := service.RunAutoSwapCheck(context.Background())
 
 		// Should skip new swap
