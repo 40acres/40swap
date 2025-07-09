@@ -6,7 +6,7 @@ import { FortySwapClient, InMemoryPersistence, SwapService, SwapOutcome } from '
 import { Lnd } from './Lnd';
 import { Bitcoind } from './Bitcoind';
 import { Elements } from './Elements';
-import { ECPair, waitFor, waitForChainSync, waitForSwapStatus } from './utils';
+import { ECPair, sleep, waitFor, waitForChainSync, waitForSwapStatus } from './utils';
 import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
 import assert from 'node:assert';
@@ -32,6 +32,60 @@ describe('40Swap backend', () => {
 
     afterAll(async () => {
         await compose.down();
+    });
+
+    it('should properly handle a liquid swap out expiration', async () => {
+        const claimAddress = await elements.getNewAddress();
+        const swap = await swapService.createSwapOut({
+            chain: 'LIQUID',
+            inputAmount: 0.002,
+            sweepAddress: claimAddress,
+        });
+        swap.start();
+
+        await waitForSwapStatus(swap, 'CREATED');
+
+        assert(swap.value != null);
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        swap.stop(); // so that it doesn't get claimed
+        await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
+        const timeoutBlockHeight = swap.value.timeoutBlockHeight;
+        const currentHeight = await elements.getBlockHeight();
+        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+        await elements.mine(blocksToMine);
+        await sleep(1000);
+        swap.start();
+        // this takes a while because there are many blocks to process. Need to wait longer because CI is slow...
+        await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED', 400);
+        await elements.mine(10);
+        await waitForSwapStatus(swap, 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
+    });
+
+    it('should complete a swap out', async () => {
+        // Create the swap out
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // Pay the Lightning invoice
+        lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'DONE');
+
+        // Verify the swap outcome
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
     it('should complete a swap in', async () => {
@@ -86,33 +140,6 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
 
         // TODO verify that the funds are in claimAddress
-    });
-
-    it('should properly handle a liquid swap out expiration', async () => {
-        const claimAddress = await elements.getNewAddress();
-        const swap = await swapService.createSwapOut({
-            chain: 'LIQUID',
-            inputAmount: 0.002,
-            sweepAddress: claimAddress,
-        });
-        swap.start();
-
-        await waitForSwapStatus(swap, 'CREATED');
-
-        assert(swap.value != null);
-        lndUser.sendPayment(swap.value.invoice);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
-
-        swap.stop(); // so that it doesn't get claimed
-        await elements.mine(5); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
-        const timeoutBlockHeight = swap.value.timeoutBlockHeight;
-        const currentHeight = await elements.getBlockHeight();
-        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
-        await elements.mine(blocksToMine);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'CONTRACT_REFUNDED_UNCONFIRMED');
-        await elements.mine(10);
-        await waitFor(async () => (await backend.out.find(swap.id)).status === 'DONE');
-        expect((await backend.out.find(swap.id)).outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
     it('should complete a swap in with custom lockBlockDeltaIn', async () => {
@@ -282,7 +309,7 @@ describe('40Swap backend', () => {
                 lockBlockDelta: {
                     minIn: 144,
                     in: 432,
-                    out: 20,
+                    out: 144,
                 },
             },
             lnd: {
@@ -307,6 +334,8 @@ describe('40Swap backend', () => {
         lndAlice = await Lnd.fromContainer(compose.getContainer('40swap_lnd_alice'));
         bitcoind = new Bitcoind(compose.getContainer('40swap_bitcoind'));
         const backendContainer = compose.getContainer('40swap_backend');
+        (await backendContainer.logs()).pipe(process.stdout);
+
         const backendBaseUrl = `http://${backendContainer.getHost()}:${backendContainer.getMappedPort(8081)}`;
         backend = new FortySwapClient(backendBaseUrl);
         swapService = new SwapService({

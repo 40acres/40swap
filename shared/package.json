@@ -15,6 +15,7 @@
         "decimal.js": "^10.4.3",
         "liquidjs-lib": "^6.0.2-liquid.37",
         "tiny-secp256k1": "^2.2.3",
+        "@vulpemventures/secp256k1-zkp": "^3.2.1",
         "zod": "^3.23.8"
     },
     "devDependencies": {
