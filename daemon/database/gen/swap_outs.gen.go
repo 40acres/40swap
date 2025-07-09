@@ -44,6 +44,8 @@ func newSwapOut(db *gorm.DB, opts ...gen.DOOption) swapOut {
 	_swapOut.PreImage = field.NewField(tableName, "pre_image")
 	_swapOut.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
 	_swapOut.TxID = field.NewString(tableName, "tx_id")
+	_swapOut.CreatedAt = field.NewTime(tableName, "created_at")
+	_swapOut.UpdatedAt = field.NewTime(tableName, "updated_at")
 
 	_swapOut.fillFieldMap()
 
@@ -71,6 +73,8 @@ type swapOut struct {
 	PreImage           field.Field
 	TimeoutBlockHeight field.Int64
 	TxID               field.String
+	CreatedAt          field.Time
+	UpdatedAt          field.Time
 
 	fieldMap map[string]field.Expr
 }
@@ -104,6 +108,8 @@ func (s *swapOut) updateTableName(table string) *swapOut {
 	s.PreImage = field.NewField(table, "pre_image")
 	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
 	s.TxID = field.NewString(table, "tx_id")
+	s.CreatedAt = field.NewTime(table, "created_at")
+	s.UpdatedAt = field.NewTime(table, "updated_at")
 
 	s.fillFieldMap()
 
@@ -128,7 +134,7 @@ func (s *swapOut) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapOut) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 17)
+	s.fieldMap = make(map[string]field.Expr, 19)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["status"] = s.Status
@@ -146,6 +152,8 @@ func (s *swapOut) fillFieldMap() {
 	s.fieldMap["pre_image"] = s.PreImage
 	s.fieldMap["timeout_block_height"] = s.TimeoutBlockHeight
 	s.fieldMap["tx_id"] = s.TxID
+	s.fieldMap["created_at"] = s.CreatedAt
+	s.fieldMap["updated_at"] = s.UpdatedAt
 }
 
 func (s swapOut) clone(db *gorm.DB) swapOut {

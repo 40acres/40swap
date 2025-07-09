@@ -41,7 +41,7 @@ func newSwapIn(db *gorm.DB, opts ...gen.DOOption) swapIn {
 	_swapIn.RedeemScript = field.NewString(tableName, "redeem_script")
 	_swapIn.PaymentRequest = field.NewString(tableName, "payment_request")
 	_swapIn.PreImage = field.NewField(tableName, "pre_image")
-	_swapIn.OnChainFeeSats = field.NewInt64(tableName, "on_chain_fee_sats")
+	_swapIn.OnchainFeeSats = field.NewInt64(tableName, "onchain_fee_sats")
 	_swapIn.ServiceFeeSats = field.NewInt64(tableName, "service_fee_sats")
 	_swapIn.CreatedAt = field.NewTime(tableName, "created_at")
 	_swapIn.UpdatedAt = field.NewTime(tableName, "updated_at")
@@ -72,7 +72,7 @@ type swapIn struct {
 	RedeemScript       field.String
 	PaymentRequest     field.String
 	PreImage           field.Field
-	OnChainFeeSats     field.Int64
+	OnchainFeeSats     field.Int64
 	ServiceFeeSats     field.Int64
 	CreatedAt          field.Time
 	UpdatedAt          field.Time
@@ -109,7 +109,7 @@ func (s *swapIn) updateTableName(table string) *swapIn {
 	s.RedeemScript = field.NewString(table, "redeem_script")
 	s.PaymentRequest = field.NewString(table, "payment_request")
 	s.PreImage = field.NewField(table, "pre_image")
-	s.OnChainFeeSats = field.NewInt64(table, "on_chain_fee_sats")
+	s.OnchainFeeSats = field.NewInt64(table, "onchain_fee_sats")
 	s.ServiceFeeSats = field.NewInt64(table, "service_fee_sats")
 	s.CreatedAt = field.NewTime(table, "created_at")
 	s.UpdatedAt = field.NewTime(table, "updated_at")
@@ -155,7 +155,7 @@ func (s *swapIn) fillFieldMap() {
 	s.fieldMap["redeem_script"] = s.RedeemScript
 	s.fieldMap["payment_request"] = s.PaymentRequest
 	s.fieldMap["pre_image"] = s.PreImage
-	s.fieldMap["on_chain_fee_sats"] = s.OnChainFeeSats
+	s.fieldMap["onchain_fee_sats"] = s.OnchainFeeSats
 	s.fieldMap["service_fee_sats"] = s.ServiceFeeSats
 	s.fieldMap["created_at"] = s.CreatedAt
 	s.fieldMap["updated_at"] = s.UpdatedAt
