@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
@@ -14,104 +13,9 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
+	"go.uber.org/mock/gomock"
 )
-
-// Mock implementations (simplified)
-type MockSwapClient struct{ mock.Mock }
-
-func (m *MockSwapClient) GetConfiguration(ctx context.Context) (*swaps.ConfigurationResponse, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(*swaps.ConfigurationResponse), args.Error(1)
-}
-func (m *MockSwapClient) CreateSwapIn(ctx context.Context, req *swaps.CreateSwapInRequest) (*swaps.SwapInResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*swaps.SwapInResponse), args.Error(1)
-}
-func (m *MockSwapClient) CreateSwapOut(ctx context.Context, req swaps.CreateSwapOutRequest) (*swaps.SwapOutResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*swaps.SwapOutResponse), args.Error(1)
-}
-func (m *MockSwapClient) GetSwapIn(ctx context.Context, id string) (*swaps.SwapInResponse, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*swaps.SwapInResponse), args.Error(1)
-}
-func (m *MockSwapClient) GetSwapOut(ctx context.Context, id string) (*swaps.SwapOutResponse, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*swaps.SwapOutResponse), args.Error(1)
-}
-func (m *MockSwapClient) GetClaimPSBT(ctx context.Context, swapId, address string) (*swaps.GetClaimPSBTResponse, error) {
-	args := m.Called(ctx, swapId, address)
-	return args.Get(0).(*swaps.GetClaimPSBTResponse), args.Error(1)
-}
-func (m *MockSwapClient) PostClaim(ctx context.Context, swapId, tx string) error {
-	args := m.Called(ctx, swapId, tx)
-	return args.Error(0)
-}
-func (m *MockSwapClient) GetRefundPSBT(ctx context.Context, swapId, address string) (*swaps.RefundPSBTResponse, error) {
-	args := m.Called(ctx, swapId, address)
-	return args.Get(0).(*swaps.RefundPSBTResponse), args.Error(1)
-}
-func (m *MockSwapClient) PostRefund(ctx context.Context, swapId, tx string) error {
-	args := m.Called(ctx, swapId, tx)
-	return args.Error(0)
-}
-
-type MockLightningClient struct{ mock.Mock }
-
-func (m *MockLightningClient) PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error {
-	args := m.Called(ctx, paymentRequest, feeLimitRatio)
-	return args.Error(0)
-}
-func (m *MockLightningClient) MonitorPaymentRequest(ctx context.Context, paymentHash string) (lightning.Preimage, lightning.NetworkFeeSats, error) {
-	args := m.Called(ctx, paymentHash)
-	return args.String(0), args.Get(1).(lightning.NetworkFeeSats), args.Error(2)
-}
-func (m *MockLightningClient) MonitorPaymentReception(ctx context.Context, rhash []byte) (lightning.Preimage, error) {
-	args := m.Called(ctx, rhash)
-	return args.String(0), args.Error(1)
-}
-func (m *MockLightningClient) GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (string, []byte, error) {
-	args := m.Called(ctx, amountSats, expiry, memo)
-	return args.String(0), args.Get(1).([]byte), args.Error(2)
-}
-func (m *MockLightningClient) GenerateAddress(ctx context.Context) (string, error) {
-	args := m.Called(ctx)
-	return args.String(0), args.Error(1)
-}
-func (m *MockLightningClient) GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(decimal.Decimal), args.Error(1)
-}
-func (m *MockLightningClient) GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(*lnrpc.GetInfoResponse), args.Error(1)
-}
-
-type MockRPCClient struct{ mock.Mock }
-
-func (m *MockRPCClient) SwapIn(ctx context.Context, req *rpc.SwapInRequest, opts ...grpc.CallOption) (*rpc.SwapInResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*rpc.SwapInResponse), args.Error(1)
-}
-func (m *MockRPCClient) SwapOut(ctx context.Context, req *rpc.SwapOutRequest, opts ...grpc.CallOption) (*rpc.SwapOutResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*rpc.SwapOutResponse), args.Error(1)
-}
-func (m *MockRPCClient) GetSwapIn(ctx context.Context, req *rpc.GetSwapInRequest, opts ...grpc.CallOption) (*rpc.GetSwapInResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*rpc.GetSwapInResponse), args.Error(1)
-}
-func (m *MockRPCClient) GetSwapOut(ctx context.Context, req *rpc.GetSwapOutRequest, opts ...grpc.CallOption) (*rpc.GetSwapOutResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*rpc.GetSwapOutResponse), args.Error(1)
-}
-func (m *MockRPCClient) RecoverReusedSwapAddress(ctx context.Context, req *rpc.RecoverReusedSwapAddressRequest, opts ...grpc.CallOption) (*rpc.RecoverReusedSwapAddressResponse, error) {
-	args := m.Called(ctx, req)
-	return args.Get(0).(*rpc.RecoverReusedSwapAddressResponse), args.Error(1)
-}
 
 // Test helpers
 func createTestConfig() *AutoSwapConfig {
@@ -127,14 +31,18 @@ func createTestConfig() *AutoSwapConfig {
 	}
 }
 
-func setupTestService() (*AutoSwapService, *MockSwapClient, *MockRPCClient, *MockLightningClient) {
-	mockSwapClient := &MockSwapClient{}
-	mockRPCClient := &MockRPCClient{}
-	mockLightningClient := &MockLightningClient{}
-	config := createTestConfig()
+func setupTestService(t *testing.T) (*AutoSwapService, *swaps.MockClientInterface, *rpc.MockSwapServiceClient, *lightning.MockClient, *gomock.Controller) {
+	ctrl := gomock.NewController(t)
 
+	// Use existing GoMock-generated mocks
+	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockLightningClient := lightning.NewMockClient(ctrl)
+	mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+
+	config := createTestConfig()
 	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, config)
-	return service, mockSwapClient, mockRPCClient, mockLightningClient
+
+	return service, mockSwapClient, mockRPCClient, mockLightningClient, ctrl
 }
 
 func mockLNDInfoWithMPP() *lnrpc.GetInfoResponse {
@@ -212,27 +120,33 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service, _, mockRPCClient, mockLightningClient := setupTestService()
+			service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+			defer ctrl.Finish()
+
 			service.config.TargetBalanceBTC = tt.targetBalance
 			service.config.MaxSwapSizeBTC = tt.maxSwapSize
 			service.config.MinSwapSizeBTC = tt.minSwapSize
 
-			// Setup mocks with test data
-			mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-			mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+			// Setup mocks with GoMock
+			mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
+			mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 				decimal.NewFromFloat(tt.currentBalance*100000000), nil) // Convert to sats
 
-						if tt.shouldSwap {
-				mockLightningClient.On("GenerateAddress", mock.Anything).Return("bc1test", nil)
-				
-				// Mock swap out with expected amount verification
-				mockRPCClient.On("SwapOut", mock.Anything, mock.MatchedBy(func(req *rpc.SwapOutRequest) bool {
-					expectedSats := uint64(tt.expectedAmount * 100000000)
-					return req.AmountSats == expectedSats
-				})).Return(&rpc.SwapOutResponse{
-					SwapId:     "test-swap",
-					AmountSats: uint64(tt.expectedAmount * 100000000), // Convert BTC to sats
-				}, nil)
+			if tt.shouldSwap {
+				mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil)
+
+				// Mock swap out with expected amount verification using GoMock
+				mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
+						expectedSats := uint64(tt.expectedAmount * 100000000)
+						if req.AmountSats != expectedSats {
+							return nil, fmt.Errorf("expected %d sats but got %d", expectedSats, req.AmountSats)
+						}
+						return &rpc.SwapOutResponse{
+							SwapId:     "test-swap",
+							AmountSats: uint64(tt.expectedAmount * 100000000),
+						}, nil
+					})
 			}
 
 			// Execute
@@ -243,50 +157,48 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 
 			if tt.shouldSwap {
 				assert.True(t, service.hasRunningSwap(), "Should have running swap")
-				// The amount verification is implicitly done by the mock expectations
 			} else {
 				assert.False(t, service.hasRunningSwap(), "Should not have running swap")
-				mockRPCClient.AssertNotCalled(t, "SwapOut")
 			}
-
-			mockLightningClient.AssertExpectations(t)
-			mockRPCClient.AssertExpectations(t)
 		})
 	}
 }
 
 func TestAutoSwapService_BackoffLogic(t *testing.T) {
 	t.Run("BackoffReducesAmountCorrectly", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
-				service.config.MaxSwapSizeBTC = 0.1
-		service.config.MinSwapSizeBTC = 0.001 // Lower minimum to test more attempts
+		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
+
+		service.config.MaxSwapSizeBTC = 0.1
+		service.config.MinSwapSizeBTC = 0.001
 		service.config.BackoffFactor = 0.5
-		service.config.MaxAttempts = 3 // Limit to 3 attempts
+		service.config.MaxAttempts = 3
 
-		// Setup balance that exceeds target
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		// Setup GoMock expectations - GenerateAddress will be called multiple times during retries
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.5*100000000), nil) // 1.5 BTC
-		mockLightningClient.On("GenerateAddress", mock.Anything).Return("bc1test", nil)
+		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil).Times(3)
 
-		// Track the amounts in each attempt
+		// Track the amounts in each attempt with GoMock
 		var attemptAmounts []uint64
-		mockRPCClient.On("SwapOut", mock.Anything, mock.MatchedBy(func(req *rpc.SwapOutRequest) bool {
-			attemptAmounts = append(attemptAmounts, req.AmountSats)
-			return true
-		})).Return((*rpc.SwapOutResponse)(nil), errors.New("swap failed")).Times(3)
+		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
+				attemptAmounts = append(attemptAmounts, req.AmountSats)
+				return nil, errors.New("swap failed")
+			}).Times(3)
 
 		// Execute
 		err := service.RunAutoSwapCheck(context.Background())
-		
-		// Verify backoff progression - should make exactly MaxAttempts
+
+		// Verify backoff progression
 		require.Error(t, err, "Should fail after all attempts")
 		require.Len(t, attemptAmounts, 3, "Should make exactly MaxAttempts attempts")
-		
+
 		// Verify amounts: 0.1 BTC -> 0.05 BTC -> 0.025 BTC
 		expectedAmounts := []uint64{
 			10000000, // 0.1 BTC in sats
-			5000000,  // 0.05 BTC in sats  
+			5000000,  // 0.05 BTC in sats
 			2500000,  // 0.025 BTC in sats
 		}
 
@@ -299,38 +211,48 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 	})
 
 	t.Run("SuccessfulRetryAfterBackoff", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
+		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
+
 		service.config.MaxSwapSizeBTC = 0.1
 		service.config.BackoffFactor = 0.5
 
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.2*100000000), nil)
-		mockLightningClient.On("GenerateAddress", mock.Anything).Return("bc1test", nil)
+		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil).Times(2) // Will be called twice (first fails, second succeeds)
 
 		// First attempt fails, second succeeds
-		mockRPCClient.On("SwapOut", mock.Anything, mock.MatchedBy(func(req *rpc.SwapOutRequest) bool {
-			return req.AmountSats == 10000000 // 0.1 BTC
-		})).Return((*rpc.SwapOutResponse)(nil), errors.New("first attempt failed")).Once()
+		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
+				if req.AmountSats == 10000000 { // 0.1 BTC
+					return nil, errors.New("first attempt failed")
+				}
+				return nil, fmt.Errorf("unexpected amount: %d", req.AmountSats)
+			}).Times(1)
 
-		mockRPCClient.On("SwapOut", mock.Anything, mock.MatchedBy(func(req *rpc.SwapOutRequest) bool {
-			return req.AmountSats == 5000000 // 0.05 BTC after backoff
-		})).Return(&rpc.SwapOutResponse{
-			SwapId:     "success-swap",
-			AmountSats: 5000000,
-		}, nil).Once()
+		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
+				if req.AmountSats == 5000000 { // 0.05 BTC after backoff
+					return &rpc.SwapOutResponse{
+						SwapId:     "success-swap",
+						AmountSats: 5000000,
+					}, nil
+				}
+				return nil, fmt.Errorf("unexpected amount: %d", req.AmountSats)
+			}).Times(1)
 
 		err := service.RunAutoSwapCheck(context.Background())
 
 		require.NoError(t, err)
 		assert.True(t, service.hasRunningSwap())
-		mockRPCClient.AssertExpectations(t)
 	})
 }
 
 func TestAutoSwapService_StateManagement(t *testing.T) {
 	t.Run("RunningSwapOperations", func(t *testing.T) {
-		service, _, _, _ := setupTestService()
+		service, _, _, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
 		// Initially no running swaps
 		assert.False(t, service.hasRunningSwap())
@@ -362,7 +284,8 @@ func TestAutoSwapService_StateManagement(t *testing.T) {
 	})
 
 	t.Run("MonitoredSwapOperations", func(t *testing.T) {
-		service, _, _, _ := setupTestService()
+		service, _, _, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
 		// Initially no monitored swaps
 		assert.False(t, service.isSwapBeingMonitored("swap1"))
@@ -379,23 +302,28 @@ func TestAutoSwapService_StateManagement(t *testing.T) {
 
 func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 	t.Run("DisabledConfig", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
+		service, _, _, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
+
 		service.config.Enabled = false
 
-		// Even with high balance, should skip when disabled
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
-			decimal.NewFromFloat(2.0*100000000), nil)
+		// When disabled, auto swap should skip without calling lightning methods
 
 		err := service.RunAutoSwapCheck(context.Background())
 
 		require.NoError(t, err)
 		assert.False(t, service.hasRunningSwap())
-		mockRPCClient.AssertNotCalled(t, "SwapOut")
 	})
 
 	t.Run("NilConfig", func(t *testing.T) {
-		service := NewAutoSwapService(&MockSwapClient{}, &MockRPCClient{}, &MockLightningClient{}, nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockSwapClient := swaps.NewMockClientInterface(ctrl)
+		mockLightningClient := lightning.NewMockClient(ctrl)
+		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, nil)
 
 		err := service.RunAutoSwapCheck(context.Background())
 		require.NoError(t, err)
@@ -404,10 +332,11 @@ func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 
 func TestAutoSwapService_ErrorHandling(t *testing.T) {
 	t.Run("LightningBalanceError", func(t *testing.T) {
-		service, _, _, mockLightningClient := setupTestService()
+		service, _, _, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.Zero, errors.New("connection failed"))
 
 		err := service.RunAutoSwapCheck(context.Background())
@@ -416,12 +345,13 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("AddressGenerationError", func(t *testing.T) {
-		service, _, _, mockLightningClient := setupTestService()
+		service, _, _, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.5*100000000), nil)
-		mockLightningClient.On("GenerateAddress", mock.Anything).Return("", errors.New("address gen failed"))
+		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("", errors.New("address gen failed"))
 
 		err := service.RunAutoSwapCheck(context.Background())
 		require.Error(t, err)
@@ -429,14 +359,15 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("ContinuesAfterGetInfoFailure", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
+		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
-		mockLightningClient.On("GetInfo", mock.Anything).Return((*lnrpc.GetInfoResponse)(nil), errors.New("getinfo failed"))
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return((*lnrpc.GetInfoResponse)(nil), errors.New("getinfo failed"))
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.5*100000000), nil)
-		mockLightningClient.On("GenerateAddress", mock.Anything).Return("bc1test", nil)
+		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil)
 
-		mockRPCClient.On("SwapOut", mock.Anything, mock.Anything).Return(&rpc.SwapOutResponse{
+		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).Return(&rpc.SwapOutResponse{
 			SwapId: "test-swap",
 		}, nil)
 
@@ -450,7 +381,8 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 
 func TestAutoSwapService_ConcurrencyAndRaceConditions(t *testing.T) {
 	t.Run("ConcurrentSwapManagement", func(t *testing.T) {
-		service, _, _, _ := setupTestService()
+		service, _, _, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
 		var wg sync.WaitGroup
 		const numGoroutines = 10
@@ -485,24 +417,29 @@ func TestAutoSwapService_ConcurrencyAndRaceConditions(t *testing.T) {
 
 func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 	t.Run("TypicalSuccessfulSwap", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
+		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
 		// Setup realistic scenario: node with 1.2 BTC wants to maintain 1.0 BTC
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.2*100000000), nil) // 1.2 BTC in sats
-		mockLightningClient.On("GenerateAddress", mock.Anything).Return("bc1qtest123", nil)
+		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1qtest123", nil)
 
-		mockRPCClient.On("SwapOut", mock.Anything, mock.MatchedBy(func(req *rpc.SwapOutRequest) bool {
-			// Should swap 0.1 BTC (max swap size, not the full 0.2 BTC excess)
-			return req.AmountSats == 10000000 && // 0.1 BTC
-				req.Address == "bc1qtest123" &&
-				req.Chain == rpc.Chain_BITCOIN &&
-				*req.MaxRoutingFeePercent == 0.1 // 1000 PPM = 0.1%
-		})).Return(&rpc.SwapOutResponse{
-			SwapId:     "realistic-swap-123",
-			AmountSats: 10000000,
-		}, nil)
+		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
+				// Should swap 0.1 BTC (max swap size, not the full 0.2 BTC excess)
+				if req.AmountSats == 10000000 && // 0.1 BTC
+					req.Address == "bc1qtest123" &&
+					req.Chain == rpc.Chain_BITCOIN &&
+					*req.MaxRoutingFeePercent == 0.1 { // 1000 PPM = 0.1%
+					return &rpc.SwapOutResponse{
+						SwapId:     "realistic-swap-123",
+						AmountSats: 10000000,
+					}, nil
+				}
+				return nil, fmt.Errorf("unexpected request parameters")
+			})
 
 		// Execute auto swap check
 		err := service.RunAutoSwapCheck(context.Background())
@@ -512,25 +449,23 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 		assert.True(t, service.hasRunningSwap())
 		assert.Len(t, service.runningSwaps, 1)
 		assert.Equal(t, "realistic-swap-123", service.runningSwaps[0])
-
-		mockLightningClient.AssertExpectations(t)
-		mockRPCClient.AssertExpectations(t)
 	})
 
 	t.Run("NodeWithoutMPPSupport", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
+		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
 		// Node without MPP support
-		mockLightningClient.On("GetInfo", mock.Anything).Return(&lnrpc.GetInfoResponse{
+		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(&lnrpc.GetInfoResponse{
 			Features: map[uint32]*lnrpc.Feature{
 				// No MPP feature
 			},
 		}, nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
+		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
 			decimal.NewFromFloat(1.5*100000000), nil)
-		mockLightningClient.On("GenerateAddress", mock.Anything).Return("bc1test", nil)
+		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil)
 
-		mockRPCClient.On("SwapOut", mock.Anything, mock.Anything).Return(&rpc.SwapOutResponse{
+		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).Return(&rpc.SwapOutResponse{
 			SwapId: "no-mpp-swap",
 		}, nil)
 
@@ -541,39 +476,42 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 	})
 
 	t.Run("SkipsWhenSwapAlreadyRunning", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient := setupTestService()
+		service, _, _, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
 
 		// Add existing swap
 		service.addRunningSwap("existing-swap")
 
-		// Setup high balance that would normally trigger swap
-		mockLightningClient.On("GetInfo", mock.Anything).Return(mockLNDInfoWithMPP(), nil)
-		mockLightningClient.On("GetChannelLocalBalance", mock.Anything).Return(
-			decimal.NewFromFloat(2.0*100000000), nil)
+		// When there's already a running swap, should skip without calling lightning methods
 
 		err := service.RunAutoSwapCheck(context.Background())
 
 		// Should skip new swap
 		require.NoError(t, err)
-		assert.Len(t, service.runningSwaps, 1)      // Still just the original swap
-		mockRPCClient.AssertNotCalled(t, "SwapOut") // No new swap should be created
+		assert.Len(t, service.runningSwaps, 1) // Still just the original swap
 	})
 }
 
 func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 	t.Run("MonitoringDetectsTerminalStatus", func(t *testing.T) {
-		service, _, mockRPCClient, _ := setupTestService()
+		service, _, mockRPCClient, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
+
 		service.addRunningSwap("test-monitor-swap")
 
 		ctx := context.Background()
 
 		// Mock successful status check
-		mockRPCClient.On("GetSwapOut", mock.Anything, &rpc.GetSwapOutRequest{
-			Id: "test-monitor-swap",
-		}).Return(&rpc.GetSwapOutResponse{
-			Id:     "test-monitor-swap",
-			Status: rpc.Status_DONE,
-		}, nil)
+		mockRPCClient.EXPECT().GetSwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, req *rpc.GetSwapOutRequest, opts ...interface{}) (*rpc.GetSwapOutResponse, error) {
+				if req.Id == "test-monitor-swap" {
+					return &rpc.GetSwapOutResponse{
+						Id:     "test-monitor-swap",
+						Status: rpc.Status_DONE,
+					}, nil
+				}
+				return nil, fmt.Errorf("unexpected swap ID: %s", req.Id)
+			})
 
 		// Simulate one polling cycle
 		resp, err := service.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: "test-monitor-swap"})
@@ -585,16 +523,16 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 		}
 
 		assert.False(t, service.hasRunningSwap())
-		mockRPCClient.AssertExpectations(t)
 	})
 
 	t.Run("MonitoringHandlesErrors", func(t *testing.T) {
-		service, _, mockRPCClient, _ := setupTestService()
+		service, _, mockRPCClient, _, ctrl := setupTestService(t)
+		defer ctrl.Finish()
+
 		service.addRunningSwap("error-swap")
 
-		mockRPCClient.On("GetSwapOut", mock.Anything, &rpc.GetSwapOutRequest{
-			Id: "error-swap",
-		}).Return((*rpc.GetSwapOutResponse)(nil), errors.New("network error"))
+		mockRPCClient.EXPECT().GetSwapOut(gomock.Any(), gomock.Any()).Return(
+			(*rpc.GetSwapOutResponse)(nil), errors.New("network error"))
 
 		// Error should not remove swap (continues monitoring)
 		_, err := service.rpcClient.GetSwapOut(context.Background(), &rpc.GetSwapOutRequest{Id: "error-swap"})
