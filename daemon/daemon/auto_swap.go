@@ -137,14 +137,13 @@ func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID s
 
 // RunAutoSwapCheck performs the auto swap check logic using existing components
 func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
-	log.Info("[AutoSwap] Starting auto swap check...")
-
 	// Check if auto swap is enabled
 	if s.config == nil || !s.config.Enabled {
 		log.Info("[AutoSwap] Auto swap is disabled, skipping check")
 
 		return nil
 	}
+	log.Info("[AutoSwap] Checking for auto swaps ...")
 
 	// Skip if there is already a running auto swap
 	if s.hasRunningSwap() {
@@ -184,12 +183,11 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 	// Get LND info
 	balance, err := s.lightningClient.GetChannelLocalBalance(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get channel balance: %w", err)
+		return fmt.Errorf("[AutoSwap] failed to get channel balance: %w", err)
 	}
 
 	// Convert from satoshis to BTC using money.Money (safe: balance is always positive)
 	localBalanceSats := money.Money(balance.BigInt().Uint64())
-	log.Infof("[AutoSwap] Local balance: %d sats", localBalanceSats)
 	localBalanceBTC := localBalanceSats.ToBtc().InexactFloat64()
 
 	log.Infof("[AutoSwap] Current local balance: %.8f BTC, target: %.8f BTC",
@@ -248,7 +246,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			}
 
 			s.addRunningSwap(swap.SwapId)
-			log.Infof("[AutoSwap] Auto swap out completed successfully: %v", swap)
+			log.Infof("[AutoSwap] Auto swap out completed successfully for swap: %v, now processing swap:", swap.SwapId)
 			go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
 
 			return nil // Success, exit
