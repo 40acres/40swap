@@ -8,6 +8,8 @@ import (
 
 	"github.com/40acres/40swap/daemon/api"
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
+	"github.com/shopspring/decimal"
 )
 
 type Client struct {
@@ -57,6 +59,26 @@ func parseErr(response *http.Response) error {
 	return nil
 }
 
+// mapServerNetworkToDaemonNetwork maps the server's network string to daemon's lightning.Network.
+// This function handles the network nomenclature mismatch between server-backend and daemon:
+// - server-backend uses: "bitcoin", "regtest", "testnet"
+// - daemon expects: "mainnet", "regtest", "testnet"
+// The critical mapping is "bitcoin" -> "mainnet" for production networks.
+func mapServerNetworkToDaemonNetwork(serverNetwork string) (lightning.Network, error) {
+	switch serverNetwork {
+	case "bitcoin":
+		return lightning.Mainnet, nil
+	case "mainnet":
+		return lightning.Mainnet, nil
+	case "regtest":
+		return lightning.Regtest, nil
+	case "testnet":
+		return lightning.Testnet, nil
+	default:
+		return "", fmt.Errorf("unsupported network: %s", serverNetwork)
+	}
+}
+
 func (f *Client) GetConfiguration(ctx context.Context) (*ConfigurationResponse, error) {
 	response, err := f.client.ConfigurationControllerGetConfiguration(ctx)
 	if err != nil {
@@ -69,14 +91,34 @@ func (f *Client) GetConfiguration(ctx context.Context) (*ConfigurationResponse, 
 		return nil, err
 	}
 
-	// Marshal response into a struct
-	var config ConfigurationResponse
-	err = json.NewDecoder(response.Body).Decode(&config)
+	// First decode to a temporary struct to handle network mapping
+	var rawConfig struct {
+		BitcoinNetwork string          `json:"bitcoinNetwork"`
+		FeePercentage  decimal.Decimal `json:"feePercentage"`
+		MinimumAmount  decimal.Decimal `json:"minimumAmount"`
+		MaximumAmount  decimal.Decimal `json:"maximumAmount"`
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&rawConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	// Map the server's network string to daemon's lightning.Network
+	mappedNetwork, err := mapServerNetworkToDaemonNetwork(rawConfig.BitcoinNetwork)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map network from server response: %w", err)
+	}
+
+	// Create the final response with mapped network
+	config := &ConfigurationResponse{
+		BitcoinNetwork: mappedNetwork,
+		FeePercentage:  rawConfig.FeePercentage,
+		MinimumAmount:  rawConfig.MinimumAmount,
+		MaximumAmount:  rawConfig.MaximumAmount,
+	}
+
+	return config, nil
 }
 
 func (f *Client) CreateSwapOut(ctx context.Context, swapReq CreateSwapOutRequest) (*SwapOutResponse, error) {
