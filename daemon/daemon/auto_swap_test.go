@@ -31,7 +31,7 @@ func createTestConfig() *AutoSwapConfig {
 	}
 }
 
-func setupTestService(t *testing.T) (*AutoSwapService, *swaps.MockClientInterface, *rpc.MockSwapServiceClient, *lightning.MockClient, *gomock.Controller) {
+func setupTestService(t *testing.T) (*AutoSwapService, *rpc.MockSwapServiceClient, *lightning.MockClient, *gomock.Controller) {
 	ctrl := gomock.NewController(t)
 
 	// Use existing GoMock-generated mocks
@@ -42,7 +42,7 @@ func setupTestService(t *testing.T) (*AutoSwapService, *swaps.MockClientInterfac
 	config := createTestConfig()
 	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, config)
 
-	return service, mockSwapClient, mockRPCClient, mockLightningClient, ctrl
+	return service, mockRPCClient, mockLightningClient, ctrl
 }
 
 func mockLNDInfoWithMPP() *lnrpc.GetInfoResponse {
@@ -120,7 +120,7 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+			service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 			defer ctrl.Finish()
 
 			service.config.TargetBalanceBTC = tt.targetBalance
@@ -142,6 +142,7 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 						if req.AmountSats != expectedSats {
 							return nil, fmt.Errorf("expected %d sats but got %d", expectedSats, req.AmountSats)
 						}
+
 						return &rpc.SwapOutResponse{
 							SwapId:     "test-swap",
 							AmountSats: uint64(tt.expectedAmount * 100000000),
@@ -166,7 +167,7 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 
 func TestAutoSwapService_BackoffLogic(t *testing.T) {
 	t.Run("BackoffReducesAmountCorrectly", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		service.config.MaxSwapSizeBTC = 0.1
@@ -185,6 +186,7 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, req *rpc.SwapOutRequest, opts ...interface{}) (*rpc.SwapOutResponse, error) {
 				attemptAmounts = append(attemptAmounts, req.AmountSats)
+
 				return nil, errors.New("swap failed")
 			}).Times(3)
 
@@ -211,7 +213,7 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 	})
 
 	t.Run("SuccessfulRetryAfterBackoff", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		service.config.MaxSwapSizeBTC = 0.1
@@ -228,6 +230,7 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 				if req.AmountSats == 10000000 { // 0.1 BTC
 					return nil, errors.New("first attempt failed")
 				}
+
 				return nil, fmt.Errorf("unexpected amount: %d", req.AmountSats)
 			}).Times(1)
 
@@ -239,6 +242,7 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 						AmountSats: 5000000,
 					}, nil
 				}
+
 				return nil, fmt.Errorf("unexpected amount: %d", req.AmountSats)
 			}).Times(1)
 
@@ -251,7 +255,7 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 
 func TestAutoSwapService_StateManagement(t *testing.T) {
 	t.Run("RunningSwapOperations", func(t *testing.T) {
-		service, _, _, _, ctrl := setupTestService(t)
+		service, _, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		// Initially no running swaps
@@ -284,7 +288,7 @@ func TestAutoSwapService_StateManagement(t *testing.T) {
 	})
 
 	t.Run("MonitoredSwapOperations", func(t *testing.T) {
-		service, _, _, _, ctrl := setupTestService(t)
+		service, _, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		// Initially no monitored swaps
@@ -302,7 +306,7 @@ func TestAutoSwapService_StateManagement(t *testing.T) {
 
 func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 	t.Run("DisabledConfig", func(t *testing.T) {
-		service, _, _, _, ctrl := setupTestService(t)
+		service, _, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		service.config.Enabled = false
@@ -332,7 +336,7 @@ func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 
 func TestAutoSwapService_ErrorHandling(t *testing.T) {
 	t.Run("LightningBalanceError", func(t *testing.T) {
-		service, _, _, mockLightningClient, ctrl := setupTestService(t)
+		service, _, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
@@ -345,7 +349,7 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("AddressGenerationError", func(t *testing.T) {
-		service, _, _, mockLightningClient, ctrl := setupTestService(t)
+		service, _, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return(mockLNDInfoWithMPP(), nil)
@@ -359,7 +363,7 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("ContinuesAfterGetInfoFailure", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return((*lnrpc.GetInfoResponse)(nil), errors.New("getinfo failed"))
@@ -381,7 +385,7 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 
 func TestAutoSwapService_ConcurrencyAndRaceConditions(t *testing.T) {
 	t.Run("ConcurrentSwapManagement", func(t *testing.T) {
-		service, _, _, _, ctrl := setupTestService(t)
+		service, _, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		var wg sync.WaitGroup
@@ -417,7 +421,7 @@ func TestAutoSwapService_ConcurrencyAndRaceConditions(t *testing.T) {
 
 func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 	t.Run("TypicalSuccessfulSwap", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		// Setup realistic scenario: node with 1.2 BTC wants to maintain 1.0 BTC
@@ -438,6 +442,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 						AmountSats: 10000000,
 					}, nil
 				}
+
 				return nil, fmt.Errorf("unexpected request parameters")
 			})
 
@@ -452,7 +457,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 	})
 
 	t.Run("NodeWithoutMPPSupport", func(t *testing.T) {
-		service, _, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
+		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		// Node without MPP support
@@ -476,7 +481,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 	})
 
 	t.Run("SkipsWhenSwapAlreadyRunning", func(t *testing.T) {
-		service, _, _, _, ctrl := setupTestService(t)
+		service, _, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		// Add existing swap
@@ -494,7 +499,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 
 func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 	t.Run("MonitoringDetectsTerminalStatus", func(t *testing.T) {
-		service, _, mockRPCClient, _, ctrl := setupTestService(t)
+		service, mockRPCClient, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		service.addRunningSwap("test-monitor-swap")
@@ -510,6 +515,7 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 						Status: rpc.Status_DONE,
 					}, nil
 				}
+
 				return nil, fmt.Errorf("unexpected swap ID: %s", req.Id)
 			})
 
@@ -526,7 +532,7 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 	})
 
 	t.Run("MonitoringHandlesErrors", func(t *testing.T) {
-		service, _, mockRPCClient, _, ctrl := setupTestService(t)
+		service, mockRPCClient, _, ctrl := setupTestService(t)
 		defer ctrl.Finish()
 
 		service.addRunningSwap("error-swap")
