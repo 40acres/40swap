@@ -18,6 +18,7 @@ type AutoSwapService struct {
 	client          swaps.ClientInterface
 	lightningClient lightning.Client
 	rpcClient       rpc.SwapServiceClient
+	repository      Repository
 	config          *AutoSwapConfig
 
 	runningSwaps   []string // List of currently running auto swap IDs
@@ -37,16 +38,46 @@ func NewAutoSwapService(
 	client swaps.ClientInterface,
 	rpcClient rpc.SwapServiceClient,
 	lightningClient lightning.Client,
+	repository Repository,
 	config *AutoSwapConfig,
 ) *AutoSwapService {
-	return &AutoSwapService{
+	service := &AutoSwapService{
 		client:          client,
 		rpcClient:       rpcClient,
 		lightningClient: lightningClient,
+		repository:      repository,
 		config:          config,
 		monitoredSwaps:  make(map[string]struct{}),
 		runningSwaps:    make([]string, 0),
 	}
+
+	return service
+}
+
+// RecoverPendingAutoSwaps recovers auto swaps that were running before daemon restart
+func (s *AutoSwapService) RecoverPendingAutoSwaps(ctx context.Context) error {
+	if s.repository == nil {
+		return nil
+	}
+
+	pendingAutoSwaps, err := s.repository.GetPendingAutoSwapOuts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get pending auto swaps: %w", err)
+	}
+
+	for _, swap := range pendingAutoSwaps {
+		log.Infof("[AutoSwap] Recovering auto swap: %s", swap.SwapID)
+		s.addRunningSwap(swap.SwapID)
+
+		// Start monitoring this swap in the background
+		go s.monitorSwapUntilTerminal(ctx, swap.SwapID)
+	}
+
+	if len(pendingAutoSwaps) > 0 {
+		log.Infof("[AutoSwap] Recovered %d pending auto swaps", len(pendingAutoSwaps))
+	}
+
+	return nil
 }
 
 // Add a swap to the running list
@@ -246,6 +277,14 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			}
 
 			s.addRunningSwap(swap.SwapId)
+
+			// Mark this swap as an auto swap in the database
+			if s.repository != nil {
+				if err := s.repository.UpdateAutoSwap(ctx, swap.SwapId, true); err != nil {
+					log.Warnf("[AutoSwap] Failed to mark swap %s as auto swap: %v", swap.SwapId, err)
+				}
+			}
+
 			log.Infof("[AutoSwap] Auto swap out completed successfully for swap: %v, now processing swap:", swap.SwapId)
 			go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
 
