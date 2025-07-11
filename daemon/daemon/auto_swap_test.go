@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
 	swaps "github.com/40acres/40swap/daemon/swaps"
@@ -37,9 +38,14 @@ func setupTestService(t *testing.T) (*AutoSwapService, *rpc.MockSwapServiceClien
 	mockSwapClient := swaps.NewMockClientInterface(ctrl)
 	mockLightningClient := lightning.NewMockClient(ctrl)
 	mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+	mockRepository := rpc.NewMockRepository(ctrl)
+
+	// Configure default repository expectations for successful operations
+	mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), true).Return(nil).AnyTimes()
+	mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), false).Return(nil).AnyTimes()
 
 	config := createTestConfig()
-	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, config)
+	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
 
 	return service, mockRPCClient, mockLightningClient, ctrl
 }
@@ -323,7 +329,7 @@ func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 		mockLightningClient := lightning.NewMockClient(ctrl)
 		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
 
-		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, nil)
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, nil, nil)
 
 		err := service.RunAutoSwapCheck(context.Background())
 		require.NoError(t, err)
@@ -539,5 +545,170 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 		_, err := service.rpcClient.GetSwapOut(context.Background(), &rpc.GetSwapOutRequest{Id: "error-swap"})
 		require.Error(t, err)
 		assert.True(t, service.hasRunningSwap()) // Should still be running
+	})
+}
+
+func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
+	t.Run("SuccessfulRecoveryWithPendingSwaps", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// Create service with specific repository mock for this test
+		mockSwapClient := swaps.NewMockClientInterface(ctrl)
+		mockLightningClient := lightning.NewMockClient(ctrl)
+		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+		mockRepository := rpc.NewMockRepository(ctrl)
+
+		// Mock pending auto swaps from database
+		pendingSwaps := []*models.SwapOut{
+			{
+				SwapID:     "recovery-swap-1",
+				Status:     models.StatusContractFunded,
+				IsAutoSwap: true,
+			},
+			{
+				SwapID:     "recovery-swap-2",
+				Status:     models.StatusInvoicePaid,
+				IsAutoSwap: true,
+			},
+		}
+
+		// Configure repository expectations
+		mockRepository.EXPECT().GetPendingAutoSwapOuts(gomock.Any()).Return(pendingSwaps, nil)
+		// Allow UpdateAutoSwap calls during normal operation
+		mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		config := createTestConfig()
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
+
+		// Verify initial state
+		assert.False(t, service.hasRunningSwap())
+		assert.Len(t, service.runningSwaps, 0)
+
+		// Execute recovery
+		err := service.RecoverPendingAutoSwaps(context.Background())
+
+		// Verify results
+		require.NoError(t, err)
+		assert.True(t, service.hasRunningSwap())
+		assert.Len(t, service.runningSwaps, 2)
+		assert.Contains(t, service.runningSwaps, "recovery-swap-1")
+		assert.Contains(t, service.runningSwaps, "recovery-swap-2")
+
+		// Note: We don't verify monitoring state here because monitorSwapUntilTerminal
+		// runs in goroutines and may not have set the monitoring flag yet
+	})
+
+	t.Run("RecoveryWithNooPendingSwaps", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockSwapClient := swaps.NewMockClientInterface(ctrl)
+		mockLightningClient := lightning.NewMockClient(ctrl)
+		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+		mockRepository := rpc.NewMockRepository(ctrl)
+
+		// Mock empty result from database
+		mockRepository.EXPECT().GetPendingAutoSwapOuts(gomock.Any()).Return([]*models.SwapOut{}, nil)
+		mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		config := createTestConfig()
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
+
+		// Execute recovery
+		err := service.RecoverPendingAutoSwaps(context.Background())
+
+		// Verify results
+		require.NoError(t, err)
+		assert.False(t, service.hasRunningSwap())
+		assert.Len(t, service.runningSwaps, 0)
+	})
+
+	t.Run("RecoveryWithDatabaseError", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockSwapClient := swaps.NewMockClientInterface(ctrl)
+		mockLightningClient := lightning.NewMockClient(ctrl)
+		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+		mockRepository := rpc.NewMockRepository(ctrl)
+
+		// Mock database error
+		expectedError := errors.New("database connection failed")
+		mockRepository.EXPECT().GetPendingAutoSwapOuts(gomock.Any()).Return(nil, expectedError)
+		mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		config := createTestConfig()
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
+
+		// Execute recovery
+		err := service.RecoverPendingAutoSwaps(context.Background())
+
+		// Verify error handling
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get pending auto swaps")
+		assert.Contains(t, err.Error(), "database connection failed")
+		assert.False(t, service.hasRunningSwap())
+		assert.Len(t, service.runningSwaps, 0)
+	})
+
+	t.Run("RecoveryWithNilRepository", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockSwapClient := swaps.NewMockClientInterface(ctrl)
+		mockLightningClient := lightning.NewMockClient(ctrl)
+		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+
+		config := createTestConfig()
+		// Create service with nil repository
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, nil, config)
+
+		// Execute recovery
+		err := service.RecoverPendingAutoSwaps(context.Background())
+
+		// Should handle nil repository gracefully
+		require.NoError(t, err)
+		assert.False(t, service.hasRunningSwap())
+		assert.Len(t, service.runningSwaps, 0)
+	})
+
+	t.Run("RecoveryIntegrationWithRunAutoSwapCheck", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockSwapClient := swaps.NewMockClientInterface(ctrl)
+		mockLightningClient := lightning.NewMockClient(ctrl)
+		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+		mockRepository := rpc.NewMockRepository(ctrl)
+
+		// Mock one pending swap
+		pendingSwaps := []*models.SwapOut{
+			{
+				SwapID:     "existing-swap",
+				Status:     models.StatusContractFunded,
+				IsAutoSwap: true,
+			},
+		}
+
+		mockRepository.EXPECT().GetPendingAutoSwapOuts(gomock.Any()).Return(pendingSwaps, nil)
+		mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		config := createTestConfig()
+		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
+
+		// Recover pending swaps first
+		err := service.RecoverPendingAutoSwaps(context.Background())
+		require.NoError(t, err)
+		assert.True(t, service.hasRunningSwap())
+
+		// Now run auto swap check - should skip because there's already a running swap
+		// When there are running swaps, RunAutoSwapCheck exits early without calling GetInfo
+		err = service.RunAutoSwapCheck(context.Background())
+		require.NoError(t, err)
+
+		// Should still have only the recovered swap, no new swap created
+		assert.Len(t, service.runningSwaps, 1)
+		assert.Equal(t, "existing-swap", service.runningSwaps[0])
 	})
 }

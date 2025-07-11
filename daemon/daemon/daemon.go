@@ -83,7 +83,7 @@ func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient s
 
 	rpcClient := rpc.NewRPCClient("localhost", server.Port)
 	autoSwapService := NewAutoSwapService(swapClient, rpcClient, lightningClient, swapMonitor.repository, config)
-	
+
 	// Recover any pending auto swaps from the database
 	if err := autoSwapService.RecoverPendingAutoSwaps(ctx); err != nil {
 		log.Errorf("[AutoSwap] Failed to recover pending auto swaps: %v", err)
