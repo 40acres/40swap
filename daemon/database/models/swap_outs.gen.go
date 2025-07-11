@@ -27,6 +27,7 @@ type SwapOut struct {
 	PreImage           *lntypes.Preimage `gorm:"column:pre_image;type:text;serializer:preimage" json:"pre_image"`
 	TimeoutBlockHeight int64             `gorm:"column:timeout_block_height;type:bigint" json:"timeout_block_height"`
 	TxID               string            `gorm:"column:tx_id;type:text" json:"tx_id"`
+	IsAutoSwap         bool              `gorm:"column:is_auto_swap;type:boolean" json:"is_auto_swap"`
 }
 
 // TableName SwapOut's table name

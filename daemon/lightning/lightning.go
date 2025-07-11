@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/shopspring/decimal"
 )
 
@@ -20,6 +21,13 @@ type GraphStatus struct {
 	ChainSynced bool
 }
 
+type NodeInfo struct {
+	LocalBalance  decimal.Decimal // in sats
+	RemoteBalance decimal.Decimal // in sats
+	TotalBalance  decimal.Decimal // in sats
+	NumChannels   int
+}
+
 //go:generate go tool mockgen -destination=mock.go -package=lightning . Client
 type Client interface {
 	PayInvoice(ctx context.Context, paymentRequest string, feeLimitRatio float64) error
@@ -27,4 +35,6 @@ type Client interface {
 	MonitorPaymentReception(ctx context.Context, rhash []byte) (Preimage, error)
 	GenerateInvoice(ctx context.Context, amountSats decimal.Decimal, expiry time.Duration, memo string) (paymentRequest string, rhash []byte, e error)
 	GenerateAddress(ctx context.Context) (string, error)
+	GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, error)
+	GetInfo(ctx context.Context) (*lnrpc.GetInfoResponse, error)
 }

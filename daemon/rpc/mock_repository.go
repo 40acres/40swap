@@ -41,6 +41,21 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 	return m.recorder
 }
 
+// GetPendingAutoSwapOuts mocks base method.
+func (m *MockRepository) GetPendingAutoSwapOuts(ctx context.Context) ([]*models.SwapOut, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingAutoSwapOuts", ctx)
+	ret0, _ := ret[0].([]*models.SwapOut)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingAutoSwapOuts indicates an expected call of GetPendingAutoSwapOuts.
+func (mr *MockRepositoryMockRecorder) GetPendingAutoSwapOuts(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingAutoSwapOuts", reflect.TypeOf((*MockRepository)(nil).GetPendingAutoSwapOuts), ctx)
+}
+
 // GetPendingSwapIns mocks base method.
 func (m *MockRepository) GetPendingSwapIns(ctx context.Context) ([]*models.SwapIn, error) {
 	m.ctrl.T.Helper()
@@ -142,4 +157,18 @@ func (m *MockRepository) SaveSwapOut(ctx context.Context, swapOut *models.SwapOu
 func (mr *MockRepositoryMockRecorder) SaveSwapOut(ctx, swapOut any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSwapOut", reflect.TypeOf((*MockRepository)(nil).SaveSwapOut), ctx, swapOut)
+}
+
+// UpdateAutoSwap mocks base method.
+func (m *MockRepository) UpdateAutoSwap(ctx context.Context, swapID string, isAutoSwap bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAutoSwap", ctx, swapID, isAutoSwap)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateAutoSwap indicates an expected call of UpdateAutoSwap.
+func (mr *MockRepositoryMockRecorder) UpdateAutoSwap(ctx, swapID, isAutoSwap any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAutoSwap", reflect.TypeOf((*MockRepository)(nil).UpdateAutoSwap), ctx, swapID, isAutoSwap)
 }
