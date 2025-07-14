@@ -57,9 +57,6 @@ func (s *AutoSwapService) GetCheckInterval() time.Duration {
 
 // RecoverPendingAutoSwaps recovers auto swaps that were running before daemon restart
 func (s *AutoSwapService) RecoverPendingAutoSwaps(ctx context.Context) error {
-	if s.repository == nil {
-		return nil
-	}
 
 	pendingAutoSwaps, err := s.repository.GetPendingAutoSwapOuts(ctx)
 	if err != nil {
@@ -278,10 +275,8 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			s.addRunningSwap(swap.SwapId)
 
 			// Mark this swap as an auto swap in the database
-			if s.repository != nil {
-				if err := s.repository.UpdateAutoSwap(ctx, swap.SwapId, true); err != nil {
-					log.Warnf("[AutoSwap] Failed to mark swap %s as auto swap: %v", swap.SwapId, err)
-				}
+			if err := s.repository.UpdateAutoSwap(ctx, swap.SwapId, true); err != nil {
+				log.Warnf("[AutoSwap] Failed to mark swap %s as auto swap: %v", swap.SwapId, err)
 			}
 
 			log.Infof("[AutoSwap] Auto swap out completed successfully for swap: %v, now processing swap:", swap.SwapId)
