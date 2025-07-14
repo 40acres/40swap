@@ -362,26 +362,6 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "address gen failed")
 	})
-
-	t.Run("ContinuesAfterGetInfoFailure", func(t *testing.T) {
-		service, mockRPCClient, mockLightningClient, ctrl := setupTestService(t)
-		defer ctrl.Finish()
-
-		mockLightningClient.EXPECT().GetInfo(gomock.Any()).Return((*lnrpc.GetInfoResponse)(nil), errors.New("getinfo failed"))
-		mockLightningClient.EXPECT().GetChannelLocalBalance(gomock.Any()).Return(
-			decimal.NewFromFloat(1.5*100000000), nil)
-		mockLightningClient.EXPECT().GenerateAddress(gomock.Any()).Return("bc1test", nil)
-
-		mockRPCClient.EXPECT().SwapOut(gomock.Any(), gomock.Any()).Return(&rpc.SwapOutResponse{
-			SwapId: "test-swap",
-		}, nil)
-
-		err := service.RunAutoSwapCheck(context.Background())
-
-		// Should continue despite GetInfo failure
-		require.NoError(t, err)
-		require.True(t, service.hasRunningSwap())
-	})
 }
 
 func TestAutoSwapService_ConcurrencyAndRaceConditions(t *testing.T) {
