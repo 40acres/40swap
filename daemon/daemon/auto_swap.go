@@ -57,7 +57,6 @@ func (s *AutoSwapService) GetCheckInterval() time.Duration {
 
 // RecoverPendingAutoSwaps recovers auto swaps that were running before daemon restart
 func (s *AutoSwapService) RecoverPendingAutoSwaps(ctx context.Context) error {
-
 	pendingAutoSwaps, err := s.repository.GetPendingAutoSwapOuts(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get pending auto swaps: %w", err)

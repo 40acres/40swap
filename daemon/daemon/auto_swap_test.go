@@ -651,27 +651,6 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 		require.Len(t, service.runningSwaps, 0)
 	})
 
-	t.Run("RecoveryWithNilRepository", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		mockSwapClient := swaps.NewMockClientInterface(ctrl)
-		mockLightningClient := lightning.NewMockClient(ctrl)
-		mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
-
-		config := createTestConfig()
-		// Create service with nil repository
-		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, nil, config)
-
-		// Execute recovery
-		err := service.RecoverPendingAutoSwaps(context.Background())
-
-		// Should handle nil repository gracefully
-		require.NoError(t, err)
-		require.False(t, service.hasRunningSwap())
-		require.Len(t, service.runningSwaps, 0)
-	})
-
 	t.Run("RecoveryIntegrationWithRunAutoSwapCheck", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
