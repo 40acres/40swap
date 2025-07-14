@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	bitcoinutils "github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/bitcoin/mempool"
@@ -147,10 +148,10 @@ func main() {
 				Value:   false,
 				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_ENABLED")),
 			},
-			&cli.IntFlag{
+			&cli.DurationFlag{
 				Name:    "auto-swap-interval",
-				Usage:   "Interval in minutes to check for auto swap out",
-				Value:   10,
+				Usage:   "Interval to check for auto swap out",
+				Value:   10 * time.Minute,
 				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_INTERVAL")),
 			},
 			&cli.FloatFlag{
@@ -162,7 +163,7 @@ func main() {
 			&cli.FloatFlag{
 				Name:    "auto-swap-backoff-factor",
 				Usage:   "Backoff factor to reduce swap size on failure",
-				Value:   0.5,
+				Value:   0.8,
 				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_BACKOFF_FACTOR")),
 			},
 			&cli.IntFlag{
@@ -239,7 +240,7 @@ func main() {
 					// Create auto swap config from CLI flags
 					autoSwapConfig := daemon.NewAutoSwapConfigFromFlags(
 						c.Bool("auto-swap-enabled"),
-						int(c.Int("auto-swap-interval")),
+						int(c.Duration("auto-swap-interval").Minutes()),
 						c.Float("auto-swap-target-balance"),
 						c.Float("auto-swap-backoff-factor"),
 						int(c.Int("auto-swap-max-attempts")),

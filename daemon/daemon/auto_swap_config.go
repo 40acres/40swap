@@ -22,20 +22,6 @@ type AutoSwapConfig struct {
 	MaxSwapSizeBTC       float64
 }
 
-// NewAutoSwapConfig creates a new AutoSwapConfig with default values
-func NewAutoSwapConfig() *AutoSwapConfig {
-	return &AutoSwapConfig{
-		Enabled:              false,
-		CheckIntervalMinutes: 10,
-		TargetBalanceBTC:     1.0,
-		BackoffFactor:        0.5,
-		MaxAttempts:          3,
-		RoutingFeeLimitPPM:   1000,
-		MinSwapSizeBTC:       0.001,
-		MaxSwapSizeBTC:       0.1,
-	}
-}
-
 // NewAutoSwapConfigFromFlags creates a new AutoSwapConfig from CLI flags
 func NewAutoSwapConfigFromFlags(
 	enabled bool,

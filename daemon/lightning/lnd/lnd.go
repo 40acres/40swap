@@ -372,7 +372,7 @@ func (c *Client) GenerateAddress(ctx context.Context) (string, error) {
 	return res.Address, nil
 }
 
-// GetLocalChannelBalance retrieves the local channel balance from the LND node
+// // GetLocalChannelBalance retrieves the local balance across all channels of the node
 func (c *Client) GetChannelLocalBalance(ctx context.Context) (decimal.Decimal, error) {
 	// Get channel balance
 	channelBalance, err := c.lndClient.ChannelBalance(ctx, &lnrpc.ChannelBalanceRequest{})

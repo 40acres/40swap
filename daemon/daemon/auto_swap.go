@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -85,10 +86,8 @@ func (s *AutoSwapService) addRunningSwap(swapID string) {
 	s.runningSwapsMu.Lock()
 	defer s.runningSwapsMu.Unlock()
 	// Check if the swap is already in the list to avoid duplicates
-	for _, id := range s.runningSwaps {
-		if id == swapID {
-			return // Already exists, don't add duplicate
-		}
+	if slices.Contains(s.runningSwaps, swapID) {
+		return // Already exists, don't add duplicate
 	}
 	s.runningSwaps = append(s.runningSwaps, swapID)
 }
