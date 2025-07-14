@@ -29,11 +29,6 @@ type AutoSwapService struct {
 	monitoredSwapsMu sync.Mutex
 }
 
-// LightningInfo represents LND node information
-type LightningInfo struct {
-	LocalBalance float64 // in BTC
-}
-
 // NewAutoSwapService creates a new AutoSwapService with dependencies for reusing existing logic
 func NewAutoSwapService(
 	client swaps.ClientInterface,
