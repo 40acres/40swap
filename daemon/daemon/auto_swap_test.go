@@ -13,7 +13,6 @@ import (
 	swaps "github.com/40acres/40swap/daemon/swaps"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -160,9 +159,9 @@ func TestAutoSwapService_SwapAmountCalculation(t *testing.T) {
 			require.NoError(t, err, tt.description)
 
 			if tt.shouldSwap {
-				assert.True(t, service.hasRunningSwap(), "Should have running swap")
+				require.True(t, service.hasRunningSwap(), "Should have running swap")
 			} else {
-				assert.False(t, service.hasRunningSwap(), "Should not have running swap")
+				require.False(t, service.hasRunningSwap(), "Should not have running swap")
 			}
 		})
 	}
@@ -208,11 +207,11 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 		}
 
 		for i, expected := range expectedAmounts {
-			assert.Equal(t, expected, attemptAmounts[i],
+			require.Equal(t, expected, attemptAmounts[i],
 				"Attempt %d should be %d sats but was %d sats", i+1, expected, attemptAmounts[i])
 		}
 
-		assert.False(t, service.hasRunningSwap(), "Should not have running swap after failure")
+		require.False(t, service.hasRunningSwap(), "Should not have running swap after failure")
 	})
 
 	t.Run("SuccessfulRetryAfterBackoff", func(t *testing.T) {
@@ -252,7 +251,7 @@ func TestAutoSwapService_BackoffLogic(t *testing.T) {
 		err := service.RunAutoSwapCheck(context.Background())
 
 		require.NoError(t, err)
-		assert.True(t, service.hasRunningSwap())
+		require.True(t, service.hasRunningSwap())
 	})
 }
 
@@ -262,32 +261,32 @@ func TestAutoSwapService_StateManagement(t *testing.T) {
 		defer ctrl.Finish()
 
 		// Initially no running swaps
-		assert.False(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 0)
+		require.False(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 0)
 
 		// Add swaps
 		service.addRunningSwap("swap1")
-		assert.True(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 1)
+		require.True(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 1)
 
 		service.addRunningSwap("swap2")
-		assert.Len(t, service.runningSwaps, 2)
+		require.Len(t, service.runningSwaps, 2)
 
 		// Test duplicate prevention
 		service.addRunningSwap("swap1")
-		assert.Len(t, service.runningSwaps, 2) // Should not add duplicate
+		require.Len(t, service.runningSwaps, 2) // Should not add duplicate
 
 		// Remove swaps
 		service.removeRunningSwap("swap1")
-		assert.Len(t, service.runningSwaps, 1)
-		assert.Equal(t, "swap2", service.runningSwaps[0])
+		require.Len(t, service.runningSwaps, 1)
+		require.Equal(t, "swap2", service.runningSwaps[0])
 
 		service.removeRunningSwap("swap2")
-		assert.False(t, service.hasRunningSwap())
+		require.False(t, service.hasRunningSwap())
 
 		// Remove non-existent swap
 		service.removeRunningSwap("nonexistent")
-		assert.Len(t, service.runningSwaps, 0) // Should remain unchanged
+		require.Len(t, service.runningSwaps, 0) // Should remain unchanged
 	})
 
 	t.Run("MonitoredSwapOperations", func(t *testing.T) {
@@ -295,15 +294,15 @@ func TestAutoSwapService_StateManagement(t *testing.T) {
 		defer ctrl.Finish()
 
 		// Initially no monitored swaps
-		assert.False(t, service.isSwapBeingMonitored("swap1"))
+		require.False(t, service.isSwapBeingMonitored("swap1"))
 
 		// Monitor swap
 		service.setSwapMonitored("swap1")
-		assert.True(t, service.isSwapBeingMonitored("swap1"))
+		require.True(t, service.isSwapBeingMonitored("swap1"))
 
 		// Unmonitor swap
 		service.unsetSwapMonitored("swap1")
-		assert.False(t, service.isSwapBeingMonitored("swap1"))
+		require.False(t, service.isSwapBeingMonitored("swap1"))
 	})
 }
 
@@ -318,7 +317,7 @@ func TestAutoSwapService_ConfigurationValidation(t *testing.T) {
 		err := service.RunAutoSwapCheck(context.Background())
 
 		require.NoError(t, err)
-		assert.False(t, service.hasRunningSwap())
+		require.False(t, service.hasRunningSwap())
 	})
 
 	t.Run("NilConfig", func(t *testing.T) {
@@ -347,7 +346,7 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 
 		err := service.RunAutoSwapCheck(context.Background())
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "connection failed")
+		require.Contains(t, err.Error(), "connection failed")
 	})
 
 	t.Run("AddressGenerationError", func(t *testing.T) {
@@ -361,7 +360,7 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 
 		err := service.RunAutoSwapCheck(context.Background())
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "address gen failed")
+		require.Contains(t, err.Error(), "address gen failed")
 	})
 
 	t.Run("ContinuesAfterGetInfoFailure", func(t *testing.T) {
@@ -381,7 +380,7 @@ func TestAutoSwapService_ErrorHandling(t *testing.T) {
 
 		// Should continue despite GetInfo failure
 		require.NoError(t, err)
-		assert.True(t, service.hasRunningSwap())
+		require.True(t, service.hasRunningSwap())
 	})
 }
 
@@ -416,8 +415,8 @@ func TestAutoSwapService_ConcurrencyAndRaceConditions(t *testing.T) {
 		wg.Wait()
 
 		// Verify clean state
-		assert.False(t, service.hasRunningSwap())
-		assert.Empty(t, service.monitoredSwaps)
+		require.False(t, service.hasRunningSwap())
+		require.Empty(t, service.monitoredSwaps)
 	})
 }
 
@@ -453,9 +452,9 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 
 		// Verify results
 		require.NoError(t, err)
-		assert.True(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 1)
-		assert.Equal(t, "realistic-swap-123", service.runningSwaps[0])
+		require.True(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 1)
+		require.Equal(t, "realistic-swap-123", service.runningSwaps[0])
 	})
 
 	t.Run("NodeWithoutMPPSupport", func(t *testing.T) {
@@ -479,7 +478,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 		// Should still proceed despite MPP warning
 		err := service.RunAutoSwapCheck(context.Background())
 		require.NoError(t, err)
-		assert.True(t, service.hasRunningSwap())
+		require.True(t, service.hasRunningSwap())
 	})
 
 	t.Run("SkipsWhenSwapAlreadyRunning", func(t *testing.T) {
@@ -494,7 +493,7 @@ func TestAutoSwapService_IntegrationScenarios(t *testing.T) {
 
 		// Should skip new swap
 		require.NoError(t, err)
-		assert.Len(t, service.runningSwaps, 1) // Still just the original swap
+		require.Len(t, service.runningSwaps, 1) // Still just the original swap
 	})
 }
 
@@ -529,7 +528,7 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 			service.removeRunningSwap("test-monitor-swap")
 		}
 
-		assert.False(t, service.hasRunningSwap())
+		require.False(t, service.hasRunningSwap())
 	})
 
 	t.Run("MonitoringHandlesErrors", func(t *testing.T) {
@@ -544,7 +543,7 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 		// Error should not remove swap (continues monitoring)
 		_, err := service.rpcClient.GetSwapOut(context.Background(), &rpc.GetSwapOutRequest{Id: "error-swap"})
 		require.Error(t, err)
-		assert.True(t, service.hasRunningSwap()) // Should still be running
+		require.True(t, service.hasRunningSwap()) // Should still be running
 	})
 }
 
@@ -582,18 +581,18 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 		service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
 
 		// Verify initial state
-		assert.False(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 0)
+		require.False(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 0)
 
 		// Execute recovery
 		err := service.RecoverPendingAutoSwaps(context.Background())
 
 		// Verify results
 		require.NoError(t, err)
-		assert.True(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 2)
-		assert.Contains(t, service.runningSwaps, "recovery-swap-1")
-		assert.Contains(t, service.runningSwaps, "recovery-swap-2")
+		require.True(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 2)
+		require.Contains(t, service.runningSwaps, "recovery-swap-1")
+		require.Contains(t, service.runningSwaps, "recovery-swap-2")
 
 		// Note: We don't verify monitoring state here because monitorSwapUntilTerminal
 		// runs in goroutines and may not have set the monitoring flag yet
@@ -620,8 +619,8 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 
 		// Verify results
 		require.NoError(t, err)
-		assert.False(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 0)
+		require.False(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 0)
 	})
 
 	t.Run("RecoveryWithDatabaseError", func(t *testing.T) {
@@ -646,10 +645,10 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 
 		// Verify error handling
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get pending auto swaps")
-		assert.Contains(t, err.Error(), "database connection failed")
-		assert.False(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 0)
+		require.Contains(t, err.Error(), "failed to get pending auto swaps")
+		require.Contains(t, err.Error(), "database connection failed")
+		require.False(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 0)
 	})
 
 	t.Run("RecoveryWithNilRepository", func(t *testing.T) {
@@ -669,8 +668,8 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 
 		// Should handle nil repository gracefully
 		require.NoError(t, err)
-		assert.False(t, service.hasRunningSwap())
-		assert.Len(t, service.runningSwaps, 0)
+		require.False(t, service.hasRunningSwap())
+		require.Len(t, service.runningSwaps, 0)
 	})
 
 	t.Run("RecoveryIntegrationWithRunAutoSwapCheck", func(t *testing.T) {
@@ -700,7 +699,7 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 		// Recover pending swaps first
 		err := service.RecoverPendingAutoSwaps(context.Background())
 		require.NoError(t, err)
-		assert.True(t, service.hasRunningSwap())
+		require.True(t, service.hasRunningSwap())
 
 		// Now run auto swap check - should skip because there's already a running swap
 		// When there are running swaps, RunAutoSwapCheck exits early without calling GetInfo
@@ -708,7 +707,7 @@ func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should still have only the recovered swap, no new swap created
-		assert.Len(t, service.runningSwaps, 1)
-		assert.Equal(t, "existing-swap", service.runningSwaps[0])
+		require.Len(t, service.runningSwaps, 1)
+		require.Equal(t, "existing-swap", service.runningSwaps[0])
 	})
 }
