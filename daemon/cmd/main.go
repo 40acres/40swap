@@ -282,7 +282,14 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, c.Int("minrelayfee"), network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network), autoSwapConfig)
+					// Create auto swap service if enabled
+					var autoSwapService *daemon.AutoSwapService
+					if autoSwapConfig.IsEnabled() {
+						rpcClient := rpc.NewRPCClient("localhost", grpcPort)
+						autoSwapService = daemon.NewAutoSwapService(swapClient, rpcClient, lnClient, db, autoSwapConfig)
+					}
+
+					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network), autoSwapService)
 					if err != nil {
 						return err
 					}

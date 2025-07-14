@@ -50,6 +50,11 @@ func NewAutoSwapService(
 	return service
 }
 
+// GetCheckInterval returns the auto swap check interval
+func (s *AutoSwapService) GetCheckInterval() time.Duration {
+	return s.config.GetCheckInterval()
+}
+
 // RecoverPendingAutoSwaps recovers auto swaps that were running before daemon restart
 func (s *AutoSwapService) RecoverPendingAutoSwaps(ctx context.Context) error {
 	if s.repository == nil {

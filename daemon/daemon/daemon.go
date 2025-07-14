@@ -21,7 +21,7 @@ type Repository interface {
 	database.SwapOutRepository
 }
 
-func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network, autoSwapConfig *AutoSwapConfig) error {
+func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.ClientInterface, lightning lightning.Client, bitcoin bitcoin.Client, network lightning.Network, autoSwapService *AutoSwapService) error {
 	log.Infof("Starting 40swapd on network %s", network)
 
 	config, err := swaps.GetConfiguration(ctx)
@@ -39,19 +39,9 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 		}
 	}()
 
-	// Start the auto swap loop in a goroutine if auto swap is enabled
-	if autoSwapConfig != nil && autoSwapConfig.IsEnabled() {
-		// Create swap monitor for auto swap
-		swapMonitor := &SwapMonitor{
-			repository:      db,
-			swapClient:      swaps,
-			lightningClient: lightning,
-			network:         network,
-			now:             time.Now,
-			bitcoin:         bitcoin,
-		}
-
-		go StartAutoSwapLoop(ctx, autoSwapConfig, swaps, lightning, server, swapMonitor)
+	// Start the auto swap loop in a goroutine if auto swap service is provided
+	if autoSwapService != nil {
+		go StartAutoSwapLoop(ctx, autoSwapService)
 	}
 
 	// monitor every 10 seconds
@@ -78,11 +68,8 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 }
 
 // StartAutoSwapLoop runs the auto swap check every config.GetCheckInterval()
-func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient swaps.ClientInterface, lightningClient lightning.Client, server *rpc.Server, swapMonitor *SwapMonitor) {
+func StartAutoSwapLoop(ctx context.Context, autoSwapService *AutoSwapService) {
 	log.Infof("[AutoSwap] Starting auto swap loop")
-
-	rpcClient := rpc.NewRPCClient("localhost", server.Port)
-	autoSwapService := NewAutoSwapService(swapClient, rpcClient, lightningClient, swapMonitor.repository, config)
 
 	// Recover any pending auto swaps from the database
 	if err := autoSwapService.RecoverPendingAutoSwaps(ctx); err != nil {
@@ -102,7 +89,7 @@ func StartAutoSwapLoop(ctx context.Context, config *AutoSwapConfig, swapClient s
 			}
 
 			// Wait for the configured interval
-			time.Sleep(config.GetCheckInterval())
+			time.Sleep(autoSwapService.GetCheckInterval())
 		}
 	}
 }
