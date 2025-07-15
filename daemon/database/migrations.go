@@ -305,6 +305,24 @@ func AddLockTxIdToSwapIn() *gormigrate.Migration {
 	}
 }
 
+func AddIsAutoSwapToSwapOut() *gormigrate.Migration {
+	const ID = "9_add_is_auto_swap_to_swap_out"
+
+	type swapOut struct {
+		IsAutoSwap bool `gorm:"default:false"`
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			return tx.Migrator().AddColumn(&swapOut{}, "IsAutoSwap")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			return tx.Migrator().DropColumn(&swapOut{}, "IsAutoSwap")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
@@ -314,6 +332,7 @@ var migrations = []*gormigrate.Migration{
 	ChangeNameClaimPubkey(),
 	DropClaimTxForSwapIns(),
 	AddLockTxIdToSwapIn(),
+	AddIsAutoSwapToSwapOut(),
 }
 
 type Migrator struct {

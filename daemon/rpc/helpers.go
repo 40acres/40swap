@@ -28,14 +28,3 @@ func ToModelsChainType(chain Chain) models.Chain {
 		return models.Bitcoin
 	}
 }
-
-func ToRPCChainType(chain models.Chain) Chain {
-	switch chain {
-	case models.Bitcoin:
-		return Chain_BITCOIN
-	case models.Liquid:
-		return Chain_LIQUID
-	default:
-		return Chain_BITCOIN
-	}
-}

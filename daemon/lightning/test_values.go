@@ -48,11 +48,6 @@ var (
 
 type InvoiceOption func(*zpay32.Invoice)
 
-func WithExpiry(duration time.Duration) InvoiceOption {
-	return func(invoice *zpay32.Invoice) {
-		zpay32.Expiry(duration)(invoice)
-	}
-}
 func CreateMockInvoice(t *testing.T, amsats int64, opts ...InvoiceOption) string {
 	t.Helper()
 
