@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
@@ -26,6 +27,7 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 
 	repository := rpc.NewMockRepository(ctrl)
 	swapClient := swaps.NewMockClientInterface(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
 	now := func() time.Time {
 		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -33,6 +35,7 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 	swapMonitor := SwapMonitor{
 		repository: repository,
 		swapClient: swapClient,
+		bitcoin:    bitcoinClient,
 		now:        now,
 	}
 	preimage, err := lntypes.MakePreimageFromStr(preimageHex)
@@ -53,6 +56,8 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 		{
 			name: "error getting claim PSBT",
 			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("error getting psbt"))
 
 				return &swapMonitor
@@ -71,6 +76,8 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 		{
 			name: "bad psbt returned",
 			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: "bad",
 				}, nil)
@@ -91,6 +98,8 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 		{
 			name: "error decoding key",
 			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: validPsbt, // valid PSBT
 				}, nil)
@@ -112,6 +121,8 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 		{
 			name: "error signing psbt",
 			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: validPsbt, // valid PSBT
 				}, nil)
@@ -134,10 +145,12 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 		{
 			name: "error posting tx",
 			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: validPsbt, // valid PSBT
 				}, nil)
-				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(errors.New("failed to post transaction"))
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(errors.New("failed to post transaction"))
 
 				return &swapMonitor
 			},
@@ -157,10 +170,12 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 		{
 			name: "valid case",
 			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: validPsbt, // valid PSBT
 				}, nil)
-				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
 
 				return &swapMonitor
 			},
@@ -203,6 +218,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 
 	repository := rpc.NewMockRepository(ctrl)
 	swapClient := swaps.NewMockClientInterface(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
 	now := func() time.Time {
 		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -210,6 +226,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 	swapMonitor := SwapMonitor{
 		repository: repository,
 		swapClient: swapClient,
+		bitcoin:    bitcoinClient,
 		now:        now,
 	}
 
@@ -278,6 +295,9 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 					SwapId: "swap_id",
 					Status: models.StatusContractFunded,
 				}, nil)
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Additional GetSwapOut call from ClaimSwapOut
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{}, errors.New("error claiming swap out"))
 
 				return &swapMonitor
@@ -290,7 +310,7 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			err:     errors.New("failed to claim swap out: error claiming swap out"),
+			err:     errors.New("failed to claim swap out: failed to get claim PSBT: error claiming swap out"),
 		},
 		{
 			name: "contract funded error saving db",
@@ -299,10 +319,13 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 					SwapId: "swap_id",
 					Status: models.StatusContractFunded,
 				}, nil)
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Additional GetSwapOut call from ClaimSwapOut
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: validPsbt, // unfinished psbt
 				}, nil)
-				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
 				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(errors.New("error saving swap out"))
 
 				return &swapMonitor
@@ -327,10 +350,13 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 					SwapId: "swap_id",
 					Status: models.StatusContractFunded,
 				}, nil)
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Additional GetSwapOut call from ClaimSwapOut
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
 				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
 					PSBT: validPsbt, // unfinished psbt
 				}, nil)
-				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
 				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(nil)
 
 				return &swapMonitor

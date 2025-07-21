@@ -85,10 +85,46 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error) {
 	logger := log.WithField("id", swap.SwapID)
 
-	logger.Infof("claiming swap out: %s", swap.SwapID)
+	logger.Infof("Building claim transaction for swap out: %s", swap.SwapID)
+
+	// Get recommended fee rate
+	recommendedFeeRate, err := m.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
+	if err != nil {
+		return "", fmt.Errorf("failed to get recommended fees: %w", err)
+	}
+
+	if recommendedFeeRate > 200 {
+		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
+	}
+
+	// Try to build claim transaction locally if we have the lock transaction information
+	// We'll need to get contract information from the swap client
+	swapInfo, err := m.swapClient.GetSwapOut(ctx, swap.SwapID)
+	if err != nil {
+		logger.Warnf("Failed to get swap info, falling back to API: %v", err)
+	} else if swapInfo.LockTx != nil {
+		psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
+
+		pkt, err := psbtBuilder.BuildClaimPSBT(ctx, swap, swapInfo, recommendedFeeRate, logger)
+		if err != nil {
+			logger.Warnf("Failed to build claim PSBT locally, falling back to API: %v", err)
+		} else {
+			// Sign and broadcast the PSBT
+			txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.ClaimPrivateKey, swap.PreImage, logger)
+			if err != nil {
+				return "", fmt.Errorf("failed to sign and broadcast claim transaction: %w", err)
+			}
+
+			logger.Info("Successfully built and broadcast claim transaction locally")
+			return txID, nil
+		}
+	}
+
+	// Fallback to API approach (current implementation)
+	logger.Infof("Using API approach for claim: %s", swap.SwapID)
 	res, err := m.swapClient.GetClaimPSBT(ctx, swap.SwapID, swap.DestinationAddress)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get claim PSBT: %w", err)
 	}
 
 	// Get psbt from response
@@ -113,11 +149,11 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
 
-	// Send transaction back to the swap client
-	logger.Debug("sending transaction back to swap client")
-	err = m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx)
+	// Send transaction directly to bitcoin client instead of swap client
+	logger.Debug("Broadcasting claim transaction directly to bitcoin network")
+	err = m.bitcoin.PostRefund(ctx, serializedTx) // PostRefund can be used for any transaction broadcast
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to broadcast claim transaction: %w", err)
 	}
 
 	return tx.TxID(), nil

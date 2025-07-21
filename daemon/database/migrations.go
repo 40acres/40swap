@@ -323,6 +323,33 @@ func AddIsAutoSwapToSwapOut() *gormigrate.Migration {
 	}
 }
 
+func AddContractFieldsToSwapOut() *gormigrate.Migration {
+	const ID = "10_add_contract_fields_to_swap_out"
+
+	type swapOut struct {
+		ContractAddress *string
+		RefundPublicKey *string
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().AddColumn(&swapOut{}, "ContractAddress"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().AddColumn(&swapOut{}, "RefundPublicKey")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().DropColumn(&swapOut{}, "ContractAddress"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().DropColumn(&swapOut{}, "RefundPublicKey")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
@@ -333,6 +360,7 @@ var migrations = []*gormigrate.Migration{
 	DropClaimTxForSwapIns(),
 	AddLockTxIdToSwapIn(),
 	AddIsAutoSwapToSwapOut(),
+	AddContractFieldsToSwapOut(),
 }
 
 type Migrator struct {

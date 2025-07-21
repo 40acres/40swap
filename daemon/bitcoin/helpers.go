@@ -2,6 +2,7 @@ package bitcoin
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -16,7 +17,117 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ripemd160"
 )
+
+// BuildTransactionWithFee builds a transaction with the given fee rate by first calculating the virtual size
+// and then building the final transaction with the correct fee amount.
+func BuildTransactionWithFee(satsPerVbyte int64, buildFn func(feeAmount int64, isFeeCalculationRun bool) (*psbt.Packet, error)) (*psbt.Packet, error) {
+	// First pass: build with a dummy fee to calculate virtual size
+	tempPsbt, err := buildFn(1, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build temp PSBT: %w", err)
+	}
+
+	// Extract transaction to calculate virtual size
+	tempTx, err := psbt.Extract(tempPsbt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract temp transaction: %w", err)
+	}
+
+	// Calculate virtual size including witness data
+	virtualSize := mempool.GetTxVirtualSize(btcutil.NewTx(tempTx))
+	feeAmount := int64(virtualSize) * satsPerVbyte
+
+	// Second pass: build with the correct fee
+	return buildFn(feeAmount, false)
+}
+
+// BuildContractSpendBasePsbt builds a PSBT for spending from a contract address
+func BuildContractSpendBasePsbt(contractAddress, outputAddress string, lockScript []byte, spendingTx *wire.MsgTx, feeAmount int64, network lightning.Network) (*psbt.Packet, error) {
+	cfgNetwork := lightning.ToChainCfgNetwork(network)
+
+	// Find the output in the spending transaction that corresponds to our contract address
+	var spendingOutput *wire.TxOut
+	var spendingIndex uint32
+	found := false
+
+	for i, output := range spendingTx.TxOut {
+		// Try to decode the script to an address and compare
+		addr, err := btcutil.NewAddressWitnessScriptHash(btcutil.Hash160(lockScript), cfgNetwork)
+		if err != nil {
+			continue
+		}
+
+		if addr.String() == contractAddress {
+			spendingOutput = output
+			spendingIndex = uint32(i)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, fmt.Errorf("contract address %s not found in spending transaction", contractAddress)
+	}
+
+	// Check if we have enough value after fee
+	outputValue := spendingOutput.Value - feeAmount
+	if outputValue <= 1000 {
+		return nil, fmt.Errorf("amount is too low after fee: %d", outputValue)
+	}
+
+	// Create new transaction
+	tx := wire.NewMsgTx(2)
+
+	// Add input from the spending transaction
+	txIn := wire.NewTxIn(&wire.OutPoint{
+		Hash:  spendingTx.TxHash(),
+		Index: spendingIndex,
+	}, nil, nil)
+	txIn.Sequence = 0xfffffffd // Required for locktime
+	tx.AddTxIn(txIn)
+
+	// Add output to destination address
+	destinationAddr, err := btcutil.DecodeAddress(outputAddress, cfgNetwork)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode destination address: %w", err)
+	}
+
+	outputScript, err := txscript.PayToAddrScript(destinationAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create output script: %w", err)
+	}
+
+	txOut := wire.NewTxOut(outputValue, outputScript)
+	tx.AddTxOut(txOut)
+
+	// Create PSBT
+	pkt, err := psbt.NewFromUnsignedTx(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PSBT: %w", err)
+	}
+
+	// Create p2wsh payment to get the output script
+	p2wsh, err := btcutil.NewAddressWitnessScriptHash(btcutil.Hash160(lockScript), cfgNetwork)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create p2wsh address: %w", err)
+	}
+
+	p2wshScript, err := txscript.PayToAddrScript(p2wsh)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create p2wsh script: %w", err)
+	}
+
+	// Add witness UTXO and witness script to the input
+	pkt.Inputs[0].WitnessUtxo = &wire.TxOut{
+		Value:    spendingOutput.Value,
+		PkScript: p2wshScript,
+	}
+	pkt.Inputs[0].WitnessScript = lockScript
+
+	return pkt, nil
+}
 
 func signInput(packet *psbt.Packet, inputIndex int, key *btcec.PrivateKey, sigHashType txscript.SigHashType, fetcher txscript.PrevOutputFetcher) ([]byte, error) {
 	input := &packet.Inputs[inputIndex]
@@ -317,4 +428,90 @@ func GetOutputAddress(msgTx *wire.MsgTx, index int, network lightning.Network) (
 	}
 
 	return addresses[0], nil
+}
+
+// SwapScript creates the swap script for swap in transactions
+// This is equivalent to the swapScript function in server-backend
+func SwapScript(preimageHash, claimPublicKey, refundPublicKey []byte, timeoutBlockHeight int) ([]byte, error) {
+	// Create script builder
+	builder := txscript.NewScriptBuilder()
+
+	// OP_HASH160 <preimage_hash160> OP_EQUAL
+	preimageHash160 := Hash160(preimageHash)
+	builder.AddOp(txscript.OP_HASH160)
+	builder.AddData(preimageHash160)
+	builder.AddOp(txscript.OP_EQUAL)
+
+	// OP_IF
+	builder.AddOp(txscript.OP_IF)
+
+	// <claim_public_key>
+	builder.AddData(claimPublicKey)
+
+	// OP_ELSE
+	builder.AddOp(txscript.OP_ELSE)
+
+	// <timeout_block_height> OP_CHECKLOCKTIMEVERIFY OP_DROP
+	builder.AddInt64(int64(timeoutBlockHeight))
+	builder.AddOp(txscript.OP_CHECKLOCKTIMEVERIFY)
+	builder.AddOp(txscript.OP_DROP)
+
+	// <refund_public_key>
+	builder.AddData(refundPublicKey)
+
+	// OP_ENDIF
+	builder.AddOp(txscript.OP_ENDIF)
+
+	// OP_CHECKSIG
+	builder.AddOp(txscript.OP_CHECKSIG)
+
+	return builder.Script()
+}
+
+// ReverseSwapScript creates the reverse swap script for swap out transactions
+// This is equivalent to the reverseSwapScript function in server-backend
+func ReverseSwapScript(preimageHash, claimPublicKey, refundPublicKey []byte, timeoutBlockHeight int) ([]byte, error) {
+	// Create script builder
+	builder := txscript.NewScriptBuilder()
+
+	// OP_SIZE 32 OP_EQUAL
+	builder.AddOp(txscript.OP_SIZE)
+	builder.AddInt64(32)
+	builder.AddOp(txscript.OP_EQUAL)
+
+	// OP_IF
+	builder.AddOp(txscript.OP_IF)
+
+	// OP_HASH160 <preimage_hash160> OP_EQUALVERIFY <claim_public_key>
+	preimageHash160 := Hash160(preimageHash)
+	builder.AddOp(txscript.OP_HASH160)
+	builder.AddData(preimageHash160)
+	builder.AddOp(txscript.OP_EQUALVERIFY)
+	builder.AddData(claimPublicKey)
+
+	// OP_ELSE
+	builder.AddOp(txscript.OP_ELSE)
+
+	// OP_DROP <timeout_block_height> OP_CHECKLOCKTIMEVERIFY OP_DROP <refund_public_key>
+	builder.AddOp(txscript.OP_DROP)
+	builder.AddInt64(int64(timeoutBlockHeight))
+	builder.AddOp(txscript.OP_CHECKLOCKTIMEVERIFY)
+	builder.AddOp(txscript.OP_DROP)
+	builder.AddData(refundPublicKey)
+
+	// OP_ENDIF
+	builder.AddOp(txscript.OP_ENDIF)
+
+	// OP_CHECKSIG
+	builder.AddOp(txscript.OP_CHECKSIG)
+
+	return builder.Script()
+}
+
+// Hash160 computes RIPEMD160(SHA256(data))
+func Hash160(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	ripemd := ripemd160.New()
+	ripemd.Write(hash[:])
+	return ripemd.Sum(nil)
 }

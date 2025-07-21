@@ -118,6 +118,37 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 	})
 
 	logger.Infof("Claiming swap in refund: %s", swap.SwapID)
+
+	// Get recommended fee rate
+	recommendedFeeRate, err := m.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
+	if err != nil {
+		return "", fmt.Errorf("failed to get recommended fees: %w", err)
+	}
+
+	if recommendedFeeRate > 200 {
+		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
+	}
+
+	// Try to build PSBT locally if we have the lock transaction ID
+	if swap.LockTxID != "" {
+		psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
+
+		pkt, err := psbtBuilder.BuildRefundPSBT(ctx, swap, recommendedFeeRate, logger)
+		if err != nil {
+			logger.Warnf("Failed to build PSBT locally, falling back to API: %v", err)
+		} else {
+			// Sign and broadcast the PSBT
+			txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.RefundPrivatekey, &lntypes.Preimage{}, logger)
+			if err != nil {
+				return "", fmt.Errorf("failed to sign and broadcast refund transaction: %w", err)
+			}
+
+			return txID, nil
+		}
+	}
+
+	// Fallback to API approach
+	logger.Infof("Using API approach for refund: %s", swap.SwapID)
 	res, err := m.swapClient.GetRefundPSBT(ctx, swap.SwapID, swap.RefundAddress)
 	if err != nil {
 		return "", fmt.Errorf("failed to get refund psbt: %w", err)
@@ -149,11 +180,11 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
 
-	// Send transaction back to the swap client
-	logger.Debug("Sending transaction back to swap client")
-	err = m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx)
+	// Send transaction
+	logger.Debug("Broadcasting refund transaction directly to bitcoin network")
+	err = m.bitcoin.PostRefund(ctx, serializedTx)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to broadcast refund transaction: %w", err)
 	}
 
 	return tx.TxID(), nil

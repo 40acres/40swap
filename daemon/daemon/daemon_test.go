@@ -7,10 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -32,6 +34,11 @@ const (
 	testRefundTxId           = "90714c7bbd14440c4120ef62f9353e893164fdc942dcbc860103440ab6d23697"
 )
 
+// Helper function for tests
+func stringPtr(s string) *string {
+	return &s
+}
+
 func Test_MonitorSwapIns(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	t.Cleanup(ctrl.Finish)
@@ -39,6 +46,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 	repository := rpc.NewMockRepository(ctrl)
 	swapClient := swaps.NewMockClientInterface(ctrl)
 	lightningClient := lightning.NewMockClient(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
 	now := func() time.Time {
 		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -47,6 +55,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 		repository:      repository,
 		swapClient:      swapClient,
 		lightningClient: lightningClient,
+		bitcoin:         bitcoinClient,
 		network:         lightning.Regtest,
 		now:             now,
 	}
@@ -171,16 +180,21 @@ func Test_MonitorSwapIns(t *testing.T) {
 				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
 					Status: models.StatusContractExpired,
 				}, nil)
+				// Set up bitcoin client mock expectations for fee rate check
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Simulate that getting lock transaction fails, so it falls back to API approach
+				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "some-tx-id").Return(nil, errors.New("transaction not found"))
 				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
 					PSBT: testPsbt,
 				}, nil)
-				swapClient.EXPECT().PostRefund(ctx, testSwapId, gomock.Any()).Return(nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
 			},
 			req: models.SwapIn{
 				SwapID:           testSwapId,
 				Status:           models.StatusContractFunded,
 				RefundAddress:    validRefundAddress,
 				RefundPrivatekey: validPrivateKeyForPsbt,
+				LockTxID:         "some-tx-id", // Add LockTxID to trigger local construction attempt
 			},
 			want: &models.SwapIn{
 				SwapID:            testSwapId,
@@ -188,6 +202,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 				RefundRequestedAt: now(),
 				RefundAddress:     validRefundAddress,
 				RefundPrivatekey:  validPrivateKeyForPsbt,
+				LockTxID:          "some-tx-id",
 				RefundTxID:        testRefundTxId,
 			},
 		},
@@ -224,6 +239,7 @@ func Test_Refund(t *testing.T) {
 
 	repository := rpc.NewMockRepository(ctrl)
 	swapClient := swaps.NewMockClientInterface(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
 	now := func() time.Time {
 		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -232,6 +248,7 @@ func Test_Refund(t *testing.T) {
 	swapMonitor := SwapMonitor{
 		repository: repository,
 		swapClient: swapClient,
+		bitcoin:    bitcoinClient,
 		network:    lightning.Regtest,
 		now:        now,
 	}
@@ -246,6 +263,7 @@ func Test_Refund(t *testing.T) {
 		{
 			name: "Invalid psbt",
 			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
 				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
 					PSBT: invalidPsbt,
 				}, nil)
@@ -253,6 +271,7 @@ func Test_Refund(t *testing.T) {
 			req: models.SwapIn{
 				SwapID:        testSwapId,
 				RefundAddress: validRefundAddress,
+				// Don't set LockTxID to force fallback to API approach
 			},
 			wantErr: true,
 			err:     errors.New("failed to decode psbt"),
@@ -260,6 +279,7 @@ func Test_Refund(t *testing.T) {
 		{
 			name: "Invalid refund address in PSBT",
 			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
 				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, invalidRefundAddress).Return(&swaps.RefundPSBTResponse{
 					PSBT: testPsbt,
 				}, nil)
@@ -274,6 +294,7 @@ func Test_Refund(t *testing.T) {
 		{
 			name: "failed to decode refund private key",
 			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
 				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
 					PSBT: testPsbt,
 				}, nil)
@@ -289,6 +310,7 @@ func Test_Refund(t *testing.T) {
 		{
 			name: "trying to sign PSBT with incorrect refund key",
 			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
 				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
 					PSBT: testPsbt,
 				}, nil)
@@ -304,10 +326,11 @@ func Test_Refund(t *testing.T) {
 		{
 			name: "correct signing of PSBT",
 			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
 				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
 					PSBT: testPsbt,
 				}, nil)
-				swapClient.EXPECT().PostRefund(ctx, testSwapId, gomock.Any()).Return(nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
 			},
 			req: models.SwapIn{
 				SwapID:           testSwapId,
@@ -324,6 +347,307 @@ func Test_Refund(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_RefundLocalConstruction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	repository := rpc.NewMockRepository(ctrl)
+	swapClient := swaps.NewMockClientInterface(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
+	now := func() time.Time {
+		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
+	}
+	ctx := context.Background()
+
+	swapMonitor := SwapMonitor{
+		repository: repository,
+		swapClient: swapClient,
+		bitcoin:    bitcoinClient,
+		network:    lightning.Regtest,
+		now:        now,
+	}
+
+	// Mock empty transaction - will cause fallback to API for most tests
+
+	tests := []struct {
+		name    string
+		setup   func()
+		req     models.SwapIn
+		wantErr bool
+		err     error
+	}{
+		{
+			name: "local construction fails due to empty transaction - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Return empty transaction which will cause local construction to fail
+				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "valid-lock-tx-id").Return(&wire.MsgTx{}, nil)
+				// Expect fallback to API
+				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
+					PSBT: testPsbt,
+				}, nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
+			},
+			req: models.SwapIn{
+				SwapID:             testSwapId,
+				LockTxID:           "valid-lock-tx-id",
+				RedeemScript:       "76a914000000000000000000000000000000000000000088ac", // valid hex
+				ClaimAddress:       validRefundAddress,
+				RefundAddress:      validRefundAddress,
+				RefundPrivatekey:   validPrivateKeyForPsbt,
+				TimeoutBlockHeight: 123456,
+			},
+			wantErr: false, // Should succeed via fallback
+		},
+		{
+			name: "local construction fails due to invalid redeem script - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Local construction will fail due to invalid redeem script, so fallback to API
+				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
+					PSBT: testPsbt,
+				}, nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
+			},
+			req: models.SwapIn{
+				SwapID:           testSwapId,
+				LockTxID:         "valid-lock-tx-id",
+				RedeemScript:     "invalid-hex",
+				RefundAddress:    validRefundAddress,
+				RefundPrivatekey: validPrivateKeyForPsbt,
+			},
+			wantErr: false, // Should succeed via fallback
+		},
+		{
+			name: "local construction fails due to missing lock transaction - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "missing-lock-tx-id").Return(nil, errors.New("transaction not found"))
+				// Fallback to API
+				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
+					PSBT: testPsbt,
+				}, nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
+			},
+			req: models.SwapIn{
+				SwapID:           testSwapId,
+				LockTxID:         "missing-lock-tx-id",
+				RedeemScript:     "76a914000000000000000000000000000000000000000088ac",
+				RefundAddress:    validRefundAddress,
+				RefundPrivatekey: validPrivateKeyForPsbt,
+			},
+			wantErr: false, // Should succeed via fallback
+		},
+		{
+			name: "no LockTxID - direct fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Should go directly to API fallback since no LockTxID
+				swapClient.EXPECT().GetRefundPSBT(ctx, testSwapId, validRefundAddress).Return(&swaps.RefundPSBTResponse{
+					PSBT: testPsbt,
+				}, nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(nil)
+			},
+			req: models.SwapIn{
+				SwapID:           testSwapId,
+				LockTxID:         "", // Empty LockTxID
+				RefundAddress:    validRefundAddress,
+				RefundPrivatekey: validPrivateKeyForPsbt,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			_, err := swapMonitor.InitiateRefund(ctx, &tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	repository := rpc.NewMockRepository(ctrl)
+	swapClient := swaps.NewMockClientInterface(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
+	now := func() time.Time {
+		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
+	}
+	ctx := context.Background()
+
+	swapMonitor := SwapMonitor{
+		repository: repository,
+		swapClient: swapClient,
+		bitcoin:    bitcoinClient,
+		network:    lightning.Regtest,
+		now:        now,
+	}
+
+	// Mock preimage for tests
+	mockPreimage := &lntypes.Preimage{}
+	copy(mockPreimage[:], make([]byte, 32)) // Valid preimage
+
+	tests := []struct {
+		name    string
+		setup   func()
+		req     models.SwapOut
+		wantErr bool
+		err     error
+	}{
+		{
+			name: "local claim construction fails due to empty transaction - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
+					LockTx:             stringPtr("valid-lock-tx-id"),
+					TimeoutBlockHeight: 123456,
+				}, nil)
+				// Return empty transaction which will cause local construction to fail
+				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "valid-lock-tx-id").Return(&wire.MsgTx{}, nil)
+				// Expect fallback to API to fail as well (simpler for testing)
+				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
+			},
+			req: models.SwapOut{
+				SwapID:             testSwapId,
+				ClaimPrivateKey:    validPrivateKeyForPsbt,
+				DestinationAddress: "bcrt1qtest123destination",
+				PreImage:           mockPreimage,
+				ContractAddress:    stringPtr("bcrt1qcontract123"),
+				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"), // Valid compressed pubkey
+			},
+			wantErr: true, // Both local and API fallback fail
+			err:     errors.New("API also failed"),
+		},
+		{
+			name: "missing contract address - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
+					LockTx: stringPtr("valid-lock-tx-id"),
+				}, nil)
+				// No GetTxFromTxID call expected - fails before reaching that point
+				// Fallback to API also fails (simpler for testing)
+				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
+			},
+			req: models.SwapOut{
+				SwapID:             testSwapId,
+				ClaimPrivateKey:    validPrivateKeyForPsbt,
+				DestinationAddress: "bcrt1qtest123destination",
+				PreImage:           mockPreimage,
+				ContractAddress:    nil, // Missing contract address
+				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+			},
+			wantErr: true, // Both local and API fallback fail
+		},
+		{
+			name: "missing refund public key - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
+					LockTx: stringPtr("valid-lock-tx-id"),
+				}, nil)
+				// No GetTxFromTxID call expected - fails before reaching that point
+				// Fallback to API also fails (simpler for testing)
+				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
+			},
+			req: models.SwapOut{
+				SwapID:             testSwapId,
+				ClaimPrivateKey:    validPrivateKeyForPsbt,
+				DestinationAddress: "bcrt1qtest123destination",
+				PreImage:           mockPreimage,
+				ContractAddress:    stringPtr("bcrt1qcontract123"),
+				RefundPublicKey:    nil, // Missing refund public key
+			},
+			wantErr: true, // Both local and API fallback fail
+		},
+		{
+			name: "missing preimage - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
+					LockTx: stringPtr("valid-lock-tx-id"),
+				}, nil)
+				// No GetTxFromTxID call expected - fails before reaching that point
+				// Fallback to API also fails (simpler for testing)
+				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
+			},
+			req: models.SwapOut{
+				SwapID:             testSwapId,
+				ClaimPrivateKey:    validPrivateKeyForPsbt,
+				DestinationAddress: "bcrt1qtest123destination",
+				PreImage:           nil, // Missing preimage
+				ContractAddress:    stringPtr("bcrt1qcontract123"),
+				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+			},
+			wantErr: true, // Both local and API fallback fail
+		},
+		{
+			name: "failed to get swap info - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(nil, errors.New("error getting swap info"))
+				// Fallback to API also fails (simpler for testing)
+				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
+			},
+			req: models.SwapOut{
+				SwapID:             testSwapId,
+				ClaimPrivateKey:    validPrivateKeyForPsbt,
+				DestinationAddress: "bcrt1qtest123destination",
+				PreImage:           mockPreimage,
+				ContractAddress:    stringPtr("bcrt1qcontract123"),
+				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+			},
+			wantErr: true, // Both local and API fallback fail
+		},
+		{
+			name: "invalid refund public key hex - fallback to API",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
+					LockTx:             stringPtr("valid-lock-tx-id"),
+					TimeoutBlockHeight: 123456,
+				}, nil)
+				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "valid-lock-tx-id").Return(&wire.MsgTx{}, nil)
+				// Fallback to API also fails (simpler for testing)
+				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
+			},
+			req: models.SwapOut{
+				SwapID:             testSwapId,
+				ClaimPrivateKey:    validPrivateKeyForPsbt,
+				DestinationAddress: "bcrt1qtest123destination",
+				PreImage:           mockPreimage,
+				ContractAddress:    stringPtr("bcrt1qcontract123"),
+				RefundPublicKey:    stringPtr("invalid-hex"), // Invalid hex
+			},
+			wantErr: true, // Both local and API fallback fail
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			_, err := swapMonitor.ClaimSwapOut(ctx, &tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.err != nil {
+					require.Contains(t, err.Error(), tt.err.Error())
+				}
 			} else {
 				require.NoError(t, err)
 			}

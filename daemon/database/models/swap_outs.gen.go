@@ -28,6 +28,8 @@ type SwapOut struct {
 	TimeoutBlockHeight int64             `gorm:"column:timeout_block_height;type:bigint" json:"timeout_block_height"`
 	TxID               string            `gorm:"column:tx_id;type:text" json:"tx_id"`
 	IsAutoSwap         bool              `gorm:"column:is_auto_swap;type:boolean" json:"is_auto_swap"`
+	ContractAddress    *string           `gorm:"column:contract_address;type:text" json:"contract_address"`
+	RefundPublicKey    *string           `gorm:"column:refund_public_key;type:text" json:"refund_public_key"`
 }
 
 // TableName SwapOut's table name
