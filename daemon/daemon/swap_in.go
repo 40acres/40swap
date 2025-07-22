@@ -161,71 +161,25 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 
-	// Try to build PSBT locally if we have the lock transaction ID
-	if swap.LockTxID != "" {
-		psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
-
-		pkt, err := psbtBuilder.BuildRefundPSBT(ctx, swap, recommendedFeeRate, logger)
-		if err != nil {
-			logger.Warnf("Failed to build PSBT locally, falling back to API: %v", err)
-		} else {
-			// Sign and broadcast the PSBT
-			txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.RefundPrivatekey, &lntypes.Preimage{}, logger)
-			if err != nil {
-				return "", fmt.Errorf("failed to sign and broadcast refund transaction: %w", err)
-			}
-
-			return txID, nil
-		}
+	// Build PSBT locally if we have the lock transaction ID
+	if swap.LockTxID == "" {
+		return "", fmt.Errorf("lock transaction ID not available for local construction")
 	}
 
-	// Fallback to API approach
-	logger.Infof("Using API approach for refund: %s", swap.SwapID)
-	res, err := m.swapClient.GetRefundPSBT(ctx, swap.SwapID, swap.RefundAddress)
+	psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
+
+	pkt, err := psbtBuilder.BuildRefundPSBT(ctx, swap, recommendedFeeRate, logger)
 	if err != nil {
-		return "", fmt.Errorf("failed to get refund psbt: %w", err)
+		return "", fmt.Errorf("failed to build refund PSBT: %w", err)
 	}
 
-	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
+	// Sign and broadcast the PSBT
+	txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.RefundPrivatekey, &lntypes.Preimage{}, logger)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode psbt: %w", err)
+		return "", fmt.Errorf("failed to sign and broadcast refund transaction: %w", err)
 	}
 
-	// check if the refund address returned in the psbt is our own
-	if !bitcoin.PSBTHasValidOutputAddress(pkt, m.network, swap.RefundAddress) {
-		return "", fmt.Errorf("invalid refund tx")
-	}
-
-	privateKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode refund private key: %w", err)
-	}
-
-	// Process the PSBT
-	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign PSBT: %w", err)
-	}
-
-	serializedTx, err := bitcoin.SerializeTx(tx)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize transaction: %w", err)
-	}
-
-	// Send transaction
-	logger.Debug("Broadcasting refund transaction directly to bitcoin network")
-	err = m.bitcoin.PostRefund(ctx, serializedTx)
-	if err != nil {
-		logger.Warnf("Failed to broadcast directly to bitcoin network, falling back to swap client: %v", err)
-		// Fallback: send transaction back to swap client  
-		logger.Debug("sending transaction back to swap client")
-		err = m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx)
-		if err != nil {
-			return "", fmt.Errorf("failed to broadcast refund transaction: %w", err)
-		}
-	}
-
-	return tx.TxID(), nil
+	return txID, nil
 }
 
 func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*lntypes.Preimage, error) {
