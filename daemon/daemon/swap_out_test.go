@@ -151,6 +151,8 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 					PSBT: validPsbt, // valid PSBT
 				}, nil)
 				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(errors.New("failed to post transaction"))
+				// Expect fallback to PostClaim when PostRefund fails
+				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(errors.New("failed to post transaction"))
 
 				return &swapMonitor
 			},
@@ -165,7 +167,34 @@ func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
 			},
 			want:    "",
 			wantErr: true,
-			err:     errors.New("failed to post transaction"),
+			err:     errors.New("failed to broadcast claim transaction"),
+		},
+		{
+			name: "fallback to PostClaim succeeds",
+			setup: func() *SwapMonitor {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				swapClient.EXPECT().GetSwapOut(ctx, gomock.Any()).Return(&swaps.SwapOutResponse{}, errors.New("error getting swap info"))
+				swapClient.EXPECT().GetClaimPSBT(ctx, gomock.Any(), gomock.Any()).Return(&swaps.GetClaimPSBTResponse{
+					PSBT: validPsbt, // valid PSBT
+				}, nil)
+				bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(errors.New("failed to post transaction"))
+				// Expect successful fallback to PostClaim when PostRefund fails
+				swapClient.EXPECT().PostClaim(ctx, gomock.Any(), gomock.Any()).Return(nil)
+
+				return &swapMonitor
+			},
+			args: args{
+				ctx: ctx,
+				swap: &models.SwapOut{
+					SwapID:             "swap_id",
+					DestinationAddress: "",
+					PreImage:           &preimage,
+					ClaimPrivateKey:    validPrivateKey, // Valid private key
+				},
+			},
+			want:    "612be979a36bd4683f16ada19768dbdcd590e2bba93dc0134c86b0b509ff09d3",
+			wantErr: false,
+			err:     nil,
 		},
 		{
 			name: "valid case",
