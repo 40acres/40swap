@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	swaps "github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcutil/psbt"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	log "github.com/sirupsen/logrus"
 )
@@ -95,10 +97,10 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 		return nil, fmt.Errorf("preimage not available")
 	}
 
-	// Get lock transaction from the blockchain
-	lockTx, err := p.bitcoin.GetTxFromTxID(ctx, *swapInfo.LockTx)
+	// Get lock transaction
+	lockTx, err := p.parseLockTransaction(*swapInfo.LockTx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get lock transaction: %w", err)
+		return nil, fmt.Errorf("failed to parse lock transaction: %w", err)
 	}
 
 	// Get the claim private key
@@ -106,9 +108,6 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode claim private key: %w", err)
 	}
-
-	// Get preimage hash from the preimage
-	preimageHash := swap.PreImage.Hash()
 
 	// Get public keys
 	claimPublicKey := claimPrivateKey.PubKey().SerializeCompressed()
@@ -121,7 +120,7 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 
 	// Build the redeem script using ReverseSwapScript
 	redeemScript, err := bitcoin.ReverseSwapScript(
-		preimageHash[:],
+		swap.PreImage[:],
 		claimPublicKey,
 		refundPublicKey,
 		int(swapInfo.TimeoutBlockHeight),
@@ -184,4 +183,34 @@ func (p *PSBTBuilder) SignAndBroadcastPSBT(ctx context.Context, pkt *psbt.Packet
 	}
 
 	return tx.TxID(), nil
+}
+
+// parseLockTransaction parses the lock transaction data which can be either:
+// - A transaction hash (64 hex characters) - fetch from blockchain
+// - A serialized transaction (longer hex string) - parse directly
+func (p *PSBTBuilder) parseLockTransaction(lockTxData string) (*wire.MsgTx, error) {
+	// If it's 64 characters, it's likely a transaction hash
+	if len(lockTxData) == 64 {
+		// It's a transaction hash, fetch from blockchain
+		return p.bitcoin.GetTxFromTxID(context.Background(), lockTxData)
+	}
+
+	// If it's longer, it's likely a serialized transaction
+	if len(lockTxData) > 64 {
+		// Parse the serialized transaction directly
+		txHex, err := hex.DecodeString(lockTxData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode transaction hex: %w", err)
+		}
+
+		tx := wire.NewMsgTx(2)
+		err = tx.Deserialize(bytes.NewReader(txHex))
+		if err != nil {
+			return nil, fmt.Errorf("failed to deserialize transaction: %w", err)
+		}
+
+		return tx, nil
+	}
+
+	return nil, fmt.Errorf("invalid lock transaction data length: %d", len(lockTxData))
 }

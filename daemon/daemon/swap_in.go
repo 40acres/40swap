@@ -42,6 +42,31 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 
 	newStatus := models.SwapStatus(newSwap.Status)
 	changed := currentSwap.Status != newStatus
+
+	// Update contract information from backend if available
+	contractChanged := false
+	if newSwap.ContractAddress != "" {
+		if currentSwap.ClaimAddress != newSwap.ContractAddress {
+			currentSwap.ClaimAddress = newSwap.ContractAddress
+			contractChanged = true
+			logger.Debugf("Updated claim address (contract address): %s", newSwap.ContractAddress)
+		}
+	}
+	if newSwap.RedeemScript != "" {
+		if currentSwap.RedeemScript != newSwap.RedeemScript {
+			currentSwap.RedeemScript = newSwap.RedeemScript
+			contractChanged = true
+			logger.Debugf("Updated redeem script: %s", newSwap.RedeemScript)
+		}
+	}
+	if newSwap.TimeoutBlockHeight > 0 {
+		if currentSwap.TimeoutBlockHeight != int64(newSwap.TimeoutBlockHeight) {
+			currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
+			contractChanged = true
+			logger.Debugf("Updated timeout block height: %d", newSwap.TimeoutBlockHeight)
+		}
+	}
+
 	switch newStatus {
 	case models.StatusCreated:
 		// Do nothing
@@ -99,8 +124,10 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 		}
 	}
 
-	if changed {
-		currentSwap.Status = newStatus
+	if changed || contractChanged {
+		if changed {
+			currentSwap.Status = newStatus
+		}
 		err := m.repository.SaveSwapIn(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)

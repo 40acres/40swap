@@ -37,6 +37,29 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 
 	newStatus := models.SwapStatus(newSwap.Status)
 	changed := currentSwap.Status != newStatus
+
+	// Update contract information from backend if available
+	contractChanged := false
+	if newSwap.ContractAddress != nil && *newSwap.ContractAddress != "" {
+		if currentSwap.ContractAddress == nil || *currentSwap.ContractAddress != *newSwap.ContractAddress {
+			currentSwap.ContractAddress = newSwap.ContractAddress
+			contractChanged = true
+			logger.Debugf("Updated contract address: %s", *newSwap.ContractAddress)
+		}
+	}
+	if newSwap.RefundPublicKey != nil && *newSwap.RefundPublicKey != "" {
+		if currentSwap.RefundPublicKey == nil || *currentSwap.RefundPublicKey != *newSwap.RefundPublicKey {
+			currentSwap.RefundPublicKey = newSwap.RefundPublicKey
+			contractChanged = true
+			logger.Debugf("Updated refund public key: %s", *newSwap.RefundPublicKey)
+		}
+	}
+	if newSwap.RedeemScript != nil && *newSwap.RedeemScript != "" {
+		// Note: RedeemScript is not currently stored in the daemon's SwapOut model
+		// but we log it for debugging purposes
+		logger.Debugf("Received redeem script: %s", *newSwap.RedeemScript)
+	}
+
 	switch newStatus {
 	case models.StatusCreated:
 		logger.Debug("waiting for payment")
@@ -69,8 +92,10 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("contract refunded unconfirmed")
 	}
 
-	if changed {
-		currentSwap.Status = newStatus
+	if changed || contractChanged {
+		if changed {
+			currentSwap.Status = newStatus
+		}
 		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)

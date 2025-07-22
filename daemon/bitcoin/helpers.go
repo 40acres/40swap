@@ -45,6 +45,12 @@ func BuildTransactionWithFee(satsPerVbyte int64, buildFn func(feeAmount int64, i
 
 // BuildContractSpendBasePsbt builds a PSBT for spending from a contract address
 func BuildContractSpendBasePsbt(contractAddress, outputAddress string, lockScript []byte, spendingTx *wire.MsgTx, feeAmount int64, network lightning.Network) (*psbt.Packet, error) {
+	logger := log.WithFields(log.Fields{
+		"contractAddress": contractAddress,
+		"lockScriptLen":   len(lockScript),
+		"lockScriptHex":   hex.EncodeToString(lockScript),
+	})
+
 	cfgNetwork := lightning.ToChainCfgNetwork(network)
 
 	// Find the output in the spending transaction that corresponds to our contract address
@@ -52,22 +58,50 @@ func BuildContractSpendBasePsbt(contractAddress, outputAddress string, lockScrip
 	var spendingIndex uint32
 	found := false
 
+	// Debug: Check lock script length and try to generate address
+	logger.Debugf("Lock script has %d bytes", len(lockScript))
+	logger.Debugf("Lock script hex: %s", hex.EncodeToString(lockScript))
+
+	// For P2WSH, we need to use SHA256 hash, not Hash160
+	scriptHash := sha256.Sum256(lockScript)
+	expectedAddr, err := btcutil.NewAddressWitnessScriptHash(scriptHash[:], cfgNetwork)
+	if err != nil {
+		logger.Errorf("Failed to generate address from lock script: %v", err)
+		return nil, fmt.Errorf("failed to generate address from lock script: %w", err)
+	}
+
+	logger.Debugf("Contract address expected: %s", contractAddress)
+	logger.Debugf("Address generated from lockScript: %s", expectedAddr.String())
+	logger.Debugf("Transaction has %d outputs", len(spendingTx.TxOut))
+
 	for i, output := range spendingTx.TxOut {
-		// Try to decode the script to an address and compare
-		addr, err := btcutil.NewAddressWitnessScriptHash(btcutil.Hash160(lockScript), cfgNetwork)
-		if err != nil {
-			continue
+		// Try to decode the script to an address for comparison
+		_, addresses, _, err := txscript.ExtractPkScriptAddrs(output.PkScript, cfgNetwork)
+		var outputAddr string
+		if err == nil && len(addresses) > 0 {
+			outputAddr = addresses[0].String()
+		} else {
+			scriptLen := len(output.PkScript)
+			if scriptLen > 10 {
+				scriptLen = 10
+			}
+			outputAddr = fmt.Sprintf("unknown_script_%x", output.PkScript[:scriptLen])
 		}
 
-		if addr.String() == contractAddress {
+		logger.Debugf("Output %d - Address: %s, Value: %d", i, outputAddr, output.Value)
+
+		// Compare with the provided contract address
+		if outputAddr == contractAddress {
 			spendingOutput = output
 			spendingIndex = uint32(i)
 			found = true
+			logger.Debugf("Found matching output at index %d", i)
 			break
 		}
 	}
 
 	if !found {
+		logger.Errorf("Contract address not found. Expected: %s, Generated: %s", contractAddress, expectedAddr.String())
 		return nil, fmt.Errorf("contract address %s not found in spending transaction", contractAddress)
 	}
 
@@ -109,7 +143,7 @@ func BuildContractSpendBasePsbt(contractAddress, outputAddress string, lockScrip
 	}
 
 	// Create p2wsh payment to get the output script
-	p2wsh, err := btcutil.NewAddressWitnessScriptHash(btcutil.Hash160(lockScript), cfgNetwork)
+	p2wsh, err := btcutil.NewAddressWitnessScriptHash(scriptHash[:], cfgNetwork)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create p2wsh address: %w", err)
 	}
@@ -471,6 +505,17 @@ func SwapScript(preimageHash, claimPublicKey, refundPublicKey []byte, timeoutBlo
 // ReverseSwapScript creates the reverse swap script for swap out transactions
 // This is equivalent to the reverseSwapScript function in server-backend
 func ReverseSwapScript(preimageHash, claimPublicKey, refundPublicKey []byte, timeoutBlockHeight int) ([]byte, error) {
+	logger := log.WithFields(log.Fields{
+		"preimageHashLen": len(preimageHash),
+		"timeoutBlock":    timeoutBlockHeight,
+	})
+
+	// Debug the inputs
+	logger.Debugf("ReverseSwapScript inputs:")
+	logger.Debugf("  preimageHash: %x", preimageHash)
+	logger.Debugf("  claimPubKey: %x", claimPublicKey)
+	logger.Debugf("  refundPubKey: %x", refundPublicKey)
+
 	// Create script builder
 	builder := txscript.NewScriptBuilder()
 
@@ -484,6 +529,8 @@ func ReverseSwapScript(preimageHash, claimPublicKey, refundPublicKey []byte, tim
 
 	// OP_HASH160 <preimage_hash160> OP_EQUALVERIFY <claim_public_key>
 	preimageHash160 := Hash160(preimageHash)
+	logger.Debugf("  computed Hash160: %x", preimageHash160)
+
 	builder.AddOp(txscript.OP_HASH160)
 	builder.AddData(preimageHash160)
 	builder.AddOp(txscript.OP_EQUALVERIFY)
