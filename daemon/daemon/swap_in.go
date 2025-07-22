@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
@@ -60,8 +61,12 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 		}
 	}
 	if newSwap.TimeoutBlockHeight > 0 {
-		if currentSwap.TimeoutBlockHeight != int32(newSwap.TimeoutBlockHeight) {
-			currentSwap.TimeoutBlockHeight = int32(newSwap.TimeoutBlockHeight)
+		timeoutBlockHeight, err := safeUint32ToInt32(newSwap.TimeoutBlockHeight)
+		if err != nil {
+			return fmt.Errorf("invalid timeout block height: %w", err)
+		}
+		if currentSwap.TimeoutBlockHeight != timeoutBlockHeight {
+			currentSwap.TimeoutBlockHeight = timeoutBlockHeight
 			contractChanged = true
 			logger.Debugf("Updated timeout block height: %d", newSwap.TimeoutBlockHeight)
 		}
@@ -247,4 +252,13 @@ func getTxId(tx string) (string, error) {
 	}
 
 	return packet.UnsignedTx.TxID(), nil
+}
+
+// safeUint32ToInt32 safely converts uint32 to int32, returning an error if overflow would occur
+func safeUint32ToInt32(value uint32) (int32, error) {
+	if value > math.MaxInt32 {
+		return 0, fmt.Errorf("uint32 value %d exceeds int32 maximum %d", value, math.MaxInt32)
+	}
+
+	return int32(value), nil //nolint:gosec // Conversion is safe after overflow check
 }
