@@ -52,6 +52,12 @@ func (p *PSBTBuilder) BuildRefundPSBT(ctx context.Context, swap *models.SwapIn, 
 		if err != nil {
 			return nil, err
 		}
+
+		// Set timeout block height with overflow protection
+		if swap.TimeoutBlockHeight < 0 || swap.TimeoutBlockHeight > 0xFFFFFFFF {
+			return nil, fmt.Errorf("timeout block height %d is out of range for uint32", swap.TimeoutBlockHeight)
+		}
+		// #nosec G115 - We validate the range above to prevent overflow
 		psbt.UnsignedTx.LockTime = uint32(swap.TimeoutBlockHeight)
 
 		// Only sign during fee calculation run to estimate fees
@@ -75,8 +81,8 @@ func (p *PSBTBuilder) BuildRefundPSBT(ctx context.Context, swap *models.SwapIn, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to build PSBT: %w", err)
 	}
-
 	logger.Info("Successfully built refund PSBT locally")
+
 	return pkt, nil
 }
 
@@ -88,11 +94,9 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 	if swap.ContractAddress == nil || *swap.ContractAddress == "" {
 		return nil, fmt.Errorf("contract address not available for local construction")
 	}
-
 	if swap.RefundPublicKey == nil || *swap.RefundPublicKey == "" {
 		return nil, fmt.Errorf("refund public key not available for local construction")
 	}
-
 	if swap.PreImage == nil {
 		return nil, fmt.Errorf("preimage not available")
 	}
@@ -103,13 +107,11 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 		return nil, fmt.Errorf("failed to parse lock transaction: %w", err)
 	}
 
-	// Get the claim private key
+	// Get the claim keys
 	claimPrivateKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode claim private key: %w", err)
 	}
-
-	// Get public keys
 	claimPublicKey := claimPrivateKey.PubKey().SerializeCompressed()
 
 	// Decode refund public key from hex
@@ -151,8 +153,8 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to build claim transaction: %w", err)
 	}
-
 	logger.Info("Successfully built claim PSBT locally")
+
 	return pkt, nil
 }
 

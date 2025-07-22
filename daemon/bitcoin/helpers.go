@@ -17,7 +17,6 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ripemd160"
 )
 
 // BuildTransactionWithFee builds a transaction with the given fee rate by first calculating the virtual size
@@ -492,11 +491,7 @@ func ReverseSwapScript(preimageHash, claimPublicKey, refundPublicKey []byte, tim
 	return builder.Script()
 }
 
-// Hash160 computes RIPEMD160(SHA256(data))
+// Hash160 computes RIPEMD160(SHA256(data)) using btcutil
 func Hash160(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	ripemd := ripemd160.New() // #nosec G406 - RIPEMD160 required for Bitcoin script compatibility
-	ripemd.Write(hash[:])
-
-	return ripemd.Sum(nil)
+	return btcutil.Hash160(data)
 }

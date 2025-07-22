@@ -141,6 +141,7 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 			}
 
 			logger.Info("Successfully built and broadcast claim transaction locally")
+
 			return txID, nil
 		}
 	}
