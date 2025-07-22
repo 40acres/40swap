@@ -53,7 +53,6 @@ func BuildContractSpendBasePsbt(contractAddress, outputAddress string, lockScrip
 	var spendingIndex uint32
 	found := false
 
-	// For P2WSH, we need to use SHA256 hash, not Hash160
 	scriptHash := sha256.Sum256(lockScript)
 	expectedAddr, err := btcutil.NewAddressWitnessScriptHash(scriptHash[:], cfgNetwork)
 	if err != nil {
