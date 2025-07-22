@@ -16,6 +16,9 @@ node_modules
 # OS
 .DS_Store
 
+# Go debug binaries
+__debug_bin*
+
 server-backend/dev/40swap.lightning.yml
 
 daemon/cmd/cmd
