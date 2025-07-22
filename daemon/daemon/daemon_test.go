@@ -514,12 +514,14 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 			name: "local claim construction fails due to empty transaction - fallback to API",
 			setup: func() {
 				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Use a proper 64-character transaction ID
+				validTxId := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
-					LockTx:             stringPtr("valid-lock-tx-id"),
+					LockTx:             stringPtr(validTxId),
 					TimeoutBlockHeight: 123456,
 				}, nil)
 				// Return empty transaction which will cause local construction to fail
-				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "valid-lock-tx-id").Return(&wire.MsgTx{}, nil)
+				bitcoinClient.EXPECT().GetTxFromTxID(gomock.Any(), validTxId).Return(&wire.MsgTx{}, nil)
 				// Expect fallback to API to fail as well (simpler for testing)
 				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
 			},
@@ -538,8 +540,10 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 			name: "missing contract address - fallback to API",
 			setup: func() {
 				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Use a proper 64-character transaction ID
+				validTxId := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
-					LockTx: stringPtr("valid-lock-tx-id"),
+					LockTx: stringPtr(validTxId),
 				}, nil)
 				// No GetTxFromTxID call expected - fails before reaching that point
 				// Fallback to API also fails (simpler for testing)
@@ -619,11 +623,13 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 			name: "invalid refund public key hex - fallback to API",
 			setup: func() {
 				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Use a proper 64-character transaction ID
+				validTxId := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 				swapClient.EXPECT().GetSwapOut(ctx, testSwapId).Return(&swaps.SwapOutResponse{
-					LockTx:             stringPtr("valid-lock-tx-id"),
+					LockTx:             stringPtr(validTxId),
 					TimeoutBlockHeight: 123456,
 				}, nil)
-				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "valid-lock-tx-id").Return(&wire.MsgTx{}, nil)
+				bitcoinClient.EXPECT().GetTxFromTxID(gomock.Any(), validTxId).Return(&wire.MsgTx{}, nil)
 				// Fallback to API also fails (simpler for testing)
 				swapClient.EXPECT().GetClaimPSBT(ctx, testSwapId, "bcrt1qtest123destination").Return(nil, errors.New("API also failed"))
 			},

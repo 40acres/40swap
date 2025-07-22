@@ -170,11 +170,11 @@ func TestPSBTBuilder_BuildClaimPSBT(t *testing.T) {
 				RefundPublicKey: stringPtr("deadbeef"),
 			},
 			swapInfo: &swaps.SwapOutResponse{
-				LockTx: stringPtr("missing-tx-id"),
+				LockTx: stringPtr("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"),
 			},
 			feeRate: 10,
 			setup: func() {
-				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "missing-tx-id").Return(nil, errors.New("transaction not found"))
+				bitcoinClient.EXPECT().GetTxFromTxID(gomock.Any(), "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890").Return(nil, errors.New("transaction not found"))
 			},
 			wantErr: true,
 		},
@@ -188,11 +188,11 @@ func TestPSBTBuilder_BuildClaimPSBT(t *testing.T) {
 				RefundPublicKey: stringPtr("deadbeef"),
 			},
 			swapInfo: &swaps.SwapOutResponse{
-				LockTx: stringPtr("valid-tx-id"),
+				LockTx: stringPtr("fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"),
 			},
 			feeRate: 10,
 			setup: func() {
-				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "valid-tx-id").Return(nil, nil)
+				bitcoinClient.EXPECT().GetTxFromTxID(gomock.Any(), "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321").Return(nil, nil)
 			},
 			wantErr: true,
 		},
