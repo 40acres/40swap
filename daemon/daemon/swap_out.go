@@ -178,7 +178,13 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 	logger.Debug("Broadcasting claim transaction directly to bitcoin network")
 	err = m.bitcoin.PostRefund(ctx, serializedTx) // PostRefund can be used for any transaction broadcast
 	if err != nil {
-		return "", fmt.Errorf("failed to broadcast claim transaction: %w", err)
+		logger.Warnf("Failed to broadcast directly to bitcoin network, falling back to swap client: %v", err)
+		// Fallback: send transaction back to swap client
+		logger.Debug("sending transaction back to swap client")
+		err = m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx)
+		if err != nil {
+			return "", fmt.Errorf("failed to broadcast claim transaction: %w", err)
+		}
 	}
 
 	return tx.TxID(), nil

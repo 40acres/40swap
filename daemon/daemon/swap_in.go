@@ -216,7 +216,13 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 	logger.Debug("Broadcasting refund transaction directly to bitcoin network")
 	err = m.bitcoin.PostRefund(ctx, serializedTx)
 	if err != nil {
-		return "", fmt.Errorf("failed to broadcast refund transaction: %w", err)
+		logger.Warnf("Failed to broadcast directly to bitcoin network, falling back to swap client: %v", err)
+		// Fallback: send transaction back to swap client  
+		logger.Debug("sending transaction back to swap client")
+		err = m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx)
+		if err != nil {
+			return "", fmt.Errorf("failed to broadcast refund transaction: %w", err)
+		}
 	}
 
 	return tx.TxID(), nil
