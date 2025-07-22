@@ -42,9 +42,11 @@ func newSwapOut(db *gorm.DB, opts ...gen.DOOption) swapOut {
 	_swapOut.MaxRoutingFeeRatio = field.NewFloat64(tableName, "max_routing_fee_ratio")
 	_swapOut.Outcome = field.NewField(tableName, "outcome")
 	_swapOut.PreImage = field.NewField(tableName, "pre_image")
-	_swapOut.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
+	_swapOut.TimeoutBlockHeight = field.NewInt32(tableName, "timeout_block_height")
 	_swapOut.TxID = field.NewString(tableName, "tx_id")
 	_swapOut.IsAutoSwap = field.NewBool(tableName, "is_auto_swap")
+	_swapOut.ContractAddress = field.NewString(tableName, "contract_address")
+	_swapOut.RefundPublicKey = field.NewString(tableName, "refund_public_key")
 
 	_swapOut.fillFieldMap()
 
@@ -70,9 +72,11 @@ type swapOut struct {
 	MaxRoutingFeeRatio field.Float64
 	Outcome            field.Field
 	PreImage           field.Field
-	TimeoutBlockHeight field.Int64
+	TimeoutBlockHeight field.Int32
 	TxID               field.String
 	IsAutoSwap         field.Bool
+	ContractAddress    field.String
+	RefundPublicKey    field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -104,9 +108,11 @@ func (s *swapOut) updateTableName(table string) *swapOut {
 	s.MaxRoutingFeeRatio = field.NewFloat64(table, "max_routing_fee_ratio")
 	s.Outcome = field.NewField(table, "outcome")
 	s.PreImage = field.NewField(table, "pre_image")
-	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
+	s.TimeoutBlockHeight = field.NewInt32(table, "timeout_block_height")
 	s.TxID = field.NewString(table, "tx_id")
 	s.IsAutoSwap = field.NewBool(table, "is_auto_swap")
+	s.ContractAddress = field.NewString(table, "contract_address")
+	s.RefundPublicKey = field.NewString(table, "refund_public_key")
 
 	s.fillFieldMap()
 
@@ -131,7 +137,7 @@ func (s *swapOut) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapOut) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 18)
+	s.fieldMap = make(map[string]field.Expr, 20)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["status"] = s.Status
@@ -150,6 +156,8 @@ func (s *swapOut) fillFieldMap() {
 	s.fieldMap["timeout_block_height"] = s.TimeoutBlockHeight
 	s.fieldMap["tx_id"] = s.TxID
 	s.fieldMap["is_auto_swap"] = s.IsAutoSwap
+	s.fieldMap["contract_address"] = s.ContractAddress
+	s.fieldMap["refund_public_key"] = s.RefundPublicKey
 }
 
 func (s swapOut) clone(db *gorm.DB) swapOut {
