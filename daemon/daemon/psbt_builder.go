@@ -67,7 +67,7 @@ func (p *PSBTBuilder) BuildRefundPSBT(ctx context.Context, swap *models.SwapIn, 
 		}
 
 		// Set timeout block height with safe conversion
-		lockTime, err := safeInt64ToUint32(swap.TimeoutBlockHeight)
+		lockTime, err := safeInt64ToUint32(int64(swap.TimeoutBlockHeight))
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert timeout block height: %w", err)
 		}
@@ -104,10 +104,10 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 	logger.Info("Attempting to build claim PSBT locally")
 
 	// Check if we have the required fields for local construction
-	if swap.ContractAddress == nil || *swap.ContractAddress == "" {
+	if swap.ContractAddress == "" {
 		return nil, fmt.Errorf("contract address not available for local construction")
 	}
-	if swap.RefundPublicKey == nil || *swap.RefundPublicKey == "" {
+	if swap.RefundPublicKey == "" {
 		return nil, fmt.Errorf("refund public key not available for local construction")
 	}
 	if swap.PreImage == nil {
@@ -128,7 +128,7 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 	claimPublicKey := claimPrivateKey.PubKey().SerializeCompressed()
 
 	// Decode refund public key from hex
-	refundPublicKey, err := hex.DecodeString(*swap.RefundPublicKey)
+	refundPublicKey, err := hex.DecodeString(swap.RefundPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode refund public key: %w", err)
 	}
@@ -146,7 +146,7 @@ func (p *PSBTBuilder) BuildClaimPSBT(ctx context.Context, swap *models.SwapOut, 
 
 	// Build PSBT locally using the two-pass fee calculation
 	pkt, err := bitcoin.BuildTransactionWithFee(feeRate, func(feeAmount int64, isFeeCalculationRun bool) (*psbt.Packet, error) {
-		psbt, err := bitcoin.BuildContractSpendBasePsbt(*swap.ContractAddress, swap.DestinationAddress, redeemScript, lockTx, feeAmount, p.network)
+		psbt, err := bitcoin.BuildContractSpendBasePsbt(swap.ContractAddress, swap.DestinationAddress, redeemScript, lockTx, feeAmount, p.network)
 		if err != nil {
 			return nil, err
 		}

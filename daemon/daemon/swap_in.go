@@ -60,8 +60,8 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 		}
 	}
 	if newSwap.TimeoutBlockHeight > 0 {
-		if currentSwap.TimeoutBlockHeight != int64(newSwap.TimeoutBlockHeight) {
-			currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
+		if currentSwap.TimeoutBlockHeight != int32(newSwap.TimeoutBlockHeight) {
+			currentSwap.TimeoutBlockHeight = int32(newSwap.TimeoutBlockHeight)
 			contractChanged = true
 			logger.Debugf("Updated timeout block height: %d", newSwap.TimeoutBlockHeight)
 		}

@@ -41,15 +41,15 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 	// Update contract information from backend if available
 	contractChanged := false
 	if newSwap.ContractAddress != nil && *newSwap.ContractAddress != "" {
-		if currentSwap.ContractAddress == nil || *currentSwap.ContractAddress != *newSwap.ContractAddress {
-			currentSwap.ContractAddress = newSwap.ContractAddress
+		if currentSwap.ContractAddress != *newSwap.ContractAddress {
+			currentSwap.ContractAddress = *newSwap.ContractAddress
 			contractChanged = true
 			logger.Debugf("Updated contract address: %s", *newSwap.ContractAddress)
 		}
 	}
 	if newSwap.RefundPublicKey != nil && *newSwap.RefundPublicKey != "" {
-		if currentSwap.RefundPublicKey == nil || *currentSwap.RefundPublicKey != *newSwap.RefundPublicKey {
-			currentSwap.RefundPublicKey = newSwap.RefundPublicKey
+		if currentSwap.RefundPublicKey != *newSwap.RefundPublicKey {
+			currentSwap.RefundPublicKey = *newSwap.RefundPublicKey
 			contractChanged = true
 			logger.Debugf("Updated refund public key: %s", *newSwap.RefundPublicKey)
 		}
@@ -62,7 +62,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
 		logger.Debug("on-chain HTLC contract detected, waiting for confirmation")
-		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
+		currentSwap.TimeoutBlockHeight = int32(newSwap.TimeoutBlockHeight)
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")
 		tx, err := m.ClaimSwapOut(ctx, currentSwap)

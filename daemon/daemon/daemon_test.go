@@ -530,8 +530,8 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 				ClaimPrivateKey:    validPrivateKeyForPsbt,
 				DestinationAddress: "bcrt1qtest123destination",
 				PreImage:           mockPreimage,
-				ContractAddress:    stringPtr("bcrt1qcontract123"),
-				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"), // Valid compressed pubkey
+				ContractAddress:    "bcrt1qcontract123",
+				RefundPublicKey:    "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", // Valid compressed pubkey
 			},
 			wantErr: true, // Both local and API fallback fail
 			err:     errors.New("API also failed"),
@@ -554,8 +554,8 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 				ClaimPrivateKey:    validPrivateKeyForPsbt,
 				DestinationAddress: "bcrt1qtest123destination",
 				PreImage:           mockPreimage,
-				ContractAddress:    nil, // Missing contract address
-				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+				ContractAddress:    "", // Missing contract address
+				RefundPublicKey:    "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
 			},
 			wantErr: true, // Both local and API fallback fail
 		},
@@ -575,8 +575,8 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 				ClaimPrivateKey:    validPrivateKeyForPsbt,
 				DestinationAddress: "bcrt1qtest123destination",
 				PreImage:           mockPreimage,
-				ContractAddress:    stringPtr("bcrt1qcontract123"),
-				RefundPublicKey:    nil, // Missing refund public key
+				ContractAddress:    "bcrt1qcontract123",
+				RefundPublicKey:    "", // Missing refund public key
 			},
 			wantErr: true, // Both local and API fallback fail
 		},
@@ -596,8 +596,8 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 				ClaimPrivateKey:    validPrivateKeyForPsbt,
 				DestinationAddress: "bcrt1qtest123destination",
 				PreImage:           nil, // Missing preimage
-				ContractAddress:    stringPtr("bcrt1qcontract123"),
-				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+				ContractAddress:    "bcrt1qcontract123",
+				RefundPublicKey:    "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
 			},
 			wantErr: true, // Both local and API fallback fail
 		},
@@ -614,8 +614,8 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 				ClaimPrivateKey:    validPrivateKeyForPsbt,
 				DestinationAddress: "bcrt1qtest123destination",
 				PreImage:           mockPreimage,
-				ContractAddress:    stringPtr("bcrt1qcontract123"),
-				RefundPublicKey:    stringPtr("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"),
+				ContractAddress:    "bcrt1qcontract123",
+				RefundPublicKey:    "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
 			},
 			wantErr: true, // Both local and API fallback fail
 		},
@@ -638,8 +638,8 @@ func Test_ClaimSwapOutLocalConstruction(t *testing.T) {
 				ClaimPrivateKey:    validPrivateKeyForPsbt,
 				DestinationAddress: "bcrt1qtest123destination",
 				PreImage:           mockPreimage,
-				ContractAddress:    stringPtr("bcrt1qcontract123"),
-				RefundPublicKey:    stringPtr("invalid-hex"), // Invalid hex
+				ContractAddress:    "bcrt1qcontract123",
+				RefundPublicKey:    "invalid-hex", // Invalid hex
 			},
 			wantErr: true, // Both local and API fallback fail
 		},

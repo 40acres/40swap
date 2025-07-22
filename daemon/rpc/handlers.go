@@ -126,7 +126,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		// All outcomes are failed by default until the swap is completed or refunded
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
-		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
+		TimeoutBlockHeight: int32(swap.TimeoutBlockHeight),
 		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
