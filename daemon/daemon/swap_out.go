@@ -54,11 +54,6 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 			logger.Debugf("Updated refund public key: %s", *newSwap.RefundPublicKey)
 		}
 	}
-	if newSwap.RedeemScript != nil && *newSwap.RedeemScript != "" {
-		// Note: RedeemScript is not currently stored in the daemon's SwapOut model
-		// but we log it for debugging purposes
-		logger.Debugf("Received redeem script: %s", *newSwap.RedeemScript)
-	}
 
 	switch newStatus {
 	case models.StatusCreated:
