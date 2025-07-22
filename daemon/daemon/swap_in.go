@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -12,6 +13,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcutil/psbt"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
 
@@ -161,9 +163,28 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 
-	// Build PSBT locally if we have the lock transaction ID
+	// If we don't have the lock transaction ID, try to get it from backend
 	if swap.LockTxID == "" {
-		return "", fmt.Errorf("lock transaction ID not available for local construction")
+		logger.Debug("Lock transaction ID not available locally, fetching from backend")
+
+		backendSwap, err := m.swapClient.GetSwapIn(ctx, swap.SwapID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get swap from backend: %w", err)
+		}
+
+		if backendSwap.LockTx != nil {
+			txId, err := getTxId(*backendSwap.LockTx)
+			if err != nil {
+				return "", fmt.Errorf("failed to get tx id from backend data: %w", err)
+			}
+			swap.LockTxID = txId
+			logger.Debugf("Retrieved lock transaction ID from backend: %s", txId)
+		}
+
+		// Still no lock transaction ID after checking backend
+		if swap.LockTxID == "" {
+			return "", fmt.Errorf("lock transaction ID not available for local construction (not found in backend either)")
+		}
 	}
 
 	psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
@@ -204,14 +225,27 @@ func getTxId(tx string) (string, error) {
 		return "", nil
 	}
 
+	// First try to parse as PSBT
 	packet, err := psbt.NewFromRawBytes(
 		bytes.NewReader([]byte(tx)), false,
 	)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse PSBT: %w", err)
+	if err == nil {
+		return packet.UnsignedTx.TxID(), nil
 	}
 
-	return packet.UnsignedTx.TxID(), nil
+	// If PSBT parsing fails, try to parse as raw hex transaction
+	txBytes, err := hex.DecodeString(tx)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode hex transaction: %w", err)
+	}
+
+	transaction := wire.NewMsgTx(wire.TxVersion)
+	err = transaction.Deserialize(bytes.NewReader(txBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to deserialize transaction: %w", err)
+	}
+
+	return transaction.TxHash().String(), nil
 }
 
 // safeUint32ToInt32 safely converts uint32 to int32, returning an error if overflow would occur

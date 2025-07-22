@@ -259,15 +259,40 @@ func Test_Refund(t *testing.T) {
 			name: "No LockTxID - local construction fails",
 			setup: func() {
 				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
-				// No more API calls expected since we don't fallback
+				// Mock the GetSwapIn call that will be made when LockTxID is missing
+				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
+					SwapId: testSwapId,
+					// Return empty LockTx to simulate that backend also doesn't have it
+				}, nil)
 			},
 			req: models.SwapIn{
 				SwapID:        testSwapId,
 				RefundAddress: validRefundAddress,
-				// Don't set LockTxID to trigger immediate failure
+				// Don't set LockTxID to trigger backend lookup
 			},
 			wantErr: true,
-			err:     errors.New("lock transaction ID not available for local construction"),
+			err:     errors.New("lock transaction ID not available for local construction (not found in backend either)"),
+		},
+		{
+			name: "No LockTxID - successfully retrieved from backend",
+			setup: func() {
+				bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+				// Mock the GetSwapIn call that returns a valid simple transaction
+				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
+					SwapId: testSwapId,
+					// This is a valid Bitcoin transaction in hex format
+					LockTx: stringPtr("020000000001010a8c9a4185c21121bbfce347638fd537a221d9c7509870c62c835e43471324470100000000fdffffff0267789ad0000000002251207334a2da5532326422535efcb08a3383f8aa0f0be9628f36bae448a327f246da2d1103000000000022002025f32afca1be933158d98b3ee76a1d128ca236712207d2c9b622b921946f47f5024730440220020eb2facf317185921a371c89515541c74fe62f09cacfe30e9a3cfaa813599702202e26e063c153a7f2843f54e82d93cb01202c385827a1e399674d3d04dcb78ee2012103b4a60e3f2a977725a3348b4182c0fb6fff1f22eb5b4d46284c9982c02dd323097e000000"),
+				}, nil)
+				// Mock the GetTxFromTxID call that PSBTBuilder will make
+				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "fa44086e23eabeb3413b61cbc78e056c9c9712185262712db1841bb14643af6a").Return(nil, errors.New("failed to get transaction"))
+			},
+			req: models.SwapIn{
+				SwapID:        testSwapId,
+				RefundAddress: validRefundAddress,
+				// Don't set LockTxID to trigger backend lookup
+			},
+			wantErr: true,                                      // Still expecting error because GetTxFromTxID fails
+			err:     errors.New("failed to build refund PSBT"), // Expected error from PSBTBuilder
 		},
 		{
 			name: "High fee rate",
