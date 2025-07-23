@@ -167,6 +167,8 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const preImageHash = Buffer.from(request.preImageHash, 'hex');
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const cltvExpiry = this.swapConfig.lockBlockDelta.out + BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS;
+        const id = base58Id();
+        this.logger.log(`Creating hodl invoice (id=${id}, paymentHash=${preImageHash})`);
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
@@ -176,7 +178,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const refundKey = ECPair.makeRandom();
         const repository = this.dataSource.getRepository(SwapOut);
         const swap = await repository.save({
-            id: base58Id(),
+            id,
             chain: request.chain,
             contractAddress: null,
             inputAmount,
@@ -212,10 +214,10 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     }
 
     private async runAndMonitor(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
-        this.logger.log(`Starting swap-${type} (id=${swap.id})`);
+        this.logger.log(`Starting swap-${type} (id=${swap.id}, amount=${swap.inputAmount.toString()})`);
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
-        this.logger.log(`Swap-${type} finished (id=${swap.id})`);
+        this.logger.log(`Swap-${type} finished (id=${swap.id}, outcome=${swap.outcome})`);
         this.runningSwaps.delete(swap.id);
     }
 
@@ -264,7 +266,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                           this.swapConfig,
                           this.liquidService,
                       );
-            this.logger.log(`Resuming swap (id=${swap.id})`);
+            this.logger.log(`Resuming swap (id=${swap.id}, status=${swap.status})`);
             this.runAndMonitor(swap instanceof SwapIn ? 'in' : 'out', swap, runner);
         }
     }

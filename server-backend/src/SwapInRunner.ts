@@ -158,9 +158,9 @@ export class SwapInRunner {
     }
 
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
-        this.logger.debug(`Event data: ${JSON.stringify(event.data)}`);
-
         const { swap } = this;
+        const { transactionData } = event.data;
+        this.logger.log(`Found contract funding tx for swap-in (id=${swap.id}, txId=${transactionData.transactionHash}, height=${transactionData.height})`);
         // TODO: the output is also found by buildClaimTx(), needs refactor
         let output = null;
         if (swap.chain === 'BITCOIN') {
@@ -174,7 +174,7 @@ export class SwapInRunner {
         // Handle both Bitcoin and Liquid outputs by checking if it's a Liquid transaction
         const isLiquidTx = 'cryptoCode' in event.data && event.data.cryptoCode === 'LBTC';
         if (isLiquidTx) {
-            const tx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
+            const tx = liquid.Transaction.fromHex(transactionData.transaction);
             const unblindableOutputs = await findUnblindableOutputs(tx, swap.blindingPrivKey!);
             if (unblindableOutputs.length > 0) {
                 output = unblindableOutputs[0];
@@ -205,11 +205,11 @@ export class SwapInRunner {
             this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' ||
             this.swap.status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED'
         ) {
-            if (event.data.transactionData.height != null) {
-                swap.lockTxHeight = event.data.transactionData.height;
+            if (transactionData.height != null) {
+                swap.lockTxHeight = transactionData.height;
             }
             swap.inputAmount = receivedAmount.toDecimalPlaces(8);
-            swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+            swap.lockTx = Buffer.from(transactionData.transaction, 'hex');
             if (this.swap.status === 'CREATED') {
                 swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
@@ -223,13 +223,15 @@ export class SwapInRunner {
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         assert(swap.lockTx != null, 'There was a problem finding the lock transaction');
+        const { transactionData } = event.data;
+        this.logger.log(`Found contract spending tx for swap-in (id=${swap.id}, txId=${transactionData.transactionHash}, height=${transactionData.height})`);
         let unlockTx: Transaction | liquid.Transaction | null = null;
         let isPayingToExternalAddress = false;
         let isSpendingFromContract = false;
         let isPayingToSweepAddress = false;
 
         if (swap.chain === 'BITCOIN') {
-            unlockTx = Transaction.fromHex(event.data.transactionData.transaction);
+            unlockTx = Transaction.fromHex(transactionData.transaction);
             isPayingToExternalAddress = event.data.outputs.length === 0; // nbxplorer does not list outputs if it's spending a tracking utxo
             isSpendingFromContract = unlockTx.ins.find((i) => i.hash.equals(Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
             isPayingToSweepAddress =
@@ -242,7 +244,7 @@ export class SwapInRunner {
                 }) != null;
         } else if (swap.chain === 'LIQUID') {
             const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
-            unlockTx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
+            unlockTx = liquid.Transaction.fromHex(transactionData.transaction);
             isPayingToExternalAddress = event.data.outputs.length === 0;
             isSpendingFromContract = unlockTx.ins.find((i) => i.hash.equals(liquid.Transaction.fromBuffer(swap.lockTx!).getHash())) != null;
             const sweepScript = liquid.address.fromConfidential(swap.sweepAddress).unconfidentialAddress;
@@ -259,8 +261,8 @@ export class SwapInRunner {
 
         if (isSpendingFromContract && isPayingToExternalAddress) {
             swap.unlockTx = unlockTx.toBuffer();
-            if (event.data.transactionData.height != null) {
-                swap.unlockTxHeight = event.data.transactionData.height;
+            if (transactionData.height != null) {
+                swap.unlockTxHeight = transactionData.height;
             }
             this.swap = await this.repository.save(swap);
             if (isPayingToSweepAddress) {
