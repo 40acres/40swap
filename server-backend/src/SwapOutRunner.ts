@@ -145,7 +145,7 @@ export class SwapOutRunner {
             try {
                 await this.lnd.cancelInvoice(swap.preImageHash);
             } catch (e) {
-                this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id})`, e);
+                this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id}, paymentHash=${swap.preImageHash})`, e);
             }
         }
     }
@@ -219,6 +219,8 @@ export class SwapOutRunner {
     // TODO refactor. It is very similar to SwapInRunner
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
+        const { transactionData } = event.data;
+        this.logger.log(`Found contract funding tx for swap-out (id=${swap.id}, txId=${transactionData.transactionHash}, height=${transactionData.height})`);
         let output: NBXplorerBitcoinTransactionOutput | NBXplorerLiquidTransactionOutput | null = null;
         if (swap.chain === 'BITCOIN') {
             output = event.data.outputs.find((o) => o.address === swap.contractAddress) as NBXplorerBitcoinTransactionOutput;
@@ -228,7 +230,7 @@ export class SwapOutRunner {
             output = event.data.outputs.find((o) => o.address === confidential.unconfidentialAddress) as NBXplorerLiquidTransactionOutput;
             assert(output != null);
 
-            const tx = liquid.Transaction.fromHex(event.data.transactionData.transaction);
+            const tx = liquid.Transaction.fromHex(transactionData.transaction);
             const unblindableOutputs = await findUnblindableOutputs(tx, swap.blindingPrivKey!);
             if (unblindableOutputs.length > 0) {
                 const unblindedOutput = unblindableOutputs[0];
@@ -248,17 +250,16 @@ export class SwapOutRunner {
                 ? new Decimal((output as NBXplorerLiquidTransactionOutput).value.value).div(1e8)
                 : new Decimal((output as NBXplorerBitcoinTransactionOutput).value).div(1e8);
         if (!expectedAmount.equals(swap.outputAmount)) {
-            // eslint-disable-next-line max-len
             this.logger.error(
                 `Amount mismatch. Failed swap. Incoming ${expectedAmount.toNumber()}, expected ${swap.outputAmount.toNumber()} (id=${this.swap.id})`,
             );
             return;
         }
         if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED' || this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
-            if (event.data.transactionData.height != null) {
-                swap.lockTxHeight = event.data.transactionData.height;
+            if (transactionData.height != null) {
+                swap.lockTxHeight = transactionData.height;
             }
-            swap.lockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
+            swap.lockTx = Buffer.from(transactionData.transaction, 'hex');
 
             if (this.swap.status === 'INVOICE_PAYMENT_INTENT_RECEIVED') {
                 swap.status = 'CONTRACT_FUNDED_UNCONFIRMED';
@@ -273,15 +274,18 @@ export class SwapOutRunner {
     private async processContractSpendingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         assert(swap.lockTx != null);
+        const { transactionData } = event.data;
+        this.logger.log(`Found contract spending tx for swap-out (id=${swap.id}, txId=${transactionData.transactionHash}, height=${transactionData.height})`);
         const lockTx = swap.chain === 'LIQUID' ? liquid.Transaction.fromBuffer(swap.lockTx) : Transaction.fromBuffer(swap.lockTx);
+        // eslint-disable-next-line prettier/prettier
         const unlockTx =
             swap.chain === 'LIQUID'
-                ? liquid.Transaction.fromHex(event.data.transactionData.transaction)
-                : Transaction.fromHex(event.data.transactionData.transaction);
+                ? liquid.Transaction.fromHex(transactionData.transaction)
+                : Transaction.fromHex(transactionData.transaction);
 
-        swap.unlockTx = Buffer.from(event.data.transactionData.transaction, 'hex');
-        if (event.data.transactionData.height != null) {
-            swap.unlockTxHeight = event.data.transactionData.height;
+        swap.unlockTx = Buffer.from(transactionData.transaction, 'hex');
+        if (transactionData.height != null) {
+            swap.unlockTxHeight = transactionData.height;
         }
         this.swap = await this.repository.save(swap);
 
@@ -322,7 +326,7 @@ export class SwapOutRunner {
                     this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
                 }
             } else {
-                this.logger.warn(`Could not find preimage in claim tx ${event.data.transactionData.transactionHash} (id=${this.swap.id})`);
+                this.logger.warn(`Could not find preimage in claim tx ${transactionData.transactionHash} (id=${this.swap.id})`);
             }
         }
     }
@@ -348,7 +352,7 @@ export class SwapOutRunner {
             void this.onStatusChange('DONE');
         } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             assert(swap.preImage != null);
-            this.logger.log(`Settling invoice (id=${this.swap.id})`);
+            this.logger.log(`Settling invoice (id=${this.swap.id}, paymentHash=${swap.preImageHash})`);
             await this.lnd.settleInvoice(swap.preImage);
             swap.status = 'DONE';
             swap.outcome = 'SUCCESS';
