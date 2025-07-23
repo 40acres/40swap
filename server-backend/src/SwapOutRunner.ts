@@ -220,7 +220,7 @@ export class SwapOutRunner {
     private async processContractFundingTx(event: NBXplorerNewTransactionEvent): Promise<void> {
         const { swap } = this;
         const { transactionData } = event.data;
-        this.logger.log(`Found contract funding tx for swap-out (id=${swap.id}, txId=${transactionData.transactionHash}, height=${transactionData.height})`);
+        this.logger.log(`Found contract funding tx for swap-out (id=${swap.id}, txHash=${transactionData.transactionHash}, height=${transactionData.height})`);
         let output: NBXplorerBitcoinTransactionOutput | NBXplorerLiquidTransactionOutput | null = null;
         if (swap.chain === 'BITCOIN') {
             output = event.data.outputs.find((o) => o.address === swap.contractAddress) as NBXplorerBitcoinTransactionOutput;
