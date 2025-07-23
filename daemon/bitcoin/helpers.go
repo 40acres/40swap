@@ -42,7 +42,8 @@ func BuildTransactionWithFee(satsPerVbyte int64, buildFn func(feeAmount int64, i
 	return buildFn(feeAmount, false)
 }
 
-// BuildContractSpendBasePsbt builds a PSBT for spending from a contract address
+// BuildContractSpendBasePsbt builds a PSBT for spending from a contract address.
+// This function is used in the normal swap flows (swap in/out) to spend from contract addresses.
 func BuildContractSpendBasePsbt(contractAddress, outputAddress string, lockScript []byte, spendingTx *wire.MsgTx, feeAmount int64, network lightning.Network) (*psbt.Packet, error) {
 	logger := log.WithField("contractAddress", contractAddress)
 
@@ -372,7 +373,9 @@ func ParseOutpoint(outpoint string) (string, int, error) {
 	return txid, int(intVOut), nil
 }
 
-func BuildPSBT(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate, minRelayFee int64, network lightning.Network) (*psbt.Packet, error) {
+// BuildPSBTFromOutpoint builds a PSBT for spending from a specific outpoint.
+// This function is specifically used for recovery of reused swap addresses.
+func BuildPSBTFromOutpoint(spendingTxHex *wire.MsgTx, lockScript string, outpoint string, outputAddress string, feeRate, minRelayFee int64, network lightning.Network) (*psbt.Packet, error) {
 	cfgnetwork := lightning.ToChainCfgNetwork(network)
 	prevOut, err := wire.NewOutPointFromString(outpoint)
 	if err != nil {

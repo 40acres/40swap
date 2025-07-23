@@ -388,7 +388,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 	logger.Infof("Claiming reused address outpoint for swap: %s", swap.SwapID)
-	pkt, err := bitcoin.BuildPSBT(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, s.minRelayFee, network)
+	pkt, err := bitcoin.BuildPSBTFromOutpoint(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, s.minRelayFee, network)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build PSBT: %w", err)
 	}
