@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/40acres/40swap/daemon/utils"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
@@ -55,7 +55,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 		logger.Debugf("Updated claim address (contract address): %s", newSwap.ContractAddress)
 	}
 	if newSwap.TimeoutBlockHeight > 0 {
-		timeoutBlockHeight, err := safeUint32ToInt32(newSwap.TimeoutBlockHeight)
+		timeoutBlockHeight, err := utils.SafeUint32ToInt32(newSwap.TimeoutBlockHeight)
 		if err != nil {
 			return fmt.Errorf("invalid timeout block height: %w", err)
 		}
@@ -234,13 +234,4 @@ func getTxId(tx string) (string, error) {
 	}
 
 	return transaction.TxHash().String(), nil
-}
-
-// safeUint32ToInt32 safely converts uint32 to int32, returning an error if overflow would occur
-func safeUint32ToInt32(value uint32) (int32, error) {
-	if value > math.MaxInt32 {
-		return 0, fmt.Errorf("uint32 value %d exceeds int32 maximum %d", value, math.MaxInt32)
-	}
-
-	return int32(value), nil //nolint:gosec // Conversion is safe after overflow check
 }

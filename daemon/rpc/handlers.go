@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
@@ -13,6 +12,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/40acres/40swap/daemon/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -119,7 +119,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
-	timeoutBlockHeight, err := safeUint32ToInt32(swap.TimeoutBlockHeight)
+	timeoutBlockHeight, err := utils.SafeUint32ToInt32(swap.TimeoutBlockHeight)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timeout block height: %w", err)
 	}
@@ -427,13 +427,4 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		Txid:            tx.TxID(),
 		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), //nolint:gosec
 	}, nil
-}
-
-// safeUint32ToInt32 safely converts uint32 to int32, returning an error if overflow would occur
-func safeUint32ToInt32(value uint32) (int32, error) {
-	if value > math.MaxInt32 {
-		return 0, fmt.Errorf("uint32 value %d exceeds int32 maximum %d", value, math.MaxInt32)
-	}
-
-	return int32(value), nil //nolint:gosec // Conversion is safe after overflow check
 }
