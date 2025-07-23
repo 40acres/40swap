@@ -277,7 +277,7 @@ export class SwapOutRunner {
         const { transactionData } = event.data;
         this.logger.log(`Found contract spending tx for swap-out (id=${swap.id}, txHash=${transactionData.transactionHash}, height=${transactionData.height})`);
         const lockTx = swap.chain === 'LIQUID' ? liquid.Transaction.fromBuffer(swap.lockTx) : Transaction.fromBuffer(swap.lockTx);
-        // eslint-disable-next-line prettier/prettier
+        // prettier-ignore
         const unlockTx =
             swap.chain === 'LIQUID'
                 ? liquid.Transaction.fromHex(transactionData.transaction)
