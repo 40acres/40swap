@@ -12,7 +12,6 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
@@ -48,19 +47,12 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 
 	// Update contract information from backend if available
 	contractChanged := false
-	if newSwap.ContractAddress != "" {
-		if currentSwap.ClaimAddress != newSwap.ContractAddress {
-			currentSwap.ClaimAddress = newSwap.ContractAddress
-			contractChanged = true
-			logger.Debugf("Updated claim address (contract address): %s", newSwap.ContractAddress)
-		}
-	}
-	if newSwap.RedeemScript != "" {
-		if currentSwap.RedeemScript != newSwap.RedeemScript {
-			currentSwap.RedeemScript = newSwap.RedeemScript
-			contractChanged = true
-			logger.Debugf("Updated redeem script: %s", newSwap.RedeemScript)
-		}
+	if newSwap.RedeemScript != "" && currentSwap.RedeemScript != newSwap.RedeemScript {
+		currentSwap.RedeemScript = newSwap.RedeemScript
+		currentSwap.ClaimAddress = newSwap.ContractAddress
+		contractChanged = true
+		logger.Debugf("Updated redeem script: %s", newSwap.RedeemScript)
+		logger.Debugf("Updated claim address (contract address): %s", newSwap.ContractAddress)
 	}
 	if newSwap.TimeoutBlockHeight > 0 {
 		timeoutBlockHeight, err := safeUint32ToInt32(newSwap.TimeoutBlockHeight)
@@ -132,9 +124,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 	}
 
 	if changed || contractChanged {
-		if changed {
-			currentSwap.Status = newStatus
-		}
+		currentSwap.Status = newStatus
 		err := m.repository.SaveSwapIn(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap in: %w", err)
@@ -179,6 +169,12 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 			}
 			swap.LockTxID = txId
 			logger.Debugf("Retrieved lock transaction ID from backend: %s", txId)
+
+			// Save the updated swap with the lock transaction ID
+			err = m.repository.SaveSwapIn(ctx, swap)
+			if err != nil {
+				return "", fmt.Errorf("failed to save swap with lock tx id: %w", err)
+			}
 		}
 
 		// Still no lock transaction ID after checking backend
@@ -223,14 +219,6 @@ func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*
 func getTxId(tx string) (string, error) {
 	if tx == "" {
 		return "", nil
-	}
-
-	// First try to parse as PSBT
-	packet, err := psbt.NewFromRawBytes(
-		bytes.NewReader([]byte(tx)), false,
-	)
-	if err == nil {
-		return packet.UnsignedTx.TxID(), nil
 	}
 
 	// If PSBT parsing fails, try to parse as raw hex transaction
