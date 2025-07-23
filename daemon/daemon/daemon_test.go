@@ -283,6 +283,8 @@ func Test_Refund(t *testing.T) {
 					// This is a valid Bitcoin transaction in hex format
 					LockTx: stringPtr("020000000001010a8c9a4185c21121bbfce347638fd537a221d9c7509870c62c835e43471324470100000000fdffffff0267789ad0000000002251207334a2da5532326422535efcb08a3383f8aa0f0be9628f36bae448a327f246da2d1103000000000022002025f32afca1be933158d98b3ee76a1d128ca236712207d2c9b622b921946f47f5024730440220020eb2facf317185921a371c89515541c74fe62f09cacfe30e9a3cfaa813599702202e26e063c153a7f2843f54e82d93cb01202c385827a1e399674d3d04dcb78ee2012103b4a60e3f2a977725a3348b4182c0fb6fff1f22eb5b4d46284c9982c02dd323097e000000"),
 				}, nil)
+				// Mock the SaveSwapIn call that will be made after getting LockTxID from backend
+				repository.EXPECT().SaveSwapIn(ctx, gomock.Any()).Return(nil)
 				// Mock the GetTxFromTxID call that PSBTBuilder will make
 				bitcoinClient.EXPECT().GetTxFromTxID(ctx, "fa44086e23eabeb3413b61cbc78e056c9c9712185262712db1841bb14643af6a").Return(nil, errors.New("failed to get transaction"))
 			},
