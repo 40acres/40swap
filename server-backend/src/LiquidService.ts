@@ -154,10 +154,10 @@ export class LiquidService implements OnApplicationBootstrap {
             throw new Error('Liquid functionality is disabled');
         }
 
-        wallet = wallet || this.rpcAuth.wallet;
+        wallet = wallet ?? this.rpcAuth.wallet;
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
-            const response = await fetch(`${this.rpcUrl}/wallet/${this.rpcAuth.wallet}`, {
+            const response = await fetch(`${this.rpcUrl}/wallet/${wallet}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
