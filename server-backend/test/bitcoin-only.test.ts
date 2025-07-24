@@ -185,6 +185,7 @@ describe('Bitcoin functions without Elements config', () => {
         btcOnlyLndAlice = await Lnd.fromContainer(compose.getContainer('40swap_lnd_alice'));
         btcOnlyBitcoind = new Bitcoind(compose.getContainer('40swap_bitcoind'));
         const backendContainer = compose.getContainer('40swap_backend');
+        (await backendContainer.logs()).pipe(process.stdout);
         const backendBaseUrl = `http://${backendContainer.getHost()}:${backendContainer.getMappedPort(8081)}`;
         btcOnlyBackend = new FortySwapClient(backendBaseUrl);
 

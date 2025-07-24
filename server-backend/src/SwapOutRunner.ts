@@ -145,7 +145,7 @@ export class SwapOutRunner {
             try {
                 await this.lnd.cancelInvoice(swap.preImageHash);
             } catch (e) {
-                this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id}, paymentHash=${swap.preImageHash})`, e);
+                this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id}, paymentHash=${swap.preImageHash.toString('hex')})`, e);
             }
         }
     }
@@ -352,7 +352,7 @@ export class SwapOutRunner {
             void this.onStatusChange('DONE');
         } else if (swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.unlockTxHeight, event.data.height)) {
             assert(swap.preImage != null);
-            this.logger.log(`Settling invoice (id=${this.swap.id}, paymentHash=${swap.preImageHash})`);
+            this.logger.log(`Settling invoice (id=${this.swap.id}, paymentHash=${swap.preImageHash.toString('hex')})`);
             await this.lnd.settleInvoice(swap.preImage);
             swap.status = 'DONE';
             swap.outcome = 'SUCCESS';

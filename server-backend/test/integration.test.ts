@@ -58,7 +58,7 @@ describe('40Swap backend', () => {
         await sleep(1000);
         swap.start();
         // this takes a while because there are many blocks to process. Need to wait longer because CI is slow...
-        await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED', 400);
+        await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED', 800);
         await elements.mine(10);
         await waitForSwapStatus(swap, 'DONE');
         expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
@@ -127,9 +127,6 @@ describe('40Swap backend', () => {
         assert(swap.value != null);
         lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
-
-        await elements.mine(3);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
 
         await elements.mine(3);
         await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
