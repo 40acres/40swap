@@ -93,9 +93,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 	}
 
 	if changed || contractChanged {
-		if changed {
-			currentSwap.Status = newStatus
-		}
+		currentSwap.Status = newStatus
 		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
 			return fmt.Errorf("failed to save swap out: %w", err)
