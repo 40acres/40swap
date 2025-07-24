@@ -43,7 +43,7 @@ var privKeyBytes, _ = hex.DecodeString("bde48e15ae57a00bbf7db477f007061619d7177f
 var privKey, _ = btcec.PrivKeyFromBytes(privKeyBytes)
 var preimage, _ = lntypes.MakePreimageFromStr("0eb3946ca75520d314068a3f41eb88bec2d1cd8f73f76a77adc578a7cd141c5e")
 
-func TestBuildPSBT(t *testing.T) {
+func TestBuildPSBTFromOutpoint(t *testing.T) {
 	type args struct {
 		spendingTxHex *wire.MsgTx
 		redeemScript  string
@@ -144,7 +144,7 @@ func TestBuildPSBT(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pkt, err := BuildPSBT(tt.args.spendingTxHex, tt.args.redeemScript, tt.args.outpoint, tt.args.outputAddress, tt.args.feeRate, tt.args.minRelayFee, tt.args.network)
+			pkt, err := BuildPSBTFromOutpoint(tt.args.spendingTxHex, tt.args.redeemScript, tt.args.outpoint, tt.args.outputAddress, tt.args.feeRate, tt.args.minRelayFee, tt.args.network)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.err.Error())

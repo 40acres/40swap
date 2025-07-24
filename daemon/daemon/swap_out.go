@@ -8,6 +8,7 @@ import (
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/40acres/40swap/daemon/utils"
 	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
 )
@@ -37,6 +38,24 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 
 	newStatus := models.SwapStatus(newSwap.Status)
 	changed := currentSwap.Status != newStatus
+
+	// Update contract information from backend if available
+	contractChanged := false
+	if newSwap.ContractAddress != nil && *newSwap.ContractAddress != "" {
+		if currentSwap.ContractAddress != *newSwap.ContractAddress {
+			currentSwap.ContractAddress = *newSwap.ContractAddress
+			contractChanged = true
+			logger.Debugf("Updated contract address: %s", *newSwap.ContractAddress)
+		}
+	}
+	if newSwap.RefundPublicKey != nil && *newSwap.RefundPublicKey != "" {
+		if currentSwap.RefundPublicKey != *newSwap.RefundPublicKey {
+			currentSwap.RefundPublicKey = *newSwap.RefundPublicKey
+			contractChanged = true
+			logger.Debugf("Updated refund public key: %s", *newSwap.RefundPublicKey)
+		}
+	}
+
 	switch newStatus {
 	case models.StatusCreated:
 		logger.Debug("waiting for payment")
@@ -44,7 +63,11 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
 		logger.Debug("on-chain HTLC contract detected, waiting for confirmation")
-		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
+		timeoutBlockHeight, err := utils.SafeUint32ToInt32(newSwap.TimeoutBlockHeight)
+		if err != nil {
+			return fmt.Errorf("invalid timeout block height: %w", err)
+		}
+		currentSwap.TimeoutBlockHeight = timeoutBlockHeight
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")
 		tx, err := m.ClaimSwapOut(ctx, currentSwap)
@@ -69,7 +92,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("contract refunded unconfirmed")
 	}
 
-	if changed {
+	if changed || contractChanged {
 		currentSwap.Status = newStatus
 		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
@@ -85,42 +108,44 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error) {
 	logger := log.WithField("id", swap.SwapID)
 
-	logger.Infof("claiming swap out: %s", swap.SwapID)
-	res, err := m.swapClient.GetClaimPSBT(ctx, swap.SwapID, swap.DestinationAddress)
+	logger.Infof("Building claim transaction for swap out: %s", swap.SwapID)
+
+	// Get recommended fee rate
+	recommendedFeeRate, err := m.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get recommended fees: %w", err)
 	}
 
-	// Get psbt from response
-	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse PSBT: %w", err)
+	if recommendedFeeRate > 200 {
+		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 
-	privateKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
+	// Build claim transaction locally
+	swapInfo, err := m.swapClient.GetSwapOut(ctx, swap.SwapID)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode claim private key: %w", err)
+		return "", fmt.Errorf("failed to get swap info: %w", err)
 	}
 
-	// Process the PSBT
-	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, swap.PreImage, 0)
-	if err != nil {
-		return "", fmt.Errorf("failed to process PSBT: %w", err)
+	if swapInfo.LockTx == nil {
+		return "", fmt.Errorf("lock transaction not available for local construction")
 	}
 
-	serializedTx, err := bitcoin.SerializeTx(tx)
+	psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
+
+	pkt, err := psbtBuilder.BuildClaimPSBT(ctx, swap, swapInfo, recommendedFeeRate, logger)
 	if err != nil {
-		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+		return "", fmt.Errorf("failed to build claim PSBT: %w", err)
 	}
 
-	// Send transaction back to the swap client
-	logger.Debug("sending transaction back to swap client")
-	err = m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx)
+	// Sign and broadcast the PSBT
+	txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.ClaimPrivateKey, swap.PreImage, logger)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to sign and broadcast claim transaction: %w", err)
 	}
 
-	return tx.TxID(), nil
+	logger.Info("Successfully built and broadcast claim transaction locally")
+
+	return txID, nil
 }
 
 func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) (int64, int64, error) {

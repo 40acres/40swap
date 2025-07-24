@@ -60,7 +60,12 @@ func (m *MempoolSpace) GetTxFromOutpoint(ctx context.Context, outpoint string) (
 		return nil, err
 	}
 
-	req, err := m.makeRequest(ctx, "/tx/"+txId+"/hex", "GET", nil)
+	return m.GetTxFromTxID(ctx, txId)
+}
+
+// GetTxFromTxID retrieves the Transaction from a transaction ID
+func (m *MempoolSpace) GetTxFromTxID(ctx context.Context, txID string) (*wire.MsgTx, error) {
+	req, err := m.makeRequest(ctx, "/tx/"+txID+"/hex", "GET", nil)
 	if err != nil {
 		return nil, err
 	}

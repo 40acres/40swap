@@ -120,6 +120,7 @@ export const getSwapOutResponseSchema = swapResponseSchema.extend({
         .optional()
         .describe('The bitcoin script to which the on-chain funds will be locked. The contract address is derived from this script.'),
     contractAddress: z.string().optional().describe('The on-chain address where the funds will be locked in before being released.'),
+    refundPublicKey: z.string().optional().describe('The public key that 40swap uses for refunding expired swaps.'),
 });
 export type GetSwapOutResponse = z.infer<typeof getSwapOutResponseSchema>;
 

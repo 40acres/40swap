@@ -178,6 +178,7 @@ export class SwapOutController {
             redeemScript: swap.lockScript?.toString('hex'),
             invoice: swap.invoice,
             contractAddress: swap.contractAddress ?? undefined,
+            refundPublicKey: ECPair.fromPrivateKey(swap.unlockPrivKey).publicKey.toString('hex'),
             outputAmount: swap.outputAmount.toNumber(),
             status: swap.status,
             lockTx: swap.lockTx?.toString('hex'),
