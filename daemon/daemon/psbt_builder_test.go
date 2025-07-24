@@ -11,6 +11,7 @@ import (
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/lightningnetwork/lnd/lntypes"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -20,20 +21,11 @@ func TestNewPSBTBuilder(t *testing.T) {
 
 	bitcoinClient := bitcoin.NewMockClient(ctrl)
 	network := lightning.Regtest
-
 	builder := NewPSBTBuilder(bitcoinClient, network)
 
-	if builder == nil {
-		t.Fatal("Expected PSBTBuilder to be created, got nil")
-	}
-
-	if builder.bitcoin != bitcoinClient {
-		t.Error("Expected bitcoin client to be set correctly")
-	}
-
-	if builder.network != network {
-		t.Error("Expected network to be set correctly")
-	}
+	require.NotNilf(t, builder, "Expected PSBTBuilder to be created, got nil")
+	require.Equal(t, bitcoinClient, builder.bitcoin, "Expected bitcoin client to be set correctly")
+	require.Equal(t, network, builder.network, "Expected network to be set correctly")
 }
 
 func TestPSBTBuilder_BuildRefundPSBT(t *testing.T) {
