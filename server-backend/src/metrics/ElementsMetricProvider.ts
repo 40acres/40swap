@@ -7,7 +7,7 @@ import { LiquidService } from '../LiquidService.js';
 export class ElementsMetricProvider implements OnApplicationBootstrap, OnApplicationShutdown {
     private pollInterval: ReturnType<typeof setInterval> | undefined;
 
-    public readonly channelInfo = new Gauge({
+    public readonly walletBalance = new Gauge({
         name: 'elements_wallet_balance',
         help: 'Elements wallet balance',
         labelNames: ['asset', 'wallet'],
@@ -17,7 +17,7 @@ export class ElementsMetricProvider implements OnApplicationBootstrap, OnApplica
         private readonly metrics: PrometheusService,
         private readonly elements: LiquidService,
     ) {
-        this.metrics.registry.registerMetric(this.channelInfo);
+        this.metrics.registry.registerMetric(this.walletBalance);
     }
 
     async run(): Promise<void> {
@@ -26,7 +26,7 @@ export class ElementsMetricProvider implements OnApplicationBootstrap, OnApplica
             const getBalanceResponse = (await this.elements.callRPC('getbalance', [], wallet)) as object;
             for (const [asset, balance] of Object.entries(getBalanceResponse)) {
                 if (typeof balance === 'number') {
-                    this.channelInfo.labels({ wallet, asset }).set(balance);
+                    this.walletBalance.labels({ wallet, asset }).set(balance);
                 }
             }
         }
