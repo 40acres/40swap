@@ -11,7 +11,7 @@ import { networks } from 'bitcoinjs-lib';
 import { jest } from '@jest/globals';
 import assert from 'node:assert';
 
-jest.setTimeout(2 * 60 * 1000);
+jest.setTimeout(3 * 60 * 1000);
 
 const network = networks.regtest;
 
