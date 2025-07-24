@@ -97,7 +97,7 @@ export class LiquidService implements OnApplicationBootstrap {
     private readonly logger = new Logger(LiquidService.name);
     private readonly rpcUrl?: string;
     private readonly rpcAuth?: { username: string; password: string; wallet: string };
-    private readonly isLiquidEnabled: boolean = false;
+    public readonly isLiquidEnabled: boolean = false;
 
     constructor(
         private nbxplorer: NbxplorerService,

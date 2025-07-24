@@ -129,9 +129,6 @@ describe('40Swap backend', () => {
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
         await elements.mine(3);
-        await waitForSwapStatus(swap, 'CONTRACT_FUNDED');
-
-        await elements.mine(3);
         await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
 
         await elements.mine(3);

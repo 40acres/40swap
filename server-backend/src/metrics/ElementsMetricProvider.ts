@@ -33,8 +33,10 @@ export class ElementsMetricProvider implements OnApplicationBootstrap, OnApplica
     }
 
     onApplicationBootstrap(): void {
-        void this.run();
-        this.pollInterval = setInterval(() => this.run(), 5 * 60 * 1000);
+        if (this.elements.isLiquidEnabled) {
+            void this.run();
+            this.pollInterval = setInterval(() => this.run(), 5 * 60 * 1000);
+        }
     }
 
     onApplicationShutdown(signal?: string): void {
