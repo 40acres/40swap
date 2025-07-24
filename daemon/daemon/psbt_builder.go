@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"math"
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	swaps "github.com/40acres/40swap/daemon/swaps"
+	"github.com/40acres/40swap/daemon/utils"
 	"github.com/btcsuite/btcd/btcutil/psbt"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -29,18 +29,6 @@ func NewPSBTBuilder(bitcoinClient bitcoin.Client, network lightning.Network) *PS
 		bitcoin: bitcoinClient,
 		network: network,
 	}
-}
-
-// safeInt64ToUint32 safely converts int64 to uint32, returning an error if overflow would occur
-func safeInt64ToUint32(value int64) (uint32, error) {
-	if value < 0 {
-		return 0, fmt.Errorf("value %d is negative and cannot be converted to uint32", value)
-	}
-	if value > math.MaxUint32 {
-		return 0, fmt.Errorf("value %d exceeds maximum uint32 value (%d)", value, math.MaxUint32)
-	}
-
-	return uint32(value), nil
 }
 
 // BuildRefundPSBT builds a refund PSBT locally for swap in transactions
@@ -67,7 +55,7 @@ func (p *PSBTBuilder) BuildRefundPSBT(ctx context.Context, swap *models.SwapIn, 
 		}
 
 		// Set timeout block height with safe conversion
-		lockTime, err := safeInt64ToUint32(int64(swap.TimeoutBlockHeight))
+		lockTime, err := utils.SafeInt64ToUint32(int64(swap.TimeoutBlockHeight))
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert timeout block height: %w", err)
 		}
