@@ -168,7 +168,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
         const inputAmount = this.getCheckedAmount(new Decimal(request.inputAmount));
         const cltvExpiry = this.swapConfig.lockBlockDelta.out + BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS;
         const id = base58Id();
-        this.logger.log(`Creating hodl invoice (id=${id}, paymentHash=${preImageHash})`);
+        this.logger.log(`Creating hodl invoice (id=${id}, paymentHash=${preImageHash.toString('hex')})`);
         const invoice = await this.lnd.addHodlInvoice({
             hash: preImageHash,
             amount: inputAmount.mul(1e8).toDecimalPlaces(0).toNumber(),
