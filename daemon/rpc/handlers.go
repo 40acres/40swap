@@ -12,6 +12,7 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
+	"github.com/40acres/40swap/daemon/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -118,6 +119,11 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
 
+	timeoutBlockHeight, err := utils.SafeUint32ToInt32(swap.TimeoutBlockHeight)
+	if err != nil {
+		return nil, fmt.Errorf("invalid timeout block height: %w", err)
+	}
+
 	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,
 		//nolint:gosec
@@ -126,7 +132,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		// All outcomes are failed by default until the swap is completed or refunded
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
-		TimeoutBlockHeight: int64(swap.TimeoutBlockHeight),
+		TimeoutBlockHeight: timeoutBlockHeight,
 		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
@@ -382,7 +388,7 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		return nil, fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 	logger.Infof("Claiming reused address outpoint for swap: %s", swap.SwapID)
-	pkt, err := bitcoin.BuildPSBT(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, s.minRelayFee, network)
+	pkt, err := bitcoin.BuildPSBTFromOutpoint(tx, swap.RedeemScript, req.Outpoint, *req.RefundTo, recommendedFeeRate, s.minRelayFee, network)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build PSBT: %w", err)
 	}
