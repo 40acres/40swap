@@ -12,7 +12,6 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/40acres/40swap/daemon/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/lightningnetwork/lnd/lntypes"
