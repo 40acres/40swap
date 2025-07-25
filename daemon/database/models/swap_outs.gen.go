@@ -25,7 +25,7 @@ type SwapOut struct {
 	MaxRoutingFeeRatio float64           `gorm:"column:max_routing_fee_ratio;type:numeric;not null" json:"max_routing_fee_ratio"`
 	Outcome            *SwapOutcome      `gorm:"column:outcome;type:swap_outcome" json:"outcome"`
 	PreImage           *lntypes.Preimage `gorm:"column:pre_image;type:text;serializer:preimage" json:"pre_image"`
-	TimeoutBlockHeight int32             `gorm:"column:timeout_block_height;type:integer" json:"timeout_block_height"`
+	TimeoutBlockHeight int64             `gorm:"column:timeout_block_height;type:bigint" json:"timeout_block_height"`
 	TxID               string            `gorm:"column:tx_id;type:text" json:"tx_id"`
 	IsAutoSwap         bool              `gorm:"column:is_auto_swap;type:boolean" json:"is_auto_swap"`
 	ContractAddress    string            `gorm:"column:contract_address;type:text" json:"contract_address"`

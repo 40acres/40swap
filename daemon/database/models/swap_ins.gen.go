@@ -21,7 +21,7 @@ type SwapIn struct {
 	Outcome            *SwapOutcome      `gorm:"column:outcome;type:swap_outcome" json:"outcome"`
 	SourceChain        Chain             `gorm:"column:source_chain;type:chain_enum;not null" json:"source_chain"`
 	ClaimAddress       string            `gorm:"column:claim_address;type:text" json:"claim_address"`
-	TimeoutBlockHeight int32             `gorm:"column:timeout_block_height;type:integer" json:"timeout_block_height"`
+	TimeoutBlockHeight int64             `gorm:"column:timeout_block_height;type:bigint" json:"timeout_block_height"`
 	RefundAddress      string            `gorm:"column:refund_address;type:text" json:"refund_address"`
 	RefundTxID         string            `gorm:"column:refund_tx_id;type:text" json:"refund_tx_id"`
 	RefundPrivatekey   string            `gorm:"column:refund_privatekey;type:text;not null" json:"refund_privatekey"`

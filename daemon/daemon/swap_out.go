@@ -8,7 +8,6 @@ import (
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/40acres/40swap/daemon/utils"
 	decodepay "github.com/nbd-wtf/ln-decodepay"
 	log "github.com/sirupsen/logrus"
 )
@@ -63,10 +62,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
 		logger.Debug("on-chain HTLC contract detected, waiting for confirmation")
-		timeoutBlockHeight, err := utils.SafeUint32ToInt32(newSwap.TimeoutBlockHeight)
-		if err != nil {
-			return fmt.Errorf("invalid timeout block height: %w", err)
-		}
+		timeoutBlockHeight := int64(newSwap.TimeoutBlockHeight)
 		currentSwap.TimeoutBlockHeight = timeoutBlockHeight
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")

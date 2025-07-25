@@ -12,7 +12,6 @@ import (
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/40acres/40swap/daemon/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -118,11 +117,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	}
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
-
-	timeoutBlockHeight, err := utils.SafeUint32ToInt32(swap.TimeoutBlockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("invalid timeout block height: %w", err)
-	}
+	timeoutBlockHeight := int64(swap.TimeoutBlockHeight)
 
 	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,
@@ -303,7 +298,7 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		Outcome:            (*string)(&swap.Outcome),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
-		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight),
 	}
 
 	return res, nil
@@ -329,7 +324,7 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		Id:                 swap.SwapId,
 		Status:             rpcStatus,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
-		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight),
 		Invoice:            swap.Invoice,
 		InputAmount:        swap.InputAmount.InexactFloat64(),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
