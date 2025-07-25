@@ -42,7 +42,7 @@ func newSwapOut(db *gorm.DB, opts ...gen.DOOption) swapOut {
 	_swapOut.MaxRoutingFeeRatio = field.NewFloat64(tableName, "max_routing_fee_ratio")
 	_swapOut.Outcome = field.NewField(tableName, "outcome")
 	_swapOut.PreImage = field.NewField(tableName, "pre_image")
-	_swapOut.TimeoutBlockHeight = field.NewInt32(tableName, "timeout_block_height")
+	_swapOut.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
 	_swapOut.TxID = field.NewString(tableName, "tx_id")
 	_swapOut.IsAutoSwap = field.NewBool(tableName, "is_auto_swap")
 	_swapOut.ContractAddress = field.NewString(tableName, "contract_address")
@@ -72,7 +72,7 @@ type swapOut struct {
 	MaxRoutingFeeRatio field.Float64
 	Outcome            field.Field
 	PreImage           field.Field
-	TimeoutBlockHeight field.Int32
+	TimeoutBlockHeight field.Int64
 	TxID               field.String
 	IsAutoSwap         field.Bool
 	ContractAddress    field.String
@@ -108,7 +108,7 @@ func (s *swapOut) updateTableName(table string) *swapOut {
 	s.MaxRoutingFeeRatio = field.NewFloat64(table, "max_routing_fee_ratio")
 	s.Outcome = field.NewField(table, "outcome")
 	s.PreImage = field.NewField(table, "pre_image")
-	s.TimeoutBlockHeight = field.NewInt32(table, "timeout_block_height")
+	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
 	s.TxID = field.NewString(table, "tx_id")
 	s.IsAutoSwap = field.NewBool(table, "is_auto_swap")
 	s.ContractAddress = field.NewString(table, "contract_address")

@@ -34,7 +34,7 @@ func newSwapIn(db *gorm.DB, opts ...gen.DOOption) swapIn {
 	_swapIn.Outcome = field.NewField(tableName, "outcome")
 	_swapIn.SourceChain = field.NewField(tableName, "source_chain")
 	_swapIn.ClaimAddress = field.NewString(tableName, "claim_address")
-	_swapIn.TimeoutBlockHeight = field.NewInt32(tableName, "timeout_block_height")
+	_swapIn.TimeoutBlockHeight = field.NewInt64(tableName, "timeout_block_height")
 	_swapIn.RefundAddress = field.NewString(tableName, "refund_address")
 	_swapIn.RefundTxID = field.NewString(tableName, "refund_tx_id")
 	_swapIn.RefundPrivatekey = field.NewString(tableName, "refund_privatekey")
@@ -65,7 +65,7 @@ type swapIn struct {
 	Outcome            field.Field
 	SourceChain        field.Field
 	ClaimAddress       field.String
-	TimeoutBlockHeight field.Int32
+	TimeoutBlockHeight field.Int64
 	RefundAddress      field.String
 	RefundTxID         field.String
 	RefundPrivatekey   field.String
@@ -102,7 +102,7 @@ func (s *swapIn) updateTableName(table string) *swapIn {
 	s.Outcome = field.NewField(table, "outcome")
 	s.SourceChain = field.NewField(table, "source_chain")
 	s.ClaimAddress = field.NewString(table, "claim_address")
-	s.TimeoutBlockHeight = field.NewInt32(table, "timeout_block_height")
+	s.TimeoutBlockHeight = field.NewInt64(table, "timeout_block_height")
 	s.RefundAddress = field.NewString(table, "refund_address")
 	s.RefundTxID = field.NewString(table, "refund_tx_id")
 	s.RefundPrivatekey = field.NewString(table, "refund_privatekey")
