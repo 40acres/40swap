@@ -55,7 +55,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 		logger.Debugf("Updated claim address (contract address): %s", newSwap.ContractAddress)
 	}
 	if newSwap.TimeoutBlockHeight > 0 {
-		timeoutBlockHeight := utils.SafeUint32ToInt64(newSwap.TimeoutBlockHeight)
+		timeoutBlockHeight := int64(newSwap.TimeoutBlockHeight)
 		if currentSwap.TimeoutBlockHeight != timeoutBlockHeight {
 			currentSwap.TimeoutBlockHeight = timeoutBlockHeight
 			contractChanged = true

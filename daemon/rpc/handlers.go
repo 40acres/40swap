@@ -118,7 +118,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	}
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
-	timeoutBlockHeight := utils.SafeUint32ToInt64(swap.TimeoutBlockHeight)
+	timeoutBlockHeight := int64(swap.TimeoutBlockHeight)
 
 	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,

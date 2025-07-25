@@ -14,11 +14,6 @@ func SafeUint32ToInt32(value uint32) (int32, error) {
 	return int32(value), nil //nolint:gosec // Conversion is safe after overflow check
 }
 
-// SafeUint32ToInt64 safely converts uint32 to int64
-func SafeUint32ToInt64(value uint32) int64 {
-	return int64(value)
-}
-
 // safeInt64ToUint32 safely converts int64 to uint32, returning an error if overflow would occur
 func SafeInt64ToUint32(value int64) (uint32, error) {
 	if value < 0 {
