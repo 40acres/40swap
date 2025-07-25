@@ -47,6 +47,8 @@ func newSwapOut(db *gorm.DB, opts ...gen.DOOption) swapOut {
 	_swapOut.IsAutoSwap = field.NewBool(tableName, "is_auto_swap")
 	_swapOut.ContractAddress = field.NewString(tableName, "contract_address")
 	_swapOut.RefundPublicKey = field.NewString(tableName, "refund_public_key")
+	_swapOut.CreatedAt = field.NewTime(tableName, "created_at")
+	_swapOut.UpdatedAt = field.NewTime(tableName, "updated_at")
 
 	_swapOut.fillFieldMap()
 
@@ -77,6 +79,8 @@ type swapOut struct {
 	IsAutoSwap         field.Bool
 	ContractAddress    field.String
 	RefundPublicKey    field.String
+	CreatedAt          field.Time
+	UpdatedAt          field.Time
 
 	fieldMap map[string]field.Expr
 }
@@ -113,6 +117,8 @@ func (s *swapOut) updateTableName(table string) *swapOut {
 	s.IsAutoSwap = field.NewBool(table, "is_auto_swap")
 	s.ContractAddress = field.NewString(table, "contract_address")
 	s.RefundPublicKey = field.NewString(table, "refund_public_key")
+	s.CreatedAt = field.NewTime(table, "created_at")
+	s.UpdatedAt = field.NewTime(table, "updated_at")
 
 	s.fillFieldMap()
 
@@ -137,7 +143,7 @@ func (s *swapOut) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (s *swapOut) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 20)
+	s.fieldMap = make(map[string]field.Expr, 22)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["swap_id"] = s.SwapID
 	s.fieldMap["status"] = s.Status
@@ -158,6 +164,8 @@ func (s *swapOut) fillFieldMap() {
 	s.fieldMap["is_auto_swap"] = s.IsAutoSwap
 	s.fieldMap["contract_address"] = s.ContractAddress
 	s.fieldMap["refund_public_key"] = s.RefundPublicKey
+	s.fieldMap["created_at"] = s.CreatedAt
+	s.fieldMap["updated_at"] = s.UpdatedAt
 }
 
 func (s swapOut) clone(db *gorm.DB) swapOut {
