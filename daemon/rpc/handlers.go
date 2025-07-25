@@ -132,7 +132,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		// All outcomes are failed by default until the swap is completed or refunded
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
-		TimeoutBlockHeight: timeoutBlockHeight,
+		TimeoutBlockHeight: int64(timeoutBlockHeight),
 		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
@@ -303,7 +303,7 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		Outcome:            (*string)(&swap.Outcome),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
 		RedeemScript:       swap.RedeemScript,
-		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight),
 	}
 
 	return res, nil
@@ -329,7 +329,7 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		Id:                 swap.SwapId,
 		Status:             rpcStatus,
 		CreatedAt:          timestamppb.New(swap.CreatedAt),
-		TimeoutBlockHeight: swap.TimeoutBlockHeight,
+		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight),
 		Invoice:            swap.Invoice,
 		InputAmount:        swap.InputAmount.InexactFloat64(),
 		OutputAmount:       swap.OutputAmount.InexactFloat64(),
