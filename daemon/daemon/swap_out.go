@@ -63,10 +63,7 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
 		logger.Debug("on-chain HTLC contract detected, waiting for confirmation")
-		timeoutBlockHeight, err := utils.SafeUint32ToInt32(newSwap.TimeoutBlockHeight)
-		if err != nil {
-			return fmt.Errorf("invalid timeout block height: %w", err)
-		}
+		timeoutBlockHeight := utils.SafeUint32ToInt64(newSwap.TimeoutBlockHeight)
 		currentSwap.TimeoutBlockHeight = timeoutBlockHeight
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")

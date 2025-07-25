@@ -118,11 +118,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 	}
 	outputAmountSats := swap.OutputAmount.Mul(decimal.NewFromInt(1e8))
 	inputAmountSats := swap.InputAmount.Mul(decimal.NewFromInt(1e8))
-
-	timeoutBlockHeight, err := utils.SafeUint32ToInt32(swap.TimeoutBlockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("invalid timeout block height: %w", err)
-	}
+	timeoutBlockHeight := utils.SafeUint32ToInt64(swap.TimeoutBlockHeight)
 
 	err = server.Repository.SaveSwapIn(ctx, &models.SwapIn{
 		SwapID: swap.SwapId,
@@ -132,7 +128,7 @@ func (server *Server) SwapIn(ctx context.Context, req *SwapInRequest) (*SwapInRe
 		// All outcomes are failed by default until the swap is completed or refunded
 		SourceChain:        chain,
 		ClaimAddress:       swap.ContractAddress,
-		TimeoutBlockHeight: int64(timeoutBlockHeight),
+		TimeoutBlockHeight: timeoutBlockHeight,
 		RefundAddress:      req.RefundTo,
 		RefundPrivatekey:   hex.EncodeToString(refundPrivateKey.Serialize()),
 		RedeemScript:       swap.RedeemScript,
