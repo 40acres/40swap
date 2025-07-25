@@ -15,8 +15,6 @@ func SafeUint32ToInt32(value uint32) (int32, error) {
 }
 
 // SafeUint32ToInt64 safely converts uint32 to int64
-// This conversion is always safe since uint32 max value (4,294,967,295)
-// is much smaller than int64 max value (9,223,372,036,854,775,807)
 func SafeUint32ToInt64(value uint32) int64 {
 	return int64(value)
 }
