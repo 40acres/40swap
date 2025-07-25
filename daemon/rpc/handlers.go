@@ -324,6 +324,10 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 
 	swap, err := s.Repository.GetSwapOut(ctx, req.Id)
 	if err != nil {
+		if errors.Is(err, swaps.ErrSwapNotFound) {
+			return nil, fmt.Errorf("swap not found: %w", err)
+		}
+
 		return nil, fmt.Errorf("could not get swap out: %w", err)
 	}
 
