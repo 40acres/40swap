@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings" // Add this import
 	"syscall"
 	"time"
 
@@ -321,22 +323,28 @@ func main() {
 								Aliases: []string{"r"},
 							},
 							&cli.UintFlag{
-								Name:  "amt",
-								Usage: "Amount in sats to swap",
+								Name:    "amt",
+								Usage:   "Amount in sats to swap",
+								Aliases: []string{"a"},
 							},
 							&grpcPort,
-							&bitcoin,
+							&chain,
 						},
-						Action: func(ctx context.Context, c *cli.Command) error {
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+
+							chainArg := cmd.String("chain")
+							if chainArg != rpc.Chain_BITCOIN.String() && chainArg != rpc.Chain_LIQUID.String() {
+								return fmt.Errorf("invalid chain: %s (must be %s or %s, case insensitive)", chainArg, rpc.Chain_BITCOIN.String(), rpc.Chain_LIQUID.String())
+							}
 							chain := rpc.Chain_BITCOIN
-							switch {
-							case c.Bool("bitcoin"):
+							switch chainArg {
+							case rpc.Chain_BITCOIN.String():
 								chain = rpc.Chain_BITCOIN
-							case c.Bool("liquid"):
+							case rpc.Chain_LIQUID.String():
 								chain = rpc.Chain_LIQUID
 							}
 
-							grpcPort, err := validatePort(c.Int("grpc-port"))
+							grpcPort, err := validatePort(cmd.Int("grpc-port"))
 							if err != nil {
 								return err
 							}
@@ -345,10 +353,10 @@ func main() {
 
 							swapInRequest := rpc.SwapInRequest{
 								Chain:    chain,
-								RefundTo: c.String("refund-to"),
+								RefundTo: cmd.String("refund-to"),
 							}
-							payreq := c.String("payreq")
-							if payreq == "" && c.Uint("amt") == 0 {
+							payreq := cmd.String("payreq")
+							if payreq == "" && cmd.Uint("amt") == 0 {
 								return fmt.Errorf("either payreq or amt must be provided")
 							}
 
@@ -356,13 +364,13 @@ func main() {
 								swapInRequest.Invoice = &payreq
 							}
 
-							if c.Uint("amt") != 0 {
-								amt := c.Uint("amt")
+							if cmd.Uint("amt") != 0 {
+								amt := cmd.Uint("amt")
 								swapInRequest.AmountSats = &amt
 							}
 
-							if c.Uint("expiry") != 0 {
-								expiry := uint32(c.Uint("expiry")) // nolint:gosec
+							if cmd.Uint("expiry") != 0 {
+								expiry := uint32(cmd.Uint("expiry")) // nolint:gosec
 								swapInRequest.Expiry = &expiry
 							}
 
@@ -383,24 +391,32 @@ func main() {
 						},
 					},
 					{
-						Name:  "out",
-						Usage: "Perform a swap out",
+						Name:      "out",
+						Usage:     "Perform a swap out",
+						ArgsUsage: "<amount in sats> <address>",
 						Flags: []cli.Flag{
-							&grpcPort,
-							&amountSats,
 							&cli.StringFlag{
-								// This address is optional since in case that is not given,
-								// one address from the LND wallet will be used.
 								Name:  "address",
-								Usage: "Address to swap to",
+								Usage: "Address to swap to. If not provided, a new address will be generated from the LND wallet",
 							},
 							&cli.FloatFlag{
 								Name:  "max-routing-fee-percent",
 								Usage: "The maximum routing fee in percentage for the lightning networ",
 								Value: 0.5,
 							},
+							&grpcPort,
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
+							if cmd.Args().Len() == 0 {
+								return fmt.Errorf("amount in sats is required as the first argument")
+							}
+
+							amtStr := cmd.Args().Get(0)
+							amt, err := strconv.ParseUint(amtStr, 10, 64)
+							if err != nil {
+								return fmt.Errorf("invalid amount: %v", err)
+							}
+
 							grpcPort, err := validatePort(cmd.Int("grpc-port"))
 							if err != nil {
 								return err
@@ -416,7 +432,7 @@ func main() {
 
 							swapOutRequest := rpc.SwapOutRequest{
 								Chain:                rpc.Chain_BITCOIN,
-								AmountSats:           cmd.Uint("amt"),
+								AmountSats:           amt,
 								Address:              cmd.String("address"),
 								MaxRoutingFeePercent: &mrfp,
 							}
@@ -441,18 +457,19 @@ func main() {
 						Usage: "Check the status of a swap",
 						Flags: []cli.Flag{
 							&grpcPort,
-							&cli.StringFlag{
-								Name:     "id",
-								Usage:    "The ID of the swap to check",
-								Required: true,
-							},
-							&cli.StringFlag{
-								Name:     "type",
-								Usage:    "The type of swap (IN or OUT)",
-								Required: true,
-							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
+							if cmd.Args().Len() < 2 {
+								return fmt.Errorf("type and id are required as positional arguments: 40swapd swap status <type> <id>")
+							}
+
+							swapType := strings.ToUpper(cmd.Args().Get(0)) // Convert to uppercase
+							swapId := cmd.Args().Get(1)
+
+							if swapType != "IN" && swapType != "OUT" {
+								return fmt.Errorf("invalid swap type: %s (must be IN or OUT, case insensitive)", cmd.Args().Get(0))
+							}
+
 							grpcPort, err := validatePort(cmd.Int("grpc-port"))
 							if err != nil {
 								return err
@@ -460,8 +477,6 @@ func main() {
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
 							var resp []byte
-							swapType := cmd.String("type")
-							swapId := cmd.String("id")
 
 							switch swapType {
 							case "IN":
@@ -488,8 +503,6 @@ func main() {
 								if err != nil {
 									return err
 								}
-							default:
-								return fmt.Errorf("invalid swap type: %s", swapType)
 							}
 
 							fmt.Printf("%s\n", resp)
@@ -503,16 +516,17 @@ func main() {
 						Flags: []cli.Flag{
 							&grpcPort,
 							&cli.StringFlag{
-								Name:     "outpoint",
-								Usage:    "The outpoint of the swap to recover, in the format txid:index",
-								Required: true,
-							},
-							&cli.StringFlag{
 								Name:  "refund-to",
 								Usage: "The address where the recovery will be refunded to",
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
+							if cmd.Args().Len() == 0 {
+								return fmt.Errorf("outpoint is required as the first argument in the format txid:index")
+							}
+
+							outpoint := cmd.Args().Get(0)
+
 							grpcPort, err := validatePort(cmd.Int("grpc-port"))
 							if err != nil {
 								return err
@@ -520,14 +534,14 @@ func main() {
 
 							client := rpc.NewRPCClient("localhost", grpcPort)
 
-							isValid := bitcoinutils.IsValidOutpoint(cmd.String("outpoint"))
+							isValid := bitcoinutils.IsValidOutpoint(outpoint)
 							if !isValid {
-								return fmt.Errorf("invalid outpoint: %s", cmd.String("outpoint"))
+								return fmt.Errorf("invalid outpoint: %s", outpoint)
 							}
 
 							refundAddress := cmd.String("refund-to")
 							recoveryRequest := rpc.RecoverReusedSwapAddressRequest{
-								Outpoint: cmd.String("outpoint"),
+								Outpoint: outpoint,
 								RefundTo: &refundAddress,
 							}
 
@@ -583,13 +597,11 @@ var testnet = cli.BoolFlag{
 }
 
 // Chains
-var bitcoin = cli.BoolFlag{
-	Name:  "bitcoin",
-	Usage: "Use Bitcoin chain",
-}
-var liquid = cli.BoolFlag{
-	Name:  "liquid",
-	Usage: "Use Liquid chain",
+var chain = cli.StringFlag{
+	Name:    "chain",
+	Usage:   "Chain to use. Default: Bitcoin. One of Bitcoin or Liquid",
+	Value:   rpc.Chain_BITCOIN.String(),
+	Aliases: []string{"c"},
 }
 
 // Ports and hosts
@@ -599,11 +611,6 @@ var grpcPort = cli.IntFlag{
 	Value: 50051,
 	Sources: cli.NewValueSourceChain(
 		cli.EnvVar("40SWAPD_GRPC_PORT")),
-}
-var amountSats = cli.UintFlag{
-	Name:     "amt",
-	Usage:    "Amount in sats to swap",
-	Required: true,
 }
 
 var serverUrl = cli.StringFlag{
