@@ -24,6 +24,7 @@ import { PrometheusService } from './metrics/PrometheusService.js';
 import { PrometheusController } from './metrics/PrometheusController.js';
 import { LndChannelInfoMetricProvider } from './metrics/LndChannelInfoMetricProvider.js';
 import { ElementsMetricProvider } from './metrics/ElementsMetricProvider.js';
+import { HelloCommand } from './commands/hello.command.js';
 
 @Module({
     imports: [
@@ -59,6 +60,7 @@ import { ElementsMetricProvider } from './metrics/ElementsMetricProvider.js';
         PrometheusService,
         LndChannelInfoMetricProvider,
         ElementsMetricProvider,
+        HelloCommand,
         {
             inject: [BitcoinService],
             useFactory: (bitcoinService: BitcoinService) => {
