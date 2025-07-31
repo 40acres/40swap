@@ -1,29 +1,32 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './AppModule.js';
-import { HelloCommand } from './commands/hello.command.js';
 
 const program = new Command();
 
-program.name('40swap-cli').description('CLI para el backend de 40Swap').version('1.0.0');
+program.name('cli').description('40swap backend CLI').version('1.0.0');
+
+program.requiredOption('-k, --id-key <string>', 'Bitfinex API ID Key');
+program.requiredOption('-s, --secret-key <string>', 'Bitfinex API Secret');
 
 program
-    .command('hello')
-    .description('Muestra un saludo de Hello World')
+    .command('send')
+    .description('Send funds to lightning wallet within Bitfinex account')
     .action(async () => {
-        const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+        console.log('🚀 Send command executed');
+        const options = program.opts();
+        console.log(`Using ID Key: ${options.idKey}`);
+        console.log(`Using Secret Key: ${options.secretKey}`);
+    });
 
-        try {
-            const helloCommand = app.get(HelloCommand);
-            await helloCommand.execute();
-        } catch (error) {
-            console.error('Error ejecutando el comando hello:', error);
-            process.exit(1);
-        } finally {
-            await app.close();
-        }
+program
+    .command('withdraw')
+    .description('Withdraw funds from Bitfinex account to external liquid wallet')
+    .action(async () => {
+        console.log('💰 Withdraw command executed');
+        const options = program.opts();
+        console.log(`Using ID Key: ${options.idKey}`);
+        console.log(`Using Secret Key: ${options.secretKey}`);
     });
 
 program.parse();
