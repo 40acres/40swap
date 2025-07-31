@@ -59,7 +59,6 @@ import { ElementsMetricProvider } from './metrics/ElementsMetricProvider.js';
         PrometheusService,
         LndChannelInfoMetricProvider,
         ElementsMetricProvider,
-        HelloCommand,
         {
             inject: [BitcoinService],
             useFactory: (bitcoinService: BitcoinService) => {
