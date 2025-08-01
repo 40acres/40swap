@@ -98,13 +98,16 @@ program
 program
     .command('list-addresses')
     .description('Get deposit addresses from Bitfinex')
+    .option('-m, --method <string>', 'Deposit method (default: LNX)', 'LNX')
+    .option('-p, --page <number>', 'Page number for pagination (default: 1)', '1')
+    .option('-s, --page-size <number>', 'Page size for pagination (default: 100)', '100')
     .action(async () => {
         try {
             console.log('💼 Getting deposit addresses');
-            const globalOptions = program.opts();
+            const options = program.opts();
 
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-            const result = await provider.getDepositAddresses();
+            const provider = new BitfinexProvider(options.idKey, options.secretKey);
+            const result = await provider.getDepositAddresses(options.method, options.page, options.pageSize);
 
             console.log('👀 Deposit Addresses:', JSON.stringify(result, null, 2));
         } catch (error) {
@@ -117,14 +120,14 @@ program
     .command('create-address')
     .description('Create new deposit address on Bitfinex')
     .option('-w, --wallet <string>', 'Wallet type (default: exchange)', 'exchange')
-    .option('-m, --method <string>', 'Deposit method (default: bitcoin)', 'bitcoin')
+    .option('-m, --method <string>', 'Deposit method (default: LNX)', 'LNX')
     .action(async () => {
         try {
             console.log('💼 Creating new deposit address');
-            const globalOptions = program.opts();
+            const options = program.opts();
 
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-            const result = await provider.createDepositAddress('LNX', 'exchange');
+            const provider = new BitfinexProvider(options.idKey, options.secretKey);
+            const result = await provider.createDepositAddress(options.wallet, options.method);
 
             console.log('👀 Deposit Address Created:', JSON.stringify(result, null, 2));
         } catch (error) {

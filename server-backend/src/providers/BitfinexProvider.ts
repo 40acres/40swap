@@ -71,14 +71,14 @@ export class BitfinexProvider extends SwapProvider {
     }
 
     // Método para obtener todas las direcciones de depósito para una moneda específica
-    async getDepositAddresses(method: BitfinexMethod = 'LNX', page: number = 1, pageSize: number = 100): Promise<unknown> {
+    async getDepositAddresses(method: BitfinexMethod, page: number = 1, pageSize: number = 100): Promise<unknown> {
         console.log(`📋 Getting deposit addresses`);
         return this.authenticatedRequest('POST', '/v2/auth/r/deposit/address/all', { method, page, pageSize });
     }
 
     // Método para crear una nueva dirección de depósito
-    async createDepositAddress(currency: string, wallet: BitfinexWalletType = 'exchange', method: BitfinexMethod = 'LNX'): Promise<unknown> {
-        console.log(`🆕 Creating deposit address for ${currency} in ${wallet} wallet`);
+    async createDepositAddress(wallet: BitfinexWalletType, method: BitfinexMethod): Promise<unknown> {
+        console.log(`🆕 Creating deposit address for ${method} in ${wallet} wallet`);
         const requestBody: Record<string, string> = { wallet, method };
         return this.authenticatedRequest('POST', '/v2/auth/w/deposit/address', requestBody);
     }
