@@ -117,4 +117,58 @@ program
         }
     });
 
+program
+    .command('create-invoice')
+    .description('Create a new Lightning invoice on Bitfinex')
+    .option('-a, --amount <number>', 'Amount to invoice min 0.000001, max 0.02 (default: 0.000001)', '0.000001')
+    .action(async (cmdOptions) => {
+        try {
+            console.log('💼 Creating new Lightning invoice');
+            const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.generateInvoice(cmdOptions.amount);
+            console.log('👀 Lightning Invoice Created:', JSON.stringify(result, null, 2));
+        } catch (error) {
+            console.error('❌ Creating Lightning invoice failed:', error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('get-invoices')
+    .description('Get Lightning invoices and payments from Bitfinex')
+    .option(
+        '-a, --action <string>',
+        'Query action: getPaymentsByUser, getInvoicesByUser, getInvoiceById, getPaymentById (default: getInvoicesByUser)',
+        'getInvoicesByUser',
+    )
+    .option('-t, --txid <string>', 'Transaction ID/Payment hash (required for getInvoiceById and getPaymentById)')
+    .option('-o, --offset <number>', 'Offset for pagination (supported by getInvoicesByUser and getPaymentsByUser)', '0')
+    .action(async (cmdOptions) => {
+        try {
+            console.log('⚡ Getting Lightning invoices/payments');
+            const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+
+            // Construir el query object
+            const query: { offset?: number; txid?: string } = {};
+
+            // Agregar offset si se proporciona y es compatible con la acción
+            if (cmdOptions.offset && (cmdOptions.action === 'getInvoicesByUser' || cmdOptions.action === 'getPaymentsByUser')) {
+                query.offset = parseInt(cmdOptions.offset);
+            }
+
+            // Agregar txid si se proporciona y es requerido por la acción
+            if (cmdOptions.txid && (cmdOptions.action === 'getInvoiceById' || cmdOptions.action === 'getPaymentById')) {
+                query.txid = cmdOptions.txid;
+            }
+
+            const result = await provider.getLnxInvoicePayments(cmdOptions.action, query);
+            console.log('👀 Lightning Invoices/Payments:', JSON.stringify(result, null, 2));
+        } catch (error) {
+            console.error('❌ Getting Lightning invoices/payments failed:', error);
+            process.exit(1);
+        }
+    });
+
 program.parse();

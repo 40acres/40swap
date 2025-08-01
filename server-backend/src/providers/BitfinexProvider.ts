@@ -81,4 +81,48 @@ export class BitfinexProvider extends SwapProvider {
         console.log(`🆕 Creating deposit address for ${method} in ${wallet} wallet`);
         return this.authenticatedRequest('POST', '/v2/auth/w/deposit/address', { wallet, method });
     }
+
+    // Método para generar una invoice de Lightning Network
+    async generateInvoice(amount: string): Promise<unknown> {
+        console.log(`⚡ Generating Lightning invoice for ${amount}`);
+
+        // Only these parameters are supported: https://docs.bitfinex.com/reference/rest-auth-deposit-invoice
+        const wallet = 'exchange'; // Only exchange wallet is supported
+        const currency = 'LNX'; // Only LNX is supported for Lightning
+        const method = currency;
+
+        try {
+            // Primero verificamos si ya existen direcciones de depósito para LNX
+            console.log('🔍 Checking existing deposit addresses...');
+            const existingAddresses = await this.getDepositAddresses(currency);
+
+            // Si no hay direcciones existentes, creamos una nueva
+            if (!existingAddresses || (Array.isArray(existingAddresses) && existingAddresses.length === 0)) {
+                console.log('📍 No existing deposit addresses found, creating new one...');
+                await this.createDepositAddress(wallet, method);
+                console.log('✅ Deposit address created successfully');
+            } else {
+                console.log('✅ Existing deposit addresses found');
+            }
+
+            // Ahora generamos la invoice
+            console.log('💫 Generating Lightning invoice...');
+            const invoiceData = {
+                currency,
+                wallet,
+                amount,
+            };
+
+            return this.authenticatedRequest('POST', '/v2/auth/w/deposit/invoice', invoiceData);
+        } catch (error) {
+            console.error('❌ Error generating Lightning invoice:', error);
+            throw error;
+        }
+    }
+
+    // Método para obtener los pagos de invoices de Lightning Network
+    async getLnxInvoicePayments(action: string, query: { offset?: number; txid?: string } = {}): Promise<unknown> {
+        console.log(`📋 Getting LNX invoice payments with action: ${action}`);
+        return this.authenticatedRequest('POST', '/v2/auth/r/ext/invoice/payments', { action, query });
+    }
 }
