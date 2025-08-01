@@ -79,7 +79,6 @@ export class BitfinexProvider extends SwapProvider {
     // Método para crear una nueva dirección de depósito
     async createDepositAddress(wallet: BitfinexWalletType, method: BitfinexMethod): Promise<unknown> {
         console.log(`🆕 Creating deposit address for ${method} in ${wallet} wallet`);
-        const requestBody: Record<string, string> = { wallet, method };
-        return this.authenticatedRequest('POST', '/v2/auth/w/deposit/address', requestBody);
+        return this.authenticatedRequest('POST', '/v2/auth/w/deposit/address', { wallet, method });
     }
 }
