@@ -95,4 +95,42 @@ program
         }
     });
 
+program
+    .command('list-addresses')
+    .description('Get deposit addresses from Bitfinex')
+    .action(async () => {
+        try {
+            console.log('💼 Getting deposit addresses');
+            const globalOptions = program.opts();
+
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.getDepositAddresses();
+
+            console.log('👀 Deposit Addresses:', JSON.stringify(result, null, 2));
+        } catch (error) {
+            console.error('❌ Getting deposit addresses failed:', error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('create-address')
+    .description('Create new deposit address on Bitfinex')
+    .option('-w, --wallet <string>', 'Wallet type (default: exchange)', 'exchange')
+    .option('-m, --method <string>', 'Deposit method (default: bitcoin)', 'bitcoin')
+    .action(async () => {
+        try {
+            console.log('💼 Creating new deposit address');
+            const globalOptions = program.opts();
+
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.createDepositAddress('LNX', 'exchange');
+
+            console.log('👀 Deposit Address Created:', JSON.stringify(result, null, 2));
+        } catch (error) {
+            console.error('❌ Creating deposit address failed:', error);
+            process.exit(1);
+        }
+    });
+
 program.parse();

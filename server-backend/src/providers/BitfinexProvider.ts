@@ -1,6 +1,10 @@
 import { SwapProvider } from './SwapProvider.js';
 import * as crypto from 'crypto';
 
+// Tipos específicos para Bitfinex API
+type BitfinexMethod = 'bitcoin' | 'LNX';
+type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
+
 export class BitfinexProvider extends SwapProvider {
     private baseUrl = 'https://api.bitfinex.com';
 
@@ -54,10 +58,7 @@ export class BitfinexProvider extends SwapProvider {
                 console.log(`✅ ${method} request successful: ${response.status}`);
             }
 
-            const result = await response.json();
-            console.log('📊 Bitfinex API response:', JSON.stringify(result, null, 2));
-
-            return result;
+            return await response.json();
         } catch (error) {
             console.error('❌ Bitfinex API call failed:', error);
             throw error;
@@ -67,5 +68,18 @@ export class BitfinexProvider extends SwapProvider {
     // Método para obtener información de wallets
     async getWallets(): Promise<unknown> {
         return this.authenticatedRequest('POST', '/v2/auth/r/wallets');
+    }
+
+    // Método para obtener todas las direcciones de depósito para una moneda específica
+    async getDepositAddresses(method: BitfinexMethod = 'LNX', page: number = 1, pageSize: number = 100): Promise<unknown> {
+        console.log(`📋 Getting deposit addresses`);
+        return this.authenticatedRequest('POST', '/v2/auth/r/deposit/address/all', { method, page, pageSize });
+    }
+
+    // Método para crear una nueva dirección de depósito
+    async createDepositAddress(currency: string, wallet: BitfinexWalletType = 'exchange', method: BitfinexMethod = 'LNX'): Promise<unknown> {
+        console.log(`🆕 Creating deposit address for ${currency} in ${wallet} wallet`);
+        const requestBody: Record<string, string> = { wallet, method };
+        return this.authenticatedRequest('POST', '/v2/auth/w/deposit/address', requestBody);
     }
 }
