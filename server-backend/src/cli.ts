@@ -2,7 +2,6 @@
 
 import { Command } from 'commander';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
-import { SwapProvider } from './providers/SwapProvider.js';
 
 const program = new Command();
 
@@ -20,12 +19,8 @@ program
         try {
             console.log('🚀 Send command executed');
             const globalOptions = program.opts();
-
-            const provider: SwapProvider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-
-            const amount = parseFloat(cmdOptions.amount);
-            const result = await provider.send(amount, cmdOptions.destination);
-
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.send(parseFloat(cmdOptions.amount), cmdOptions.destination);
             console.log('✅ Send Result:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Send failed:', error);
@@ -42,12 +37,8 @@ program
         try {
             console.log('💰 Withdraw command executed');
             const globalOptions = program.opts();
-
-            const provider: SwapProvider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-
-            const amount = parseFloat(cmdOptions.amount);
-            const result = await provider.withdraw(amount, cmdOptions.address);
-
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.withdraw(parseFloat(cmdOptions.amount), cmdOptions.destination);
             console.log('✅ Withdraw Result:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Withdraw failed:', error);
@@ -64,12 +55,8 @@ program
         try {
             console.log('🔄 Swap command executed');
             const globalOptions = program.opts();
-
-            const provider: SwapProvider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-
-            const amount = parseFloat(cmdOptions.amount);
-            const result = await provider.swap(amount, cmdOptions.address);
-
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.swap(parseFloat(cmdOptions.amount), cmdOptions.address);
             console.log('✅ Complete Swap Result:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Swap failed:', error);
@@ -84,10 +71,8 @@ program
         try {
             console.log('💼 Getting wallet information');
             const globalOptions = program.opts();
-
             const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
             const result = await provider.getWallets();
-
             console.log('👀 Wallets:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Getting wallets failed:', error);
@@ -101,14 +86,12 @@ program
     .option('-m, --method <string>', 'Deposit method (default: LNX)', 'LNX')
     .option('-p, --page <number>', 'Page number for pagination (default: 1)', '1')
     .option('-s, --page-size <number>', 'Page size for pagination (default: 100)', '100')
-    .action(async () => {
+    .action(async (cmdOptions) => {
         try {
             console.log('💼 Getting deposit addresses');
-            const options = program.opts();
-
-            const provider = new BitfinexProvider(options.idKey, options.secretKey);
-            const result = await provider.getDepositAddresses(options.method, options.page, options.pageSize);
-
+            const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.getDepositAddresses(cmdOptions.method, cmdOptions.page, cmdOptions.pageSize);
             console.log('👀 Deposit Addresses:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Getting deposit addresses failed:', error);
@@ -121,14 +104,12 @@ program
     .description('Create new deposit address on Bitfinex')
     .option('-w, --wallet <string>', 'Wallet type (default: exchange)', 'exchange')
     .option('-m, --method <string>', 'Deposit method (default: LNX)', 'LNX')
-    .action(async () => {
+    .action(async (cmdOptions) => {
         try {
             console.log('💼 Creating new deposit address');
-            const options = program.opts();
-
-            const provider = new BitfinexProvider(options.idKey, options.secretKey);
-            const result = await provider.createDepositAddress(options.wallet, options.method);
-
+            const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const result = await provider.createDepositAddress(cmdOptions.wallet, cmdOptions.method);
             console.log('👀 Deposit Address Created:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Creating deposit address failed:', error);
