@@ -192,4 +192,32 @@ export class BitfinexProvider extends SwapProvider {
             attempts,
         };
     }
+
+    // Método para intercambiar monedas usando órdenes de mercado
+    async exchangeCurrency(fromCurrency: string, toCurrency: string, amount: number, orderType: string = 'MARKET'): Promise<unknown> {
+        console.log(`🔄 Exchanging ${amount} ${fromCurrency} to ${toCurrency}`);
+        const symbol = `tLhazmeeeBTCBTC`;
+        const orderAmount = amount;
+
+        console.log(`📊 Trading pair: ${symbol}`);
+        console.log(`📈 Order type: ${orderType}`);
+        console.log(`💰 Amount: ${orderAmount}`);
+
+        const orderData = {
+            cid: Date.now(),
+            type: orderType,
+            symbol,
+            amount: orderAmount.toString(),
+        };
+
+        try {
+            const result = await this.authenticatedRequest('POST', '/v2/auth/w/order/submit', orderData);
+            console.log(`✅ Currency exchange order submitted successfully`);
+            return result;
+        } catch (error) {
+            console.log(error);
+            console.error('❌ Error submitting currency exchange order:', error);
+            throw error;
+        }
+    }
 }

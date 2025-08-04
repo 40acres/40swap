@@ -199,4 +199,31 @@ program
         }
     });
 
+program
+    .command('exchange')
+    .description('Exchange one currency for another using market orders')
+    .option('-f, --from <string>', 'Currency to exchange from (e.g., BTC)', 'BTC')
+    .option('-t, --to <string>', 'Currency to exchange to (e.g., BTC)', 'LBTC')
+    .option('-a, --amount <number>', 'Amount to exchange')
+    .option('-o, --order-type <string>', 'Order type (default: EXCHANGE MARKET)', 'EXCHANGE MARKET')
+    .action(async (cmdOptions) => {
+        try {
+            console.log('🔄 Executing currency exchange');
+            const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+
+            const result = await provider.exchangeCurrency(
+                cmdOptions.from.toUpperCase(),
+                cmdOptions.to.toUpperCase(),
+                parseFloat(cmdOptions.amount),
+                cmdOptions.orderType,
+            );
+
+            console.log('👀 Exchange Order Result:', JSON.stringify(result, null, 2));
+        } catch (error) {
+            console.error('❌ Currency exchange failed:', error);
+            process.exit(1);
+        }
+    });
+
 program.parse();
