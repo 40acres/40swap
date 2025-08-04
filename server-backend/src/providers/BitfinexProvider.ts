@@ -125,4 +125,71 @@ export class BitfinexProvider extends SwapProvider {
         console.log(`📋 Getting LNX invoice payments with action: ${action}`);
         return this.authenticatedRequest('POST', '/v2/auth/r/ext/invoice/payments', { action, query });
     }
+
+    // Método para monitorear el estado de un invoice hasta que sea pagado o se alcance el máximo de intentos
+    async monitorInvoice(
+        txId: string,
+        maxRetries: number = 10,
+        timeoutMs: number = 5000,
+    ): Promise<{ success: boolean; finalState?: string; invoice?: unknown; attempts: number }> {
+        console.log(`🔍 Starting invoice monitoring for txId: ${txId}`);
+        console.log(`⚙️ Config: maxRetries=${maxRetries}, timeout=${timeoutMs}ms`);
+
+        let attempts = 0;
+
+        while (attempts < maxRetries) {
+            attempts++;
+            console.log(`📡 Attempt ${attempts}/${maxRetries} - Checking invoice status...`);
+
+            try {
+                const result = await this.getLnxInvoicePayments('getInvoiceById', { txid: txId });
+
+                // Extraer el estado del invoice (asumiendo que viene en el formato mostrado)
+                let invoiceState: string | undefined;
+                if (result && typeof result === 'object' && 'state' in result) {
+                    invoiceState = (result as Record<string, unknown>).state as string;
+                } else if (Array.isArray(result) && result.length > 0 && typeof result[0] === 'object' && 'state' in result[0]) {
+                    invoiceState = (result[0] as Record<string, unknown>).state as string;
+                }
+
+                console.log(`📊 Invoice state: ${invoiceState || 'unknown'}`);
+
+                // Si el estado no es "not_paid", el invoice ha sido procesado
+                if (invoiceState && invoiceState !== 'not_paid') {
+                    console.log(`✅ Invoice monitoring completed! Final state: ${invoiceState}`);
+                    return {
+                        success: true,
+                        finalState: invoiceState,
+                        invoice: result,
+                        attempts,
+                    };
+                }
+
+                // Si no es el último intento, esperar antes del siguiente
+                if (attempts < maxRetries) {
+                    console.log(`⏳ Waiting ${timeoutMs}ms before next attempt...`);
+                    await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+                }
+            } catch (error) {
+                console.error(`❌ Error on attempt ${attempts}:`, error);
+
+                // Si no es el último intento, continuar con el siguiente
+                if (attempts < maxRetries) {
+                    console.log(`⏳ Waiting ${timeoutMs}ms before retry...`);
+                    await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+                } else {
+                    // Si es el último intento, devolver el error
+                    throw error;
+                }
+            }
+        }
+
+        // Se alcanzó el máximo de intentos sin éxito
+        console.log(`⏰ Maximum retries (${maxRetries}) reached. Invoice still in 'not_paid' state.`);
+        return {
+            success: false,
+            finalState: 'not_paid',
+            attempts,
+        };
+    }
 }

@@ -171,4 +171,32 @@ program
         }
     });
 
+program
+    .command('monitor-invoice')
+    .description('Monitor a Lightning invoice until it is paid or max retries reached')
+    .requiredOption('-t, --txid <string>', 'Transaction ID/Payment hash of the invoice to monitor')
+    .option('-r, --max-retries <number>', 'Maximum number of retry attempts (default: 10)', '10')
+    .option('-i, --interval <number>', 'Interval between checks in milliseconds (default: 5000)', '5000')
+    .action(async (cmdOptions) => {
+        try {
+            console.log('👁️ Starting invoice monitoring');
+            const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+
+            const result = await provider.monitorInvoice(cmdOptions.txid, parseInt(cmdOptions.maxRetries), parseInt(cmdOptions.interval));
+
+            if (result.success) {
+                console.log(`🎉 Invoice monitoring successful! Final state: ${result.finalState}`);
+                console.log(`📊 Total attempts: ${result.attempts}`);
+                console.log('👀 Final invoice data:', JSON.stringify(result.invoice, null, 2));
+            } else {
+                console.log(`⏰ Invoice monitoring timed out after ${result.attempts} attempts`);
+                console.log(`📊 Final state: ${result.finalState}`);
+            }
+        } catch (error) {
+            console.error('❌ Invoice monitoring failed:', error);
+            process.exit(1);
+        }
+    });
+
 program.parse();
