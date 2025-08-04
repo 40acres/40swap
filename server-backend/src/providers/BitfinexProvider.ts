@@ -196,7 +196,7 @@ export class BitfinexProvider extends SwapProvider {
     // Método para intercambiar monedas usando órdenes de mercado
     async exchangeCurrency(fromCurrency: string, toCurrency: string, amount: number, orderType: string = 'MARKET'): Promise<unknown> {
         console.log(`🔄 Exchanging ${amount} ${fromCurrency} to ${toCurrency}`);
-        const symbol = `tLBTCBTC`;
+        const symbol = `t${fromCurrency}${toCurrency}`;
         const orderAmount = amount;
 
         console.log(`📊 Trading pair: ${symbol}`);
