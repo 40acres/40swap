@@ -193,30 +193,32 @@ export class BitfinexProvider extends SwapProvider {
         };
     }
 
-    // Método para intercambiar monedas usando órdenes de mercado
-    async exchangeCurrency(fromCurrency: string, toCurrency: string, amount: number, orderType: string = 'MARKET'): Promise<unknown> {
-        console.log(`🔄 Exchanging ${amount} ${fromCurrency} to ${toCurrency}`);
-        const symbol = `t${fromCurrency}${toCurrency}`;
-        const orderAmount = amount;
+    // Método para intercambiar monedas usando transferencias entre wallets con conversión
+    async exchangeCurrency(
+        fromCurrency: string,
+        toCurrency: string,
+        amount: number,
+        fromWallet: BitfinexWalletType = 'exchange',
+        toWallet: BitfinexWalletType = 'exchange',
+    ): Promise<unknown> {
+        console.log(`🔄 Converting ${amount} ${fromCurrency} to ${toCurrency}`);
+        console.log(`� From wallet: ${fromWallet}`);
+        console.log(`� To wallet: ${toWallet}`);
 
-        console.log(`📊 Trading pair: ${symbol}`);
-        console.log(`📈 Order type: ${orderType}`);
-        console.log(`💰 Amount: ${orderAmount}`);
-
-        const orderData = {
-            cid: Date.now(),
-            type: orderType,
-            symbol,
-            amount: orderAmount.toString(),
+        const transferData = {
+            from: fromWallet,
+            to: toWallet,
+            currency: fromCurrency,
+            currency_to: toCurrency,
+            amount: amount.toString(),
         };
 
         try {
-            const result = await this.authenticatedRequest('POST', '/v2/auth/w/order/submit', orderData);
-            console.log(`✅ Currency exchange order submitted successfully`);
+            const result = await this.authenticatedRequest('POST', '/v2/auth/w/transfer', transferData);
+            console.log(`✅ Currency conversion transfer submitted successfully`);
             return result;
         } catch (error) {
-            console.log(error);
-            console.error('❌ Error submitting currency exchange order:', error);
+            console.error('❌ Error submitting currency conversion transfer:', error);
             throw error;
         }
     }

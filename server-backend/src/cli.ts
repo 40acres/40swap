@@ -201,14 +201,15 @@ program
 
 program
     .command('exchange')
-    .description('Exchange one currency for another using market orders')
-    .option('-f, --from <string>', 'Currency to exchange from (e.g., BTC)', 'BTC')
-    .option('-t, --to <string>', 'Currency to exchange to (e.g., BTC)', 'LBTC')
-    .option('-a, --amount <number>', 'Amount to exchange')
-    .option('-o, --order-type <string>', 'Order type (default: EXCHANGE MARKET)', 'EXCHANGE MARKET')
+    .description('Convert one currency to another using wallet transfers')
+    .requiredOption('-f, --from <string>', 'Currency to convert from (e.g., BTC)')
+    .requiredOption('-t, --to <string>', 'Currency to convert to (e.g., LBTC)')
+    .requiredOption('-a, --amount <number>', 'Amount to convert')
+    .option('-o, --origin <string>', 'Source wallet type (default: exchange)', 'exchange')
+    .option('-d, --destination <string>', 'Destination wallet type (default: exchange)', 'exchange')
     .action(async (cmdOptions) => {
         try {
-            console.log('🔄 Executing currency exchange');
+            console.log('🔄 Executing currency conversion');
             const globalOptions = program.opts();
             const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
 
@@ -216,12 +217,13 @@ program
                 cmdOptions.from.toUpperCase(),
                 cmdOptions.to.toUpperCase(),
                 parseFloat(cmdOptions.amount),
-                cmdOptions.orderType,
+                cmdOptions.origin,
+                cmdOptions.destination,
             );
 
-            console.log('👀 Exchange Order Result:', JSON.stringify(result, null, 2));
+            console.log('👀 Currency Conversion Result:', JSON.stringify(result, null, 2));
         } catch (error) {
-            console.error('❌ Currency exchange failed:', error);
+            console.error('❌ Currency conversion failed:', error);
             process.exit(1);
         }
     });
