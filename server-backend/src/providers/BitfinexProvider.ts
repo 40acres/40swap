@@ -14,43 +14,6 @@ export class BitfinexProvider extends SwapProvider {
         this.lndService = lndService;
     }
 
-    async withdraw(
-        amount: number,
-        address: string,
-        currency: BitfinexMethod = 'bitcoin',
-        wallet: BitfinexWalletType = 'exchange',
-        tag?: string,
-    ): Promise<unknown> {
-        console.log(`💰 Withdrawing ${amount} ${currency.toUpperCase()} to address: ${address}`);
-
-        // Parámetros para el retiro según la documentación de Bitfinex
-        const withdrawData: Record<string, string> = {
-            wallet,
-            method: currency,
-            amount: amount.toString(),
-            address,
-        };
-
-        // Agregar tag si se proporciona
-        if (tag) {
-            withdrawData.tag = tag;
-        }
-
-        try {
-            const result = await this.authenticatedRequest('POST', '/v2/auth/w/withdraw', withdrawData);
-            console.log(`✅ Withdrawal request submitted successfully`);
-            console.log(`📄 Transaction details:`, result);
-            return result;
-        } catch (error) {
-            console.error('❌ Error submitting withdrawal:', error);
-            throw error;
-        }
-    }
-
-    async swap(amount: number, liquidAddress: string): Promise<void> {
-        console.log(`🔄 Starting complete swap: ${amount} BTC → Lightning → Liquid`);
-    }
-
     // Métodos privados para la integración real con Bitfinex API
     private async authenticatedRequest(method: string, endpoint: string, body?: unknown): Promise<unknown> {
         const url = `${this.baseUrl}${endpoint}`;
@@ -90,6 +53,10 @@ export class BitfinexProvider extends SwapProvider {
             console.error('❌ Bitfinex API call failed:', error);
             throw error;
         }
+    }
+
+    async swap(amount: number, liquidAddress: string): Promise<void> {
+        console.log(`🔄 Starting complete swap: ${amount} BTC → Lightning → Liquid`);
     }
 
     // Método para obtener información de wallets
@@ -151,6 +118,48 @@ export class BitfinexProvider extends SwapProvider {
     async getLnxInvoicePayments(action: string, query: { offset?: number; txid?: string } = {}): Promise<unknown> {
         console.log(`📋 Getting LNX invoice payments with action: ${action}`);
         return this.authenticatedRequest('POST', '/v2/auth/r/ext/invoice/payments', { action, query });
+    }
+
+    // Método para pagar un invoice de Lightning Network usando LndService
+    async payInvoice(
+        invoice: string,
+        cltvLimit: number = 40,
+        options: {
+            timeout?: number;
+            maxFeePercent?: number;
+        } = {},
+    ): Promise<{ success: boolean; preimage?: string; error?: string }> {
+        console.log(`⚡ Paying Lightning invoice using LND`);
+        console.log(`🎫 Invoice: ${invoice.substring(0, 20)}...`);
+        console.log(`⏰ CLTV Limit: ${cltvLimit}`);
+
+        if (!this.lndService) {
+            const error = 'LndService not configured. Please provide LndService instance in constructor.';
+            console.error(`❌ ${error}`);
+            return { success: false, error };
+        }
+
+        try {
+            console.log(`🚀 Initiating payment through LND...`);
+            const preimage = await this.lndService.sendPayment(invoice, cltvLimit);
+            const preimageHex = preimage.toString('hex');
+
+            console.log(`✅ Payment successful!`);
+            console.log(`🔑 Preimage: ${preimageHex}`);
+
+            return {
+                success: true,
+                preimage: preimageHex,
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`❌ Payment failed:`, errorMessage);
+
+            return {
+                success: false,
+                error: errorMessage,
+            };
+        }
     }
 
     // Método para monitorear el estado de un invoice hasta que sea pagado o se alcance el máximo de intentos
@@ -250,45 +259,36 @@ export class BitfinexProvider extends SwapProvider {
         }
     }
 
-    // Método para pagar un invoice de Lightning Network usando LndService
-    async payInvoice(
-        invoice: string,
-        cltvLimit: number = 40,
-        options: {
-            timeout?: number;
-            maxFeePercent?: number;
-        } = {},
-    ): Promise<{ success: boolean; preimage?: string; error?: string }> {
-        console.log(`⚡ Paying Lightning invoice using LND`);
-        console.log(`🎫 Invoice: ${invoice.substring(0, 20)}...`);
-        console.log(`⏰ CLTV Limit: ${cltvLimit}`);
+    async withdraw(
+        amount: number,
+        address: string,
+        currency: BitfinexMethod = 'bitcoin',
+        wallet: BitfinexWalletType = 'exchange',
+        tag?: string,
+    ): Promise<unknown> {
+        console.log(`💰 Withdrawing ${amount} ${currency.toUpperCase()} to address: ${address}`);
 
-        if (!this.lndService) {
-            const error = 'LndService not configured. Please provide LndService instance in constructor.';
-            console.error(`❌ ${error}`);
-            return { success: false, error };
+        // Parámetros para el retiro según la documentación de Bitfinex
+        const withdrawData: Record<string, string> = {
+            wallet,
+            method: currency,
+            amount: amount.toString(),
+            address,
+        };
+
+        // Agregar tag si se proporciona
+        if (tag) {
+            withdrawData.tag = tag;
         }
 
         try {
-            console.log(`🚀 Initiating payment through LND...`);
-            const preimage = await this.lndService.sendPayment(invoice, cltvLimit);
-            const preimageHex = preimage.toString('hex');
-
-            console.log(`✅ Payment successful!`);
-            console.log(`🔑 Preimage: ${preimageHex}`);
-
-            return {
-                success: true,
-                preimage: preimageHex,
-            };
+            const result = await this.authenticatedRequest('POST', '/v2/auth/w/withdraw', withdrawData);
+            console.log(`✅ Withdrawal request submitted successfully`);
+            console.log(`📄 Transaction details:`, result);
+            return result;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`❌ Payment failed:`, errorMessage);
-
-            return {
-                success: false,
-                error: errorMessage,
-            };
+            console.error('❌ Error submitting withdrawal:', error);
+            throw error;
         }
     }
 }

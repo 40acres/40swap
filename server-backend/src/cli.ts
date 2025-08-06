@@ -12,35 +12,6 @@ program.requiredOption('-k, --id-key <string>', 'Bitfinex API ID Key');
 program.requiredOption('-s, --secret-key <string>', 'Bitfinex API Secret');
 
 program
-    .command('withdraw')
-    .description('Withdraw funds from Bitfinex account to external wallet')
-    .option('-a, --amount <number>', 'Amount to withdraw', '0.001')
-    .requiredOption('-d, --destination <string>', 'Destination wallet address')
-    .option('-c, --currency <string>', 'Currency to withdraw (bitcoin, lbtc, LNX)', 'bitcoin')
-    .option('-w, --wallet <string>', 'Source wallet type (exchange, margin, funding)', 'exchange')
-    .option('-t, --tag <string>', 'Optional tag/memo for certain networks')
-    .action(async (cmdOptions) => {
-        try {
-            console.log('💰 Withdraw command executed');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-
-            const result = await provider.withdraw(
-                parseFloat(cmdOptions.amount),
-                cmdOptions.destination,
-                cmdOptions.currency,
-                cmdOptions.wallet,
-                cmdOptions.tag,
-            );
-
-            console.log('✅ Withdraw Result:', JSON.stringify(result, null, 2));
-        } catch (error) {
-            console.error('❌ Withdraw failed:', error);
-            process.exit(1);
-        }
-    });
-
-program
     .command('swap')
     .description('Execute complete swap: Lightning → Liquid')
     .option('-a, --amount <number>', 'Amount to swap', '0.001')
@@ -166,6 +137,45 @@ program
     });
 
 program
+    .command('pay-invoice')
+    .description('Pay a Lightning Network invoice using LND (requires LND service configuration)')
+    .requiredOption('-i, --invoice <string>', 'Lightning invoice to pay (payment request string)')
+    .option('-c, --cltv-limit <number>', 'CLTV limit for the payment (default: 40)', '40')
+    .action(async (cmdOptions) => {
+        try {
+            console.log('⚡ Paying Lightning invoice using LND');
+            const globalOptions = program.opts();
+
+            // Crear instancia de LndService para CLI
+            console.log('🔧 Initializing LND service...');
+            const lndService = createLndServiceForCLI();
+
+            // Validar conexión LND
+            console.log('🔍 Validating LND connection...');
+            const isValid = await validateLndConnection(lndService);
+            if (!isValid) {
+                console.error('❌ LND connection validation failed. Please ensure LND is running and accessible.');
+                process.exit(1);
+            }
+
+            // Crear BitfinexProvider con LndService
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+            const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
+
+            if (result.success) {
+                console.log('✅ Payment successful!');
+                console.log('🔑 Preimage:', result.preimage);
+            } else {
+                console.log('❌ Payment failed:', result.error);
+                process.exit(1);
+            }
+        } catch (error) {
+            console.error('❌ Paying invoice failed:', error);
+            process.exit(1);
+        }
+    });
+
+program
     .command('monitor-invoice')
     .description('Monitor a Lightning invoice until it is paid or max retries reached')
     .requiredOption('-t, --txid <string>', 'Transaction ID/Payment hash of the invoice to monitor')
@@ -223,40 +233,30 @@ program
     });
 
 program
-    .command('pay-invoice')
-    .description('Pay a Lightning Network invoice using LND (requires LND service configuration)')
-    .requiredOption('-i, --invoice <string>', 'Lightning invoice to pay (payment request string)')
-    .option('-c, --cltv-limit <number>', 'CLTV limit for the payment (default: 40)', '40')
+    .command('withdraw')
+    .description('Withdraw funds from Bitfinex account to external wallet')
+    .option('-a, --amount <number>', 'Amount to withdraw', '0.001')
+    .requiredOption('-d, --destination <string>', 'Destination wallet address')
+    .option('-c, --currency <string>', 'Currency to withdraw (bitcoin, lbtc, LNX)', 'bitcoin')
+    .option('-w, --wallet <string>', 'Source wallet type (exchange, margin, funding)', 'exchange')
+    .option('-t, --tag <string>', 'Optional tag/memo for certain networks')
     .action(async (cmdOptions) => {
         try {
-            console.log('⚡ Paying Lightning invoice using LND');
+            console.log('💰 Withdraw command executed');
             const globalOptions = program.opts();
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
 
-            // Crear instancia de LndService para CLI
-            console.log('🔧 Initializing LND service...');
-            const lndService = createLndServiceForCLI();
+            const result = await provider.withdraw(
+                parseFloat(cmdOptions.amount),
+                cmdOptions.destination,
+                cmdOptions.currency,
+                cmdOptions.wallet,
+                cmdOptions.tag,
+            );
 
-            // Validar conexión LND
-            console.log('🔍 Validating LND connection...');
-            const isValid = await validateLndConnection(lndService);
-            if (!isValid) {
-                console.error('❌ LND connection validation failed. Please ensure LND is running and accessible.');
-                process.exit(1);
-            }
-
-            // Crear BitfinexProvider con LndService
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
-            const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
-
-            if (result.success) {
-                console.log('✅ Payment successful!');
-                console.log('🔑 Preimage:', result.preimage);
-            } else {
-                console.log('❌ Payment failed:', result.error);
-                process.exit(1);
-            }
+            console.log('✅ Withdraw Result:', JSON.stringify(result, null, 2));
         } catch (error) {
-            console.error('❌ Paying invoice failed:', error);
+            console.error('❌ Withdraw failed:', error);
             process.exit(1);
         }
     });
