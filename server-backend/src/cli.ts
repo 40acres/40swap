@@ -12,34 +12,27 @@ program.requiredOption('-k, --id-key <string>', 'Bitfinex API ID Key');
 program.requiredOption('-s, --secret-key <string>', 'Bitfinex API Secret');
 
 program
-    .command('send')
-    .description('Send funds to lightning wallet within Bitfinex account')
-    .option('-a, --amount <number>', 'Amount to send', '0.001')
-    .option('-d, --destination <string>', 'Destination address (optional)')
-    .action(async (cmdOptions) => {
-        try {
-            console.log('🚀 Send command executed');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-            const result = await provider.send(parseFloat(cmdOptions.amount), cmdOptions.destination);
-            console.log('✅ Send Result:', JSON.stringify(result, null, 2));
-        } catch (error) {
-            console.error('❌ Send failed:', error);
-            process.exit(1);
-        }
-    });
-
-program
     .command('withdraw')
-    .description('Withdraw funds from Bitfinex account to external liquid wallet')
+    .description('Withdraw funds from Bitfinex account to external wallet')
     .option('-a, --amount <number>', 'Amount to withdraw', '0.001')
-    .requiredOption('-d, --destination <string>', 'Liquid destination wallet address')
+    .requiredOption('-d, --destination <string>', 'Destination wallet address')
+    .option('-c, --currency <string>', 'Currency to withdraw (bitcoin, lbtc, LNX)', 'bitcoin')
+    .option('-w, --wallet <string>', 'Source wallet type (exchange, margin, funding)', 'exchange')
+    .option('-t, --tag <string>', 'Optional tag/memo for certain networks')
     .action(async (cmdOptions) => {
         try {
             console.log('💰 Withdraw command executed');
             const globalOptions = program.opts();
             const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-            const result = await provider.withdraw(parseFloat(cmdOptions.amount), cmdOptions.destination);
+
+            const result = await provider.withdraw(
+                parseFloat(cmdOptions.amount),
+                cmdOptions.destination,
+                cmdOptions.currency,
+                cmdOptions.wallet,
+                cmdOptions.tag,
+            );
+
             console.log('✅ Withdraw Result:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Withdraw failed:', error);
@@ -49,7 +42,7 @@ program
 
 program
     .command('swap')
-    .description('Execute complete swap: BTC → Lightning → Liquid')
+    .description('Execute complete swap: Lightning → Liquid')
     .option('-a, --amount <number>', 'Amount to swap', '0.001')
     .requiredOption('-d, --destination <string>', 'Liquid destination wallet address')
     .action(async (cmdOptions) => {

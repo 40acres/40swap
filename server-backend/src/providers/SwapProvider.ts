@@ -20,19 +20,4 @@ export abstract class SwapProvider {
     public getSecret(): string {
         return this.secret;
     }
-
-    /**
-     * Send funds to lightning wallet within the provider account
-     */
-    abstract send(amount: number, destination?: string): Promise<void>;
-
-    /**
-     * Withdraw funds from provider account to external wallet
-     */
-    abstract withdraw(amount: number, address: string): Promise<void>;
-
-    /**
-     * Execute a complete swap operation (send + withdraw)
-     */
-    abstract swap(amount: number, liquidAddress: string): Promise<void>;
 }

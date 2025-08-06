@@ -1,9 +1,8 @@
 import { SwapProvider } from './SwapProvider.js';
-import * as crypto from 'crypto';
 import { LndService } from '../LndService.js';
+import * as crypto from 'crypto';
 
-// Tipos específicos para Bitfinex API
-type BitfinexMethod = 'bitcoin' | 'LNX';
+type BitfinexMethod = 'bitcoin' | 'LNX' | 'lbtc';
 type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
 
 export class BitfinexProvider extends SwapProvider {
@@ -15,12 +14,37 @@ export class BitfinexProvider extends SwapProvider {
         this.lndService = lndService;
     }
 
-    async send(amount: number, destination?: string): Promise<void> {
-        console.log(`🚀 Sending ${amount} BTC to Lightning wallet on ${this.name}`);
-    }
+    async withdraw(
+        amount: number,
+        address: string,
+        currency: BitfinexMethod = 'bitcoin',
+        wallet: BitfinexWalletType = 'exchange',
+        tag?: string,
+    ): Promise<unknown> {
+        console.log(`💰 Withdrawing ${amount} ${currency.toUpperCase()} to address: ${address}`);
 
-    async withdraw(amount: number, address: string): Promise<void> {
-        console.log(`💰 Withdrawing ${amount} L-BTC to address: ${address}`);
+        // Parámetros para el retiro según la documentación de Bitfinex
+        const withdrawData: Record<string, string> = {
+            wallet,
+            method: currency,
+            amount: amount.toString(),
+            address,
+        };
+
+        // Agregar tag si se proporciona
+        if (tag) {
+            withdrawData.tag = tag;
+        }
+
+        try {
+            const result = await this.authenticatedRequest('POST', '/v2/auth/w/withdraw', withdrawData);
+            console.log(`✅ Withdrawal request submitted successfully`);
+            console.log(`📄 Transaction details:`, result);
+            return result;
+        } catch (error) {
+            console.error('❌ Error submitting withdrawal:', error);
+            throw error;
+        }
     }
 
     async swap(amount: number, liquidAddress: string): Promise<void> {
