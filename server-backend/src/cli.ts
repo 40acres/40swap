@@ -6,15 +6,59 @@
  */
 
 import { Command } from 'commander';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './AppModule.js';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
-import { createLndServiceForCLI, validateLndConnection } from './createLndService.js';
+import { LndService } from './LndService.js';
+import { INestApplicationContext } from '@nestjs/common';
 
 const program = new Command();
+
+// Global NestJS application context
+let app: INestApplicationContext;
 
 program.name('cli').description('40swap backend CLI').version('1.0.0');
 
 program.requiredOption('-k, --id-key <string>', 'Bitfinex API ID Key');
 program.requiredOption('-s, --secret-key <string>', 'Bitfinex API Secret');
+
+/**
+ * Initializes the NestJS application context for dependency injection.
+ * This provides the same services as the main application.
+ */
+async function initializeApp(): Promise<INestApplicationContext> {
+    if (!app) {
+        console.log('🔧 Initializing NestJS application context...');
+        app = await NestFactory.createApplicationContext(AppModule, {
+            logger: false, // Disable NestJS logs for CLI
+        });
+        console.log('✅ Application context initialized');
+    }
+    return app;
+}
+
+/**
+ * Gets an LndService instance from the NestJS container.
+ * This ensures we use the same configuration as the main application.
+ */
+async function getLndService(): Promise<LndService> {
+    const appContext = await initializeApp();
+    return appContext.get(LndService);
+}
+
+/**
+ * Cleanup function to close the NestJS application context.
+ */
+async function cleanup(): Promise<void> {
+    if (app) {
+        await app.close();
+    }
+}
+
+// Register cleanup handlers
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+process.on('exit', cleanup);
 
 program
     .command('swap')
@@ -25,12 +69,20 @@ program
         try {
             console.log('🔄 Swap command executed');
             const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
-            const result = await provider.swap(parseFloat(cmdOptions.amount), cmdOptions.address);
-            console.log('✅ Complete Swap Result:', JSON.stringify(result, null, 2));
+
+            // Get LndService from NestJS container
+            console.log('🔧 Getting LND service from application context...');
+            const lndService = await getLndService();
+
+            // Create BitfinexProvider with dependency-injected LndService
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+            await provider.swap(parseFloat(cmdOptions.amount), cmdOptions.destination);
+            console.log('🎉 Complete swap operation finished successfully!');
         } catch (error) {
             console.error('❌ Swap failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -47,6 +99,8 @@ program
         } catch (error) {
             console.error('❌ Getting wallets failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -66,6 +120,8 @@ program
         } catch (error) {
             console.error('❌ Getting deposit addresses failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -84,6 +140,8 @@ program
         } catch (error) {
             console.error('❌ Creating deposit address failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -101,6 +159,8 @@ program
         } catch (error) {
             console.error('❌ Creating Lightning invoice failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -138,12 +198,14 @@ program
         } catch (error) {
             console.error('❌ Getting Lightning invoices/payments failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
 program
     .command('pay-invoice')
-    .description('Pay a Lightning Network invoice using LND (requires LND service configuration)')
+    .description('Pay a Lightning Network invoice using LND (uses NestJS dependency injection)')
     .requiredOption('-i, --invoice <string>', 'Lightning invoice to pay (payment request string)')
     .option('-c, --cltv-limit <number>', 'CLTV limit for the payment (default: 40)', '40')
     .action(async (cmdOptions) => {
@@ -151,19 +213,11 @@ program
             console.log('⚡ Paying Lightning invoice using LND');
             const globalOptions = program.opts();
 
-            // Create LndService instance for CLI
-            console.log('🔧 Initializing LND service...');
-            const lndService = createLndServiceForCLI();
+            // Get LndService from NestJS container
+            console.log('🔧 Getting LND service from application context...');
+            const lndService = await getLndService();
 
-            // Validate LND connection
-            console.log('🔍 Validating LND connection...');
-            const isValid = await validateLndConnection(lndService);
-            if (!isValid) {
-                console.error('❌ LND connection validation failed. Please ensure LND is running and accessible.');
-                process.exit(1);
-            }
-
-            // Create BitfinexProvider with LndService
+            // Create BitfinexProvider with dependency-injected LndService
             const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
             const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
 
@@ -177,6 +231,8 @@ program
         } catch (error) {
             console.error('❌ Paying invoice failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -205,6 +261,8 @@ program
         } catch (error) {
             console.error('❌ Invoice monitoring failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -234,6 +292,8 @@ program
         } catch (error) {
             console.error('❌ Currency conversion failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
@@ -263,6 +323,8 @@ program
         } catch (error) {
             console.error('❌ Withdraw failed:', error);
             process.exit(1);
+        } finally {
+            await cleanup();
         }
     });
 
