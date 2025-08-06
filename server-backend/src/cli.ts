@@ -2,6 +2,7 @@
 
 import { Command } from 'commander';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
+import { createLndServiceForCLI, validateLndConnection } from './createLndService.js';
 
 const program = new Command();
 
@@ -224,6 +225,45 @@ program
             console.log('👀 Currency Conversion Result:', JSON.stringify(result, null, 2));
         } catch (error) {
             console.error('❌ Currency conversion failed:', error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('pay-invoice')
+    .description('Pay a Lightning Network invoice using LND (requires LND service configuration)')
+    .requiredOption('-i, --invoice <string>', 'Lightning invoice to pay (payment request string)')
+    .option('-c, --cltv-limit <number>', 'CLTV limit for the payment (default: 40)', '40')
+    .action(async (cmdOptions) => {
+        try {
+            console.log('⚡ Paying Lightning invoice using LND');
+            const globalOptions = program.opts();
+
+            // Crear instancia de LndService para CLI
+            console.log('🔧 Initializing LND service...');
+            const lndService = createLndServiceForCLI();
+
+            // Validar conexión LND
+            console.log('🔍 Validating LND connection...');
+            const isValid = await validateLndConnection(lndService);
+            if (!isValid) {
+                console.error('❌ LND connection validation failed. Please ensure LND is running and accessible.');
+                process.exit(1);
+            }
+
+            // Crear BitfinexProvider con LndService
+            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+            const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
+
+            if (result.success) {
+                console.log('✅ Payment successful!');
+                console.log('🔑 Preimage:', result.preimage);
+            } else {
+                console.log('❌ Payment failed:', result.error);
+                process.exit(1);
+            }
+        } catch (error) {
+            console.error('❌ Paying invoice failed:', error);
             process.exit(1);
         }
     });

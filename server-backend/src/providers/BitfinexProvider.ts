@@ -1,5 +1,6 @@
 import { SwapProvider } from './SwapProvider.js';
 import * as crypto from 'crypto';
+import { LndService } from '../LndService.js';
 
 // Tipos específicos para Bitfinex API
 type BitfinexMethod = 'bitcoin' | 'LNX';
@@ -7,9 +8,11 @@ type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
 
 export class BitfinexProvider extends SwapProvider {
     private baseUrl = 'https://api.bitfinex.com';
+    private lndService?: LndService;
 
-    constructor(key: string, secret: string) {
+    constructor(key: string, secret: string, lndService?: LndService) {
         super('Bitfinex', key, secret);
+        this.lndService = lndService;
     }
 
     async send(amount: number, destination?: string): Promise<void> {
@@ -220,6 +223,48 @@ export class BitfinexProvider extends SwapProvider {
         } catch (error) {
             console.error('❌ Error submitting currency conversion transfer:', error);
             throw error;
+        }
+    }
+
+    // Método para pagar un invoice de Lightning Network usando LndService
+    async payInvoice(
+        invoice: string,
+        cltvLimit: number = 40,
+        options: {
+            timeout?: number;
+            maxFeePercent?: number;
+        } = {},
+    ): Promise<{ success: boolean; preimage?: string; error?: string }> {
+        console.log(`⚡ Paying Lightning invoice using LND`);
+        console.log(`🎫 Invoice: ${invoice.substring(0, 20)}...`);
+        console.log(`⏰ CLTV Limit: ${cltvLimit}`);
+
+        if (!this.lndService) {
+            const error = 'LndService not configured. Please provide LndService instance in constructor.';
+            console.error(`❌ ${error}`);
+            return { success: false, error };
+        }
+
+        try {
+            console.log(`🚀 Initiating payment through LND...`);
+            const preimage = await this.lndService.sendPayment(invoice, cltvLimit);
+            const preimageHex = preimage.toString('hex');
+
+            console.log(`✅ Payment successful!`);
+            console.log(`🔑 Preimage: ${preimageHex}`);
+
+            return {
+                success: true,
+                preimage: preimageHex,
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`❌ Payment failed:`, errorMessage);
+
+            return {
+                success: false,
+                error: errorMessage,
+            };
         }
     }
 }
