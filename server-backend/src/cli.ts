@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+/**
+ * 40swap backend CLI tool for interacting with Bitfinex API and Lightning Network.
+ * Provides commands for wallet management, invoice generation, payments, and currency exchanges.
+ */
+
 import { Command } from 'commander';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
 import { createLndServiceForCLI, validateLndConnection } from './createLndService.js';
@@ -115,15 +120,15 @@ program
             const globalOptions = program.opts();
             const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
 
-            // Construir el query object
+            // Construct the query object
             const query: { offset?: number; txid?: string } = {};
 
-            // Agregar offset si se proporciona y es compatible con la acción
+            // Add offset if provided and compatible with the action
             if (cmdOptions.offset && (cmdOptions.action === 'getInvoicesByUser' || cmdOptions.action === 'getPaymentsByUser')) {
                 query.offset = parseInt(cmdOptions.offset);
             }
 
-            // Agregar txid si se proporciona y es requerido por la acción
+            // Add txid if provided and required by the action
             if (cmdOptions.txid && (cmdOptions.action === 'getInvoiceById' || cmdOptions.action === 'getPaymentById')) {
                 query.txid = cmdOptions.txid;
             }
@@ -146,11 +151,11 @@ program
             console.log('⚡ Paying Lightning invoice using LND');
             const globalOptions = program.opts();
 
-            // Crear instancia de LndService para CLI
+            // Create LndService instance for CLI
             console.log('🔧 Initializing LND service...');
             const lndService = createLndServiceForCLI();
 
-            // Validar conexión LND
+            // Validate LND connection
             console.log('🔍 Validating LND connection...');
             const isValid = await validateLndConnection(lndService);
             if (!isValid) {
@@ -158,7 +163,7 @@ program
                 process.exit(1);
             }
 
-            // Crear BitfinexProvider con LndService
+            // Create BitfinexProvider with LndService
             const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
             const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
 

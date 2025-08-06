@@ -5,22 +5,40 @@ import * as crypto from 'crypto';
 type BitfinexMethod = 'bitcoin' | 'LNX' | 'lbtc';
 type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
 
+/**
+ * Bitfinex swap provider implementation for interacting with Bitfinex API v2.
+ * Supports Lightning Network operations, wallet management, and currency exchanges.
+ */
 export class BitfinexProvider extends SwapProvider {
     private baseUrl = 'https://api.bitfinex.com';
     private lndService?: LndService;
 
+    /**
+     * Creates a new BitfinexProvider instance.
+     * @param key - Bitfinex API key
+     * @param secret - Bitfinex API secret
+     * @param lndService - Optional LND service for Lightning Network operations
+     */
     constructor(key: string, secret: string, lndService?: LndService) {
         super('Bitfinex', key, secret);
         this.lndService = lndService;
     }
 
-    // Métodos privados para la integración real con Bitfinex API
+    /**
+     * Makes an authenticated request to the Bitfinex API v2.
+     * Creates the required signature according to Bitfinex documentation.
+     * @param method - HTTP method (GET, POST, etc.)
+     * @param endpoint - API endpoint path
+     * @param body - Optional request body
+     * @returns Promise resolving to the API response
+     * @throws Error if the API request fails
+     */
     private async authenticatedRequest(method: string, endpoint: string, body?: unknown): Promise<unknown> {
         const url = `${this.baseUrl}${endpoint}`;
         const nonce = Date.now().toString();
         const bodyString = body ? JSON.stringify(body) : '';
 
-        // Crear signature según la documentación de Bitfinex API v2
+        // Create signature according to Bitfinex API v2 documentation
         const apiPath = endpoint;
         const payload = `/api${apiPath}${nonce}${bodyString}`;
         const signature = crypto.createHmac('sha384', this.secret).update(payload).digest('hex');
@@ -47,28 +65,53 @@ export class BitfinexProvider extends SwapProvider {
         }
     }
 
+    /**
+     * Executes a complete swap operation: amount BTC → Lightning → Liquid.
+     * @param amount - Amount to swap in BTC
+     * @param liquidAddress - Destination Liquid wallet address
+     */
     async swap(amount: number, liquidAddress: string): Promise<void> {
         console.log(`🔄 Starting complete swap: ${amount} BTC → Lightning → Liquid`);
     }
 
-    // Método para obtener información de wallets
+    /**
+     * Retrieves wallet information and balances from Bitfinex.
+     * @returns Promise resolving to wallet data
+     */
     async getWallets(): Promise<unknown> {
         return this.authenticatedRequest('POST', '/v2/auth/r/wallets');
     }
 
-    // Método para obtener todas las direcciones de depósito para una moneda específica
+    /**
+     * Gets all deposit addresses for a specific currency with pagination support.
+     * @param method - Deposit method (bitcoin, LNX, lbtc)
+     * @param page - Page number for pagination (default: 1)
+     * @param pageSize - Number of addresses per page (default: 100)
+     * @returns Promise resolving to deposit addresses data
+     */
     async getDepositAddresses(method: BitfinexMethod, page: number = 1, pageSize: number = 100): Promise<unknown> {
         console.log(`📋 Getting deposit addresses`);
         return this.authenticatedRequest('POST', '/v2/auth/r/deposit/address/all', { method, page, pageSize });
     }
 
-    // Método para crear una nueva dirección de depósito
+    /**
+     * Creates a new deposit address for the specified wallet and method.
+     * @param wallet - Wallet type (exchange, margin, funding)
+     * @param method - Deposit method (bitcoin, LNX, lbtc)
+     * @returns Promise resolving to the created address data
+     */
     async createDepositAddress(wallet: BitfinexWalletType, method: BitfinexMethod): Promise<unknown> {
         console.log(`🆕 Creating deposit address for ${method} in ${wallet} wallet`);
         return this.authenticatedRequest('POST', '/v2/auth/w/deposit/address', { wallet, method });
     }
 
-    // Método para generar una invoice de Lightning Network
+    /**
+     * Generates a Lightning Network invoice with the specified amount.
+     * Only exchange wallet and LNX currency are supported for Lightning operations.
+     * @param amount - Invoice amount as string
+     * @returns Promise resolving to the generated invoice data
+     * @throws Error if invoice generation fails
+     */
     async generateInvoice(amount: string): Promise<unknown> {
         console.log(`⚡ Generating Lightning invoice for ${amount}`);
 
@@ -78,11 +121,11 @@ export class BitfinexProvider extends SwapProvider {
         const method = currency;
 
         try {
-            // Primero verificamos si ya existen direcciones de depósito para LNX
+            // First check if there are existing deposit addresses for LNX
             console.log('🔍 Checking existing deposit addresses...');
             const existingAddresses = await this.getDepositAddresses(currency);
 
-            // Si no hay direcciones existentes, creamos una nueva
+            // If no existing addresses, create a new one
             if (!existingAddresses || (Array.isArray(existingAddresses) && existingAddresses.length === 0)) {
                 console.log('📍 No existing deposit addresses found, creating new one...');
                 await this.createDepositAddress(wallet, method);
@@ -91,7 +134,7 @@ export class BitfinexProvider extends SwapProvider {
                 console.log('✅ Existing deposit addresses found');
             }
 
-            // Ahora generamos la invoice
+            // Now generate the invoice
             console.log('💫 Generating Lightning invoice...');
             const invoiceData = {
                 currency,
@@ -106,13 +149,24 @@ export class BitfinexProvider extends SwapProvider {
         }
     }
 
-    // Método para obtener los pagos de invoices de Lightning Network
+    /**
+     * Retrieves Lightning Network invoice payments with various query options.
+     * @param action - Query action type (getInvoiceById, getPaymentById, etc.)
+     * @param query - Query parameters including offset and txid
+     * @returns Promise resolving to invoice payments data
+     */
     async getLnxInvoicePayments(action: string, query: { offset?: number; txid?: string } = {}): Promise<unknown> {
         console.log(`📋 Getting LNX invoice payments with action: ${action}`);
         return this.authenticatedRequest('POST', '/v2/auth/r/ext/invoice/payments', { action, query });
     }
 
-    // Método para pagar un invoice de Lightning Network usando LndService
+    /**
+     * Pays a Lightning Network invoice using the configured LND service.
+     * @param invoice - Lightning invoice payment request string
+     * @param cltvLimit - CLTV limit for the payment (default: 40)
+     * @param options - Additional payment options (timeout, maxFeePercent)
+     * @returns Promise resolving to payment result with success status and preimage
+     */
     async payInvoice(
         invoice: string,
         cltvLimit: number = 40,
@@ -154,7 +208,14 @@ export class BitfinexProvider extends SwapProvider {
         }
     }
 
-    // Método para monitorear el estado de un invoice hasta que sea pagado o se alcance el máximo de intentos
+    /**
+     * Monitors an invoice status until it's paid or maximum retries are reached.
+     * Continuously polls the invoice status at specified intervals.
+     * @param txId - Transaction ID of the invoice to monitor
+     * @param maxRetries - Maximum number of retry attempts (default: 10)
+     * @param timeoutMs - Interval between checks in milliseconds (default: 5000)
+     * @returns Promise resolving to monitoring result with success status and final state
+     */
     async monitorInvoice(
         txId: string,
         maxRetries: number = 10,
@@ -172,7 +233,7 @@ export class BitfinexProvider extends SwapProvider {
             try {
                 const result = await this.getLnxInvoicePayments('getInvoiceById', { txid: txId });
 
-                // Extraer el estado del invoice (asumiendo que viene en el formato mostrado)
+                // Extract invoice state (assuming it comes in the shown format)
                 let invoiceState: string | undefined;
                 if (result && typeof result === 'object' && 'state' in result) {
                     invoiceState = (result as Record<string, unknown>).state as string;
@@ -182,7 +243,7 @@ export class BitfinexProvider extends SwapProvider {
 
                 console.log(`📊 Invoice state: ${invoiceState || 'unknown'}`);
 
-                // Si el estado no es "not_paid", el invoice ha sido procesado
+                // If state is not "not_paid", the invoice has been processed
                 if (invoiceState && invoiceState !== 'not_paid') {
                     console.log(`✅ Invoice monitoring completed! Final state: ${invoiceState}`);
                     return {
@@ -193,7 +254,7 @@ export class BitfinexProvider extends SwapProvider {
                     };
                 }
 
-                // Si no es el último intento, esperar antes del siguiente
+                // If not the last attempt, wait before next one
                 if (attempts < maxRetries) {
                     console.log(`⏳ Waiting ${timeoutMs}ms before next attempt...`);
                     await new Promise((resolve) => setTimeout(resolve, timeoutMs));
@@ -201,18 +262,18 @@ export class BitfinexProvider extends SwapProvider {
             } catch (error) {
                 console.error(`❌ Error on attempt ${attempts}:`, error);
 
-                // Si no es el último intento, continuar con el siguiente
+                // If not the last attempt, continue with the next one
                 if (attempts < maxRetries) {
                     console.log(`⏳ Waiting ${timeoutMs}ms before retry...`);
                     await new Promise((resolve) => setTimeout(resolve, timeoutMs));
                 } else {
-                    // Si es el último intento, devolver el error
+                    // If it's the last attempt, return the error
                     throw error;
                 }
             }
         }
 
-        // Se alcanzó el máximo de intentos sin éxito
+        // Maximum retries reached without success
         console.log(`⏰ Maximum retries (${maxRetries}) reached. Invoice still in 'not_paid' state.`);
         return {
             success: false,
@@ -221,7 +282,16 @@ export class BitfinexProvider extends SwapProvider {
         };
     }
 
-    // Método para intercambiar monedas usando transferencias entre wallets con conversión
+    /**
+     * Exchanges one currency to another using wallet transfers with conversion.
+     * @param fromCurrency - Source currency to convert from
+     * @param toCurrency - Target currency to convert to
+     * @param amount - Amount to convert
+     * @param fromWallet - Source wallet type (default: exchange)
+     * @param toWallet - Destination wallet type (default: exchange)
+     * @returns Promise resolving to transfer result
+     * @throws Error if currency conversion fails
+     */
     async exchangeCurrency(
         fromCurrency: string,
         toCurrency: string,
@@ -230,8 +300,8 @@ export class BitfinexProvider extends SwapProvider {
         toWallet: BitfinexWalletType = 'exchange',
     ): Promise<unknown> {
         console.log(`🔄 Converting ${amount} ${fromCurrency} to ${toCurrency}`);
-        console.log(`� From wallet: ${fromWallet}`);
-        console.log(`� To wallet: ${toWallet}`);
+        console.log(`📤 From wallet: ${fromWallet}`);
+        console.log(`📥 To wallet: ${toWallet}`);
 
         const transferData = {
             from: fromWallet,
@@ -251,6 +321,16 @@ export class BitfinexProvider extends SwapProvider {
         }
     }
 
+    /**
+     * Withdraws funds from Bitfinex account to an external wallet address.
+     * @param amount - Amount to withdraw
+     * @param address - Destination wallet address
+     * @param currency - Currency to withdraw (default: bitcoin)
+     * @param wallet - Source wallet type (default: exchange)
+     * @param tag - Optional tag/memo for certain networks
+     * @returns Promise resolving to withdrawal result
+     * @throws Error if withdrawal submission fails
+     */
     async withdraw(
         amount: number,
         address: string,
@@ -260,7 +340,7 @@ export class BitfinexProvider extends SwapProvider {
     ): Promise<unknown> {
         console.log(`💰 Withdrawing ${amount} ${currency.toUpperCase()} to address: ${address}`);
 
-        // Parámetros para el retiro según la documentación de Bitfinex
+        // Parameters for withdrawal according to Bitfinex documentation
         const withdrawData: Record<string, string> = {
             wallet,
             method: currency,
@@ -268,7 +348,7 @@ export class BitfinexProvider extends SwapProvider {
             address,
         };
 
-        // Agregar tag si se proporciona
+        // Add tag if provided
         if (tag) {
             withdrawData.tag = tag;
         }

@@ -9,16 +9,22 @@ import { LndService } from './LndService.js';
 import { ProtoGrpcType as LndGrpcType } from './lnd/lightning.js';
 import { ProtoGrpcType as InvoicesGrpcType } from './lnd/invoices.js';
 
-// Interface para la configuración LND
+/**
+ * Interface for LND configuration settings.
+ */
 interface LndConfig {
     socket: string;
     cert: string;
     macaroon: string;
 }
 
-// Función para leer configuración desde archivos locales
+/**
+ * Loads LND configuration from local files in the daemon directory.
+ * @returns LndConfig object with socket, cert, and macaroon
+ * @throws Error if cert or macaroon files are not found
+ */
 function loadLndConfigFromFiles(): LndConfig {
-    // Intentar cargar desde archivos locales en el directorio daemon
+    // Try to load from local files in the daemon directory
     const daemonPath = path.resolve(process.cwd(), '../daemon');
 
     try {
@@ -33,7 +39,7 @@ function loadLndConfigFromFiles(): LndConfig {
         const macaroon = fs.readFileSync(macaroonPath, 'base64');
 
         return {
-            socket: 'localhost:10009', // Puerto por defecto de LND
+            socket: 'localhost:10009', // Default LND port
             cert,
             macaroon,
         };
@@ -43,30 +49,34 @@ function loadLndConfigFromFiles(): LndConfig {
     }
 }
 
-// Función para crear clientes GRPC de LND
+/**
+ * Creates LND GRPC clients for Lightning and Invoices services.
+ * @param config - LND configuration object
+ * @returns Object containing lightningClient and invoicesClient
+ */
 function createLndClients(config: LndConfig): { lightningClient: LightningClient; invoicesClient: InvoicesClient } {
-    // Crear cliente Lightning
+    // Create Lightning client
     const lightningPd = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/lightning.proto'), { enums: String });
     const lightningGrpcType = loadPackageDefinition(lightningPd) as unknown as LndGrpcType;
 
-    // Crear cliente Invoices
+    // Create Invoices client
     const invoicesPd = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/invoices.proto'), { enums: String });
     const invoicesGrpcType = loadPackageDefinition(invoicesPd) as unknown as InvoicesGrpcType;
 
-    // Configurar credenciales SSL
+    // Configure SSL credentials
     const sslCreds = credentials.createSsl(Buffer.from(config.cert, 'base64'));
 
-    // Configurar credenciales de macaroon
+    // Configure macaroon credentials
     const macaroonCreds = credentials.createFromMetadataGenerator((_, callback) => {
         const metadata = new Metadata();
         metadata.add('macaroon', Buffer.from(config.macaroon, 'base64').toString('hex'));
         callback(null, metadata);
     });
 
-    // Combinar credenciales
+    // Combine credentials
     const combinedCreds = credentials.combineChannelCredentials(sslCreds, macaroonCreds);
 
-    // Crear clientes
+    // Create clients
     const lightningClient = new lightningGrpcType.lnrpc.Lightning(config.socket, combinedCreds);
     const invoicesClient = new invoicesGrpcType.invoicesrpc.Invoices(config.socket, combinedCreds);
 
@@ -74,25 +84,27 @@ function createLndClients(config: LndConfig): { lightningClient: LightningClient
 }
 
 /**
- * Crea una instancia de LndService para uso en CLI
- * Esta función replica la configuración del AppModule pero para uso standalone
+ * Creates an LndService instance for CLI usage.
+ * This function replicates the AppModule configuration but for standalone use.
+ * @returns Configured LndService instance
+ * @throws Error if LND service initialization fails
  */
 export function createLndServiceForCLI(): LndService {
     try {
         console.log('🔧 Initializing LND service for CLI...');
 
-        // Cargar configuración
+        // Load configuration
         const config = loadLndConfigFromFiles();
         console.log(`📡 Connecting to LND at: ${config.socket}`);
 
-        // Crear clientes GRPC
+        // Create GRPC clients
         const { lightningClient, invoicesClient } = createLndClients(config);
 
-        // Crear instancia de LndService usando los mismos parámetros que en AppModule
-        // Necesitamos crear un objeto que simule la inyección de dependencias
+        // Create LndService instance using the same parameters as AppModule
+        // We need to create an object that simulates dependency injection
         const lndService = new (class extends LndService {
             constructor() {
-                // Usar Object.defineProperty para inyectar las dependencias privadas
+                // Use Object.defineProperty to inject private dependencies
                 super(lightningClient as LightningClient, invoicesClient as InvoicesClient);
             }
         })();
@@ -106,13 +118,15 @@ export function createLndServiceForCLI(): LndService {
 }
 
 /**
- * Función para validar que LND esté accesible
+ * Validates that LND is accessible and responsive.
+ * @param lndService - The LndService instance to validate
+ * @returns Promise resolving to true if connection is valid, false otherwise
  */
 export async function validateLndConnection(lndService: LndService): Promise<boolean> {
     try {
         console.log('🔍 Validating LND connection...');
 
-        // Intentar obtener información básica del nodo
+        // Try to get basic node information
         await lndService.getNewAddress();
 
         console.log('✅ LND connection validated successfully');
