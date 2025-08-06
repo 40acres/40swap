@@ -74,10 +74,9 @@ export class BitfinexProvider extends SwapProvider {
         console.log(`🔄 Starting complete swap: ${amount} BTC → Lightning → Liquid`);
 
         try {
-            // Step 1: Check for existing deposit addresses and create one if needed
+            // Step 1: Check for existing exchange deposit addresses and create one if needed
             // This is necessary for Bitfinex to accept Lightning deposits
             // For more info check: https://docs.bitfinex.com/reference/rest-auth-deposit-invoice
-            console.log('🔍 Step 1: Checking existing deposit addresses...');
             const existingAddresses = await this.getDepositAddresses('LNX');
 
             if (!existingAddresses || (Array.isArray(existingAddresses) && existingAddresses.length === 0)) {
@@ -89,7 +88,6 @@ export class BitfinexProvider extends SwapProvider {
             }
 
             // Step 2: Generate Lightning invoice
-            console.log('⚡ Step 2: Generating Lightning invoice...');
             const invoiceResponse = await this.generateInvoice(amount.toString());
 
             // Extract invoice and txId from response
@@ -97,18 +95,13 @@ export class BitfinexProvider extends SwapProvider {
             let txId: string;
 
             if (Array.isArray(invoiceResponse) && invoiceResponse.length > 0) {
-                const invoiceData = invoiceResponse[0];
-                invoice = invoiceData[5]; // Invoice is typically at index 5
-                txId = invoiceData[0]; // Transaction ID is typically at index 0
+                txId = invoiceResponse[0]; // Transaction ID is at index 0
+                invoice = invoiceResponse[1]; // Invoice is at index 1
             } else {
                 throw new Error('Invalid invoice response format');
             }
 
-            console.log(`✅ Invoice generated: ${invoice.substring(0, 20)}...`);
-            console.log(`🆔 Transaction ID: ${txId}`);
-
             // Step 3: Pay the invoice using LND service
-            console.log('💸 Step 3: Paying Lightning invoice...');
             const paymentResult = await this.payInvoice(invoice);
 
             if (!paymentResult.success) {
@@ -118,7 +111,7 @@ export class BitfinexProvider extends SwapProvider {
             console.log(`✅ Payment successful! Preimage: ${paymentResult.preimage}`);
 
             // Step 4: Monitor the invoice until it's paid
-            console.log('🔍 Step 4: Monitoring invoice status...');
+            console.log('👀 Step 4: Monitoring invoice status...');
             const monitorResult = await this.monitorInvoice(txId, 20, 3000); // 20 retries, 3 seconds each
 
             if (!monitorResult.success || monitorResult.finalState !== 'paid') {
@@ -187,15 +180,13 @@ export class BitfinexProvider extends SwapProvider {
      * @throws Error if invoice generation fails
      */
     async generateInvoice(amount: string): Promise<unknown> {
-        console.log(`⚡ Generating Lightning invoice for ${amount}`);
-
         // Only these parameters are supported: https://docs.bitfinex.com/reference/rest-auth-deposit-invoice
         const wallet = 'exchange'; // Only exchange wallet is supported
         const currency = 'LNX'; // Only LNX is supported for Lightning
 
         try {
             // Generate the invoice directly
-            console.log('💫 Generating Lightning invoice...');
+            console.log(`💫 Generating Lightning invoice for ${amount}`);
             const invoiceData = {
                 currency,
                 wallet,
@@ -235,8 +226,8 @@ export class BitfinexProvider extends SwapProvider {
             maxFeePercent?: number;
         } = {},
     ): Promise<{ success: boolean; preimage?: string; error?: string }> {
-        console.log(`⚡ Paying Lightning invoice using LND`);
-        console.log(`🎫 Invoice: ${invoice.substring(0, 20)}...`);
+        console.log(`⚡️ Paying Lightning invoice using LND`);
+        console.log(`🎫 Invoice: ${invoice}`);
         console.log(`⏰ CLTV Limit: ${cltvLimit}`);
 
         if (!this.lndService) {
