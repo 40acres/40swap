@@ -33,19 +33,11 @@ export class BitfinexProvider extends SwapProvider {
         };
 
         try {
-            console.log(`🌐 Making ${method} request to ${url}`);
-
-            const response = await fetch(url, {
-                method,
-                headers,
-                body: method !== 'GET' ? bodyString : undefined,
-            });
+            const response = await this.makeHttpRequest(url, method, headers, bodyString);
 
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`❌ Bitfinex API error: ${response.status} - ${errorText}`);
-            } else {
-                console.log(`✅ ${method} request successful: ${response.status}`);
             }
 
             return await response.json();

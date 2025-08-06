@@ -20,4 +20,12 @@ export abstract class SwapProvider {
     public getSecret(): string {
         return this.secret;
     }
+
+    protected async makeHttpRequest(url: string, method: string, headers: Record<string, string>, body?: string): Promise<Response> {
+        return fetch(url, {
+            method,
+            headers,
+            body: method !== 'GET' ? body : undefined,
+        });
+    }
 }
