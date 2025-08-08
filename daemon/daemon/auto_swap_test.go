@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
@@ -525,6 +526,51 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, service.hasRunningSwap()) // Should still be running
 	})
+}
+
+func TestAutoSwapService_MonitoringPersistsWithBackgroundContext(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockLightningClient := lightning.NewMockClient(ctrl)
+	mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+	mockRepository := rpc.NewMockRepository(ctrl)
+
+	// Allow auto-swap flags updates if they happen; not essential for this test
+	mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	config := createTestConfig()
+	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
+
+	// Speed up the monitor for the test by injecting a fast ticker
+	service.newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(5 * time.Millisecond) }
+
+	swapID := "persist-monitor-swap"
+
+	// Pretend we have a running swap
+	service.addRunningSwap(swapID)
+
+	// The swap client will report DONE on first poll
+	mockSwapClient.EXPECT().GetSwapOut(gomock.Any(), swapID).DoAndReturn(
+		func(ctx context.Context, id string) (*swaps.SwapOutResponse, error) {
+			return &swaps.SwapOutResponse{Status: models.StatusDone}, nil
+		},
+	).MinTimes(1)
+
+	// Start monitoring with a long-lived context; should not stop when external contexts are canceled
+	go service.monitorSwapUntilTerminal(context.Background(), swapID)
+
+	// Wait until the swap is removed or timeout
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if !service.hasRunningSwap() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	require.False(t, service.hasRunningSwap(), "monitor should remove swap when it reaches DONE status")
 }
 
 func TestAutoSwapService_DatabaseRecovery(t *testing.T) {

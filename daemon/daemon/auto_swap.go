@@ -28,6 +28,9 @@ type AutoSwapService struct {
 
 	monitoredSwaps   map[string]struct{} // Set of swapIDs being monitored
 	monitoredSwapsMu sync.Mutex
+
+	// newTicker allows tests to inject a faster ticker; defaults to time.NewTicker
+	newTicker func(d time.Duration) *time.Ticker
 }
 
 // NewAutoSwapService creates a new AutoSwapService with dependencies for reusing existing logic
@@ -46,6 +49,7 @@ func NewAutoSwapService(
 		config:          config,
 		monitoredSwaps:  make(map[string]struct{}),
 		runningSwaps:    make([]string, 0),
+		newTicker:       time.NewTicker,
 	}
 
 	return service
@@ -67,8 +71,8 @@ func (s *AutoSwapService) RecoverPendingAutoSwaps(ctx context.Context) error {
 		log.Infof("[AutoSwap] Recovering auto swap: %s", swap.SwapID)
 		s.addRunningSwap(swap.SwapID)
 
-		// Start monitoring this swap in the background
-		go s.monitorSwapUntilTerminal(ctx, swap.SwapID)
+		// Start monitoring this swap in the background with a long-lived context
+		go s.monitorSwapUntilTerminal(context.Background(), swap.SwapID)
 	}
 
 	if len(pendingAutoSwaps) > 0 {
@@ -137,7 +141,8 @@ func (s *AutoSwapService) unsetSwapMonitored(swapID string) {
 func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID string) {
 	s.setSwapMonitored(swapID)
 	defer s.unsetSwapMonitored(swapID)
-	ticker := time.NewTicker(time.Minute)
+	// Use the configured check interval for monitoring
+	ticker := s.newTicker(s.config.GetCheckInterval())
 	defer ticker.Stop()
 	for {
 		select {
@@ -180,7 +185,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		s.runningSwapsMu.Unlock()
 		for _, swapID := range swapsToMonitor {
 			if !s.isSwapBeingMonitored(swapID) {
-				go s.monitorSwapUntilTerminal(ctx, swapID)
+				go s.monitorSwapUntilTerminal(context.Background(), swapID)
 			}
 		}
 
@@ -279,7 +284,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			}
 
 			log.Infof("[AutoSwap] Auto swap out completed successfully for swap: %v, now processing swap:", swap.SwapId)
-			go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
+			go s.monitorSwapUntilTerminal(context.Background(), swap.SwapId)
 
 			return nil // Success, exit
 		}
