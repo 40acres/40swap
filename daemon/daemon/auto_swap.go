@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/rpc"
@@ -141,13 +142,13 @@ func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID s
 	for {
 		select {
 		case <-ticker.C:
-			resp, err := s.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: swapID})
+			resp, err := s.client.GetSwapOut(ctx, swapID)
 			if err != nil {
 				log.Errorf("[AutoSwap] Error polling swap %s: %v", swapID, err)
 
 				continue
 			}
-			if resp.Status == rpc.Status_DONE || resp.Status == rpc.Status_CONTRACT_EXPIRED {
+			if resp.Status == models.StatusDone || resp.Status == models.StatusContractExpired {
 				s.removeRunningSwap(swapID)
 				log.Infof("[AutoSwap] Swap %s removed from running list after reaching terminal state (%v)", swapID, resp.Status)
 
