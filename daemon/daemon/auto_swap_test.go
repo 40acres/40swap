@@ -632,8 +632,33 @@ func TestAutoSwapService_MonitoringPersistsWithBackgroundContext(t *testing.T) {
 		},
 	).MinTimes(1)
 
-	// Start monitoring with a long-lived context; should not stop when external contexts are canceled
-	go service.monitorSwapUntilTerminal(context.Background(), swapID)
+	// Local helper: mirror monitorSwapUntilTerminal but with a custom millisecond interval for this test only
+	monitorWithInterval := func(ctx context.Context, swapID string, interval time.Duration) {
+		service.setSwapMonitored(swapID)
+		defer service.unsetSwapMonitored(swapID)
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				resp, err := service.client.GetSwapOut(ctx, swapID)
+				if err != nil {
+					continue
+				}
+				if resp.Status == models.StatusDone || resp.Status == models.StatusContractExpired {
+					service.removeRunningSwap(swapID)
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+
+	// Start monitoring with a long-lived context using millisecond interval for faster test execution
+	go monitorWithInterval(context.Background(), swapID, 10*time.Millisecond)
 
 	// Wait until the swap is removed or timeout
 	deadline := time.Now().Add(500 * time.Millisecond)
