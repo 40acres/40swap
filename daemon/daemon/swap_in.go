@@ -186,13 +186,35 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 		return "", fmt.Errorf("failed to build refund PSBT: %w", err)
 	}
 
-	// Sign and broadcast the PSBT
-	txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.RefundPrivatekey, &lntypes.Preimage{}, logger)
+	// Sign the PSBT and attempt to broadcast locally. If local broadcast fails,
+	// fall back to broadcasting through the backend client.
+	refundKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign and broadcast refund transaction: %w", err)
+		return "", fmt.Errorf("failed to decode refund private key: %w", err)
 	}
 
-	return txID, nil
+	signedTx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, refundKey, &lntypes.Preimage{}, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign PSBT: %w", err)
+	}
+
+	serializedTx, err := bitcoin.SerializeTx(signedTx)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	// Try local broadcast first
+	logger.Debug("Broadcasting refund transaction directly to bitcoin network")
+	if err := m.bitcoin.PostRefund(ctx, serializedTx); err != nil {
+		logger.WithError(err).Warn("Local refund broadcast failed, falling back to backend")
+
+		// Fallback: broadcast via backend API
+		if backendErr := m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx); backendErr != nil {
+			return "", fmt.Errorf("failed to broadcast refund locally (%v) and via backend (%w)", err, backendErr)
+		}
+	}
+
+	return signedTx.TxID(), nil
 }
 
 func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*lntypes.Preimage, error) {
