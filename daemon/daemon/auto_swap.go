@@ -28,9 +28,6 @@ type AutoSwapService struct {
 
 	monitoredSwaps   map[string]struct{} // Set of swapIDs being monitored
 	monitoredSwapsMu sync.Mutex
-
-	// newTicker allows tests to inject a faster ticker; defaults to time.NewTicker
-	newTicker func(d time.Duration) *time.Ticker
 }
 
 // NewAutoSwapService creates a new AutoSwapService with dependencies for reusing existing logic
@@ -49,7 +46,6 @@ func NewAutoSwapService(
 		config:          config,
 		monitoredSwaps:  make(map[string]struct{}),
 		runningSwaps:    make([]string, 0),
-		newTicker:       time.NewTicker,
 	}
 
 	return service
@@ -142,7 +138,7 @@ func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID s
 	s.setSwapMonitored(swapID)
 	defer s.unsetSwapMonitored(swapID)
 	// Use the configured check interval for monitoring
-	ticker := s.newTicker(s.config.GetCheckInterval())
+	ticker := time.NewTicker(s.config.GetCheckInterval())
 	defer ticker.Stop()
 	for {
 		select {

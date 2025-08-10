@@ -620,10 +620,6 @@ func TestAutoSwapService_MonitoringPersistsWithBackgroundContext(t *testing.T) {
 
 	config := createTestConfig()
 	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
-
-	// Speed up the monitor for the test by injecting a fast ticker
-	service.newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(5 * time.Millisecond) }
-
 	swapID := "persist-monitor-swap"
 
 	// Pretend we have a running swap
