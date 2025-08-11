@@ -649,6 +649,7 @@ func TestAutoSwapService_MonitoringPersistsWithBackgroundContext(t *testing.T) {
 				}
 				if resp.Status == models.StatusDone || resp.Status == models.StatusContractExpired {
 					service.removeRunningSwap(swapID)
+
 					return
 				}
 			case <-ctx.Done():

@@ -156,7 +156,7 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 
 		// Fallback: broadcast via backend API
 		if backendErr := m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx); backendErr != nil {
-			return "", fmt.Errorf("failed to broadcast claim locally (%v) and via backend (%w)", err, backendErr)
+			return "", fmt.Errorf("failed to broadcast claim locally (%w) and via backend (%w)", err, backendErr)
 		}
 	}
 

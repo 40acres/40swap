@@ -210,7 +210,7 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 
 		// Fallback: broadcast via backend API
 		if backendErr := m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx); backendErr != nil {
-			return "", fmt.Errorf("failed to broadcast refund locally (%v) and via backend (%w)", err, backendErr)
+			return "", fmt.Errorf("failed to broadcast refund locally (%w) and via backend (%w)", err, backendErr)
 		}
 	}
 
