@@ -1,5 +1,5 @@
 import { Button, Modal } from 'solid-bootstrap';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { Component, createSignal } from 'solid-js';
 import logoUrl from '/logo.svg?url';
 import brandUrl from '/brand.svg?url';
 
@@ -12,7 +12,6 @@ export const BetaDisclaimer: Component = () => {
     const closeModal = (): void => {
         setIsModalOpen(false);
     };
-
 
     return (
         <>
@@ -43,8 +42,7 @@ export const BetaDisclaimer: Component = () => {
                         This application is currently in <strong>beta</strong>. You may encounter issues, bugs, or occasional failures while using it.
                     </p>
                     <p class="mb-2">
-                        If something fails, please contact us at
-                        {' '}<a href="mailto:support@40swap.com">support@40swap.com</a>.
+                        If something fails, please contact us at <a href="mailto:support@40swap.com">support@40swap.com</a>.
                     </p>
                     <p class="mb-0">You can also try reloading the page to continue.</p>
                 </Modal.Body>
@@ -62,5 +60,3 @@ export const BetaDisclaimer: Component = () => {
         </>
     );
 };
-
-
