@@ -194,7 +194,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		log.Warnf("[AutoSwap] Could not fetch LND node info to check MPP support: %v", err)
 	}
 	mppSupported := false
-	if info.Features != nil {
+	if info != nil && info.Features != nil {
 		for _, feature := range info.Features {
 			if feature.Name == "multi-path-payments" && feature.IsKnown {
 				mppSupported = true

@@ -8,6 +8,7 @@ import (
 
 	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
+	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/lightningnetwork/lnd/lntypes"
@@ -295,6 +296,143 @@ func TestSwapMonitor_MonitorSwapOut(t *testing.T) {
 			}
 			if tt.wantErr {
 				require.Equal(t, tt.err.Error(), err.Error())
+			}
+		})
+	}
+}
+
+// Test for the new logic that handles different outcomes in StatusDone
+func TestSwapMonitor_MonitorSwapOut_StatusDone_Outcomes(t *testing.T) {
+	now := func() time.Time {
+		return time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)
+	}
+	ctx := context.Background()
+
+	// Use a valid Lightning invoice generated from the test helper
+	validInvoice := lightning.CreateMockInvoice(t, 1000) // 1000 sats
+
+	tests := []struct {
+		name             string
+		outcome          models.SwapOutcome
+		expectGetFees    bool
+		expectedOffchain int64
+		expectedOnchain  int64
+		wantErr          bool
+		expectedErrMsg   string
+	}{
+		{
+			name:             "success outcome should calculate fees",
+			outcome:          models.OutcomeSuccess,
+			expectGetFees:    true,
+			expectedOffchain: 100,
+			expectedOnchain:  200,
+			wantErr:          false,
+		},
+		{
+			name:           "success outcome with fee error should return error",
+			outcome:        models.OutcomeSuccess,
+			expectGetFees:  true,
+			wantErr:        true,
+			expectedErrMsg: "failed to get fees for successful swap",
+		},
+		{
+			name:             "refunded outcome should skip fee calculation",
+			outcome:          models.OutcomeRefunded,
+			expectGetFees:    false,
+			expectedOffchain: 0,
+			expectedOnchain:  0,
+			wantErr:          false,
+		},
+		{
+			name:             "failed outcome should skip fee calculation",
+			outcome:          models.OutcomeFailed,
+			expectGetFees:    false,
+			expectedOffchain: 0,
+			expectedOnchain:  0,
+			wantErr:          false,
+		},
+		{
+			name:             "expired outcome should skip fee calculation",
+			outcome:          models.OutcomeExpired,
+			expectGetFees:    false,
+			expectedOffchain: 0,
+			expectedOnchain:  0,
+			wantErr:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Fresh mocks for each test case
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			repository := rpc.NewMockRepository(ctrl)
+			swapClient := swaps.NewMockClientInterface(ctrl)
+			bitcoinClient := bitcoin.NewMockClient(ctrl)
+			lightningClient := lightning.NewMockClient(ctrl)
+
+			swapMonitor := SwapMonitor{
+				repository:      repository,
+				swapClient:      swapClient,
+				bitcoin:         bitcoinClient,
+				lightningClient: lightningClient,
+				now:             now,
+			}
+
+			currentSwap := models.SwapOut{
+				SwapID:         "test-swap-id",
+				Status:         models.StatusContractClaimedUnconfirmed,
+				PaymentRequest: validInvoice,
+				TxID:           "test-tx-id",
+			}
+
+			// Mock GetSwapOut call
+			swapClient.EXPECT().GetSwapOut(ctx, "test-swap-id").Return(&swaps.SwapOutResponse{
+				SwapId:  "test-swap-id",
+				Status:  models.StatusDone,
+				Outcome: tt.outcome,
+			}, nil)
+
+			// Only expect GetFees calls for successful outcomes
+			if tt.expectGetFees {
+				if tt.wantErr {
+					// Mock MonitorPaymentRequest failure - this will be called inside GetFeesSwapOut
+					lightningClient.EXPECT().MonitorPaymentRequest(gomock.Any(), gomock.Any()).Return("", int64(0), errors.New("FAILURE_REASON_TIMEOUT"))
+					// Don't expect bitcoin call or repository save for error case
+				} else {
+					// Mock successful fee calculation
+					lightningClient.EXPECT().MonitorPaymentRequest(gomock.Any(), gomock.Any()).Return("preimage", tt.expectedOffchain, nil)
+					bitcoinClient.EXPECT().GetFeeFromTxId(ctx, "test-tx-id").Return(tt.expectedOnchain, nil)
+					// Mock repository save for success case
+					repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, swap *models.SwapOut) error {
+						// Verify the fees were set correctly
+						require.Equal(t, tt.expectedOffchain, swap.OffchainFeeSats)
+						require.Equal(t, tt.expectedOnchain, swap.OnchainFeeSats)
+						require.Equal(t, tt.outcome, *swap.Outcome)
+						require.Equal(t, models.StatusDone, swap.Status)
+						return nil
+					})
+				}
+			} else {
+				// For non-success outcomes, expect repository save with zero fees
+				repository.EXPECT().SaveSwapOut(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, swap *models.SwapOut) error {
+					// Verify the fees were set correctly
+					require.Equal(t, tt.expectedOffchain, swap.OffchainFeeSats)
+					require.Equal(t, tt.expectedOnchain, swap.OnchainFeeSats)
+					require.Equal(t, tt.outcome, *swap.Outcome)
+					require.Equal(t, models.StatusDone, swap.Status)
+					return nil
+				})
+			}
+
+			err := swapMonitor.MonitorSwapOut(ctx, &currentSwap)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedErrMsg)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}

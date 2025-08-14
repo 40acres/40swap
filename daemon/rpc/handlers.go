@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/40acres/40swap/daemon/swaps"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
@@ -278,27 +280,78 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		return nil, fmt.Errorf("swap id is required")
 	}
 
-	// Call API
-	swap, err := s.swapClient.GetSwapIn(ctx, req.Id)
+	// First, get the current swap from local database
+	localSwap, err := s.Repository.GetSwapIn(ctx, req.Id)
+	if err != nil {
+		// If not found locally, we'll still try to get from backend
+		log.WithError(err).Warn("Could not get swap from local database")
+	}
+
+	// Call backend API to get latest information
+	backendSwap, err := s.swapClient.GetSwapIn(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("could not get swap in: %w", err)
 	}
 
-	rpcStatus, err := mapStatus(swap.Status)
+	// If we have a local swap, update it with backend information
+	if localSwap != nil {
+		updated := false
+
+		// Update status if changed
+		newStatus := models.SwapStatus(backendSwap.Status)
+		if localSwap.Status != newStatus {
+			localSwap.Status = newStatus
+			updated = true
+		}
+
+		// Update contract information from backend if available
+		if backendSwap.RedeemScript != "" && localSwap.RedeemScript != backendSwap.RedeemScript {
+			localSwap.RedeemScript = backendSwap.RedeemScript
+			updated = true
+		}
+		if backendSwap.ContractAddress != "" && localSwap.ClaimAddress != backendSwap.ContractAddress {
+			localSwap.ClaimAddress = backendSwap.ContractAddress
+			updated = true
+		}
+		if backendSwap.TimeoutBlockHeight > 0 {
+			timeoutBlockHeight := int64(backendSwap.TimeoutBlockHeight)
+			if localSwap.TimeoutBlockHeight != timeoutBlockHeight {
+				localSwap.TimeoutBlockHeight = timeoutBlockHeight
+				updated = true
+			}
+		}
+
+		// Update outcome if swap is done
+		if newStatus == models.StatusDone && localSwap.Outcome == nil {
+			outcome := models.SwapOutcome(backendSwap.Outcome)
+			localSwap.Outcome = &outcome
+			updated = true
+		}
+
+		// Save to local database if updated
+		if updated {
+			err = s.Repository.SaveSwapIn(ctx, localSwap)
+			if err != nil {
+				log.WithError(err).Warn("Could not save updated swap to local database")
+			}
+		}
+	}
+
+	rpcStatus, err := mapStatus(backendSwap.Status)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &GetSwapInResponse{
-		Id:                 swap.SwapId,
+		Id:                 backendSwap.SwapId,
 		Status:             rpcStatus,
-		ContractAddress:    swap.ContractAddress,
-		CreatedAt:          timestamppb.New(swap.CreatedAt),
-		InputAmount:        swap.InputAmount.InexactFloat64(),
-		Outcome:            (*string)(&swap.Outcome),
-		OutputAmount:       swap.OutputAmount.InexactFloat64(),
-		RedeemScript:       swap.RedeemScript,
-		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight),
+		ContractAddress:    backendSwap.ContractAddress,
+		CreatedAt:          timestamppb.New(backendSwap.CreatedAt),
+		InputAmount:        backendSwap.InputAmount.InexactFloat64(),
+		Outcome:            (*string)(&backendSwap.Outcome),
+		OutputAmount:       backendSwap.OutputAmount.InexactFloat64(),
+		RedeemScript:       backendSwap.RedeemScript,
+		TimeoutBlockHeight: uint32(backendSwap.TimeoutBlockHeight),
 	}
 
 	return res, nil
@@ -309,26 +362,82 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		return nil, fmt.Errorf("swap id is required")
 	}
 
-	// Call API
-	swap, err := s.swapClient.GetSwapOut(ctx, req.Id)
+	// First, get the current swap from local database
+	localSwap, err := s.Repository.GetSwapOut(ctx, req.Id)
+	if err != nil {
+		// If not found locally, we'll still try to get from backend
+		log.WithError(err).Warn("Could not get swap from local database")
+	}
+
+	// Call backend API to get latest information
+	backendSwap, err := s.swapClient.GetSwapOut(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("could not get swap out: %w", err)
 	}
 
-	rpcStatus, err := mapStatus(swap.Status)
+	// If we have a local swap, update it with backend information
+	if localSwap != nil {
+		updated := false
+
+		// Update status if changed
+		newStatus := models.SwapStatus(backendSwap.Status)
+		if localSwap.Status != newStatus {
+			localSwap.Status = newStatus
+			updated = true
+		}
+
+		// Update contract information from backend if available
+		if backendSwap.ContractAddress != nil && *backendSwap.ContractAddress != "" && localSwap.ContractAddress != *backendSwap.ContractAddress {
+			localSwap.ContractAddress = *backendSwap.ContractAddress
+			updated = true
+		}
+		if backendSwap.TimeoutBlockHeight > 0 {
+			timeoutBlockHeight := int64(backendSwap.TimeoutBlockHeight)
+			if localSwap.TimeoutBlockHeight != timeoutBlockHeight {
+				localSwap.TimeoutBlockHeight = timeoutBlockHeight
+				updated = true
+			}
+		}
+
+		// Update outcome if swap is done
+		if newStatus == models.StatusDone && localSwap.Outcome == nil {
+			outcome := models.SwapOutcome(backendSwap.Outcome)
+			localSwap.Outcome = &outcome
+			updated = true
+		}
+
+		// Update TX ID if available
+		if backendSwap.UnlockTx != nil && localSwap.TxID == "" {
+			txId, err := getTxId(*backendSwap.UnlockTx)
+			if err == nil {
+				localSwap.TxID = txId
+				updated = true
+			}
+		}
+
+		// Save to local database if updated
+		if updated {
+			err = s.Repository.SaveSwapOut(ctx, localSwap)
+			if err != nil {
+				log.WithError(err).Warn("Could not save updated swap to local database")
+			}
+		}
+	}
+
+	rpcStatus, err := mapStatus(backendSwap.Status)
 	if err != nil {
 		return nil, err
 	}
 
 	res := &GetSwapOutResponse{
-		Id:                 swap.SwapId,
+		Id:                 backendSwap.SwapId,
 		Status:             rpcStatus,
-		CreatedAt:          timestamppb.New(swap.CreatedAt),
-		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight),
-		Invoice:            swap.Invoice,
-		InputAmount:        swap.InputAmount.InexactFloat64(),
-		OutputAmount:       swap.OutputAmount.InexactFloat64(),
-		Outcome:            (*string)(&swap.Outcome),
+		CreatedAt:          timestamppb.New(backendSwap.CreatedAt),
+		TimeoutBlockHeight: uint32(backendSwap.TimeoutBlockHeight),
+		Invoice:            backendSwap.Invoice,
+		InputAmount:        backendSwap.InputAmount.InexactFloat64(),
+		OutputAmount:       backendSwap.OutputAmount.InexactFloat64(),
+		Outcome:            (*string)(&backendSwap.Outcome),
 	}
 
 	return res, nil
@@ -422,4 +531,25 @@ func (s *Server) RecoverReusedSwapAddress(ctx context.Context, req *RecoverReuse
 		Txid:            tx.TxID(),
 		RecoveredAmount: money.Money(pkt.Inputs[0].WitnessUtxo.Value).ToBtc().InexactFloat64(), //nolint:gosec
 	}, nil
+}
+
+// getTxId extracts the transaction ID from a hex-encoded transaction
+func getTxId(tx string) (string, error) {
+	if tx == "" {
+		return "", nil
+	}
+
+	// If PSBT parsing fails, try to parse as raw hex transaction
+	txBytes, err := hex.DecodeString(tx)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode hex transaction: %w", err)
+	}
+
+	transaction := wire.NewMsgTx(wire.TxVersion)
+	err = transaction.Deserialize(bytes.NewReader(txBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to deserialize transaction: %w", err)
+	}
+
+	return transaction.TxHash().String(), nil
 }
