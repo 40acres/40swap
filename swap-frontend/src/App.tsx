@@ -13,6 +13,7 @@ import { Header } from './Header.js';
 import { Footer } from './Footer.js';
 import { Faq } from './Faq.js';
 import { SupportWidget } from './SupportWidget.js';
+import { BetaDisclaimer } from './BetaDisclaimer.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
     return (
@@ -23,6 +24,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
             </div>
             <SupportWidget />
             <Footer />
+            <BetaDisclaimer />
             <Toaster
                 toastOptions={{
                     duration: 5000,
