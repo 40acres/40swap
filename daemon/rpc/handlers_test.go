@@ -243,11 +243,15 @@ func TestStatus_SwapIn(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockRepository := NewMockRepository(ctrl)
 
 	ctx := context.Background()
 	req := &GetSwapInRequest{
 		Id: "swap-in-id",
 	}
+
+	// Mock repository call (returning not found, so it continues with backend call)
+	mockRepository.EXPECT().GetSwapIn(ctx, "swap-in-id").Return(nil, errors.New("not found"))
 
 	mockSwapClient.EXPECT().GetSwapIn(ctx, "swap-in-id").Return(&swaps.SwapInResponse{
 		SwapId:             "swap-in-id",
@@ -262,7 +266,7 @@ func TestStatus_SwapIn(t *testing.T) {
 		TimeoutBlockHeight: 12345,
 	}, nil)
 
-	server := NewRPCServer(8080, nil, mockSwapClient, nil, nil, 1000, Network_REGTEST)
+	server := NewRPCServer(8080, mockRepository, mockSwapClient, nil, nil, 1000, Network_REGTEST)
 
 	res, err := server.GetSwapIn(ctx, req)
 	require.NoError(t, err)
@@ -283,7 +287,10 @@ func TestStatus_SwapOut(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockRepository := NewMockRepository(ctrl)
+	
 	server := &Server{
+		Repository: mockRepository,
 		swapClient: mockSwapClient,
 	}
 
@@ -291,6 +298,9 @@ func TestStatus_SwapOut(t *testing.T) {
 	req := &GetSwapOutRequest{
 		Id: "swap-out-id",
 	}
+
+	// Mock repository call (returning not found, so it continues with backend call)
+	mockRepository.EXPECT().GetSwapOut(ctx, "swap-out-id").Return(nil, errors.New("not found"))
 
 	mockSwapClient.EXPECT().GetSwapOut(ctx, "swap-out-id").Return(&swaps.SwapOutResponse{
 		SwapId:             "swap-out-id",
@@ -720,7 +730,7 @@ func TestServer_SwapOut(t *testing.T) {
 			err:     nil,
 		},
 	}
-	for _, tt := range tests {
+		for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := tt.setup()
 			got, err := server.SwapOut(tt.args.ctx, tt.args.req)
@@ -734,6 +744,390 @@ func TestServer_SwapOut(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Server.SwapIn() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServer_GetSwapIn_DatabaseUpdate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	swapId := "test-swap-in-id"
+	
+	mockRepository := NewMockRepository(ctrl)
+	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	
+	server := &Server{
+		Repository: mockRepository,
+		swapClient: mockSwapClient,
+	}
+
+	tests := []struct {
+		name           string
+		setupMocks     func()
+		expectedDbSave bool
+		description    string
+	}{
+		{
+			name: "should update local database when status changes",
+			setupMocks: func() {
+				// Mock local swap with old status
+				localSwap := &models.SwapIn{
+					SwapID:             swapId,
+					Status:             models.StatusCreated,
+					RedeemScript:       "old-script",
+					ClaimAddress:       "old-address",
+					TimeoutBlockHeight: 1000,
+					Outcome:            nil,
+				}
+				mockRepository.EXPECT().GetSwapIn(ctx, swapId).Return(localSwap, nil)
+				
+				// Mock backend response with updated status
+				backendSwap := &swaps.SwapInResponse{
+					SwapId:             swapId,
+					Status:             models.StatusContractFunded,
+					RedeemScript:       "new-script",
+					ContractAddress:    "new-address", 
+					TimeoutBlockHeight: 2000,
+					Outcome:            models.OutcomeSuccess,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+				}
+				mockSwapClient.EXPECT().GetSwapIn(ctx, swapId).Return(backendSwap, nil)
+				
+				// Expect database save with updated values
+				mockRepository.EXPECT().SaveSwapIn(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, swap *models.SwapIn) error {
+					require.Equal(t, models.StatusContractFunded, swap.Status)
+					require.Equal(t, "new-script", swap.RedeemScript)
+					require.Equal(t, "new-address", swap.ClaimAddress)
+					require.Equal(t, int64(2000), swap.TimeoutBlockHeight)
+					return nil
+				})
+			},
+			expectedDbSave: true,
+			description:    "Status, redeem script, contract address, and timeout block height should be updated",
+		},
+		{
+			name: "should update outcome when swap is done",
+			setupMocks: func() {
+				localSwap := &models.SwapIn{
+					SwapID:  swapId,
+					Status:  models.StatusContractFunded,
+					Outcome: nil,
+				}
+				mockRepository.EXPECT().GetSwapIn(ctx, swapId).Return(localSwap, nil)
+				
+				backendSwap := &swaps.SwapInResponse{
+					SwapId:             swapId,
+					Status:             models.StatusDone,
+					Outcome:            models.OutcomeSuccess,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+					ContractAddress:    "test-address",
+					RedeemScript:       "test-script",
+					TimeoutBlockHeight: 1000,
+				}
+				mockSwapClient.EXPECT().GetSwapIn(ctx, swapId).Return(backendSwap, nil)
+				
+				mockRepository.EXPECT().SaveSwapIn(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, swap *models.SwapIn) error {
+					require.Equal(t, models.StatusDone, swap.Status)
+					require.NotNil(t, swap.Outcome)
+					require.Equal(t, models.OutcomeSuccess, *swap.Outcome)
+					return nil
+				})
+			},
+			expectedDbSave: true,
+			description:    "Outcome should be set when status becomes DONE",
+		},
+		{
+			name: "should not update database when no changes",
+			setupMocks: func() {
+				localSwap := &models.SwapIn{
+					SwapID:             swapId,
+					Status:             models.StatusCreated,
+					RedeemScript:       "same-script",
+					ClaimAddress:       "same-address",
+					TimeoutBlockHeight: 1000,
+					Outcome:            nil,
+				}
+				mockRepository.EXPECT().GetSwapIn(ctx, swapId).Return(localSwap, nil)
+				
+				backendSwap := &swaps.SwapInResponse{
+					SwapId:             swapId,
+					Status:             models.StatusCreated,
+					RedeemScript:       "same-script",
+					ContractAddress:    "same-address",
+					TimeoutBlockHeight: 1000,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+				}
+				mockSwapClient.EXPECT().GetSwapIn(ctx, swapId).Return(backendSwap, nil)
+				
+				// Should NOT call SaveSwapIn when nothing changed
+			},
+			expectedDbSave: false,
+			description:    "Database should not be updated when no fields changed",
+		},
+		{
+			name: "should continue when local swap not found",
+			setupMocks: func() {
+				mockRepository.EXPECT().GetSwapIn(ctx, swapId).Return(nil, errors.New("not found"))
+				
+				backendSwap := &swaps.SwapInResponse{
+					SwapId:             swapId,
+					Status:             models.StatusCreated,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+					ContractAddress:    "test-address",
+					RedeemScript:       "test-script",
+					TimeoutBlockHeight: 1000,
+				}
+				mockSwapClient.EXPECT().GetSwapIn(ctx, swapId).Return(backendSwap, nil)
+				
+				// Should NOT call SaveSwapIn when local swap doesn't exist
+			},
+			expectedDbSave: false,
+			description:    "Should continue normally when local swap is not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMocks()
+			
+			req := &GetSwapInRequest{Id: swapId}
+			res, err := server.GetSwapIn(ctx, req)
+			
+			require.NoError(t, err, tt.description)
+			require.NotNil(t, res)
+			require.Equal(t, swapId, res.Id)
+		})
+	}
+}
+
+func TestServer_GetSwapOut_DatabaseUpdate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	swapId := "test-swap-out-id"
+	
+	mockRepository := NewMockRepository(ctrl)
+	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	
+	server := &Server{
+		Repository: mockRepository,
+		swapClient: mockSwapClient,
+	}
+
+	tests := []struct {
+		name           string
+		setupMocks     func()
+		expectedDbSave bool
+		description    string
+	}{
+		{
+			name: "should update local database when status and contract address change",
+			setupMocks: func() {
+				localSwap := &models.SwapOut{
+					SwapID:             swapId,
+					Status:             models.StatusCreated,
+					ContractAddress:    "old-address",
+					TimeoutBlockHeight: 1000,
+					TxID:               "",
+					Outcome:            nil,
+				}
+				mockRepository.EXPECT().GetSwapOut(ctx, swapId).Return(localSwap, nil)
+				
+				contractAddress := "new-contract-address"
+				// Using a valid minimal transaction hex (coinbase transaction)
+				unlockTx := "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08044c86041b020602ffffffff0100f2052a010000004341041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84ac00000000"
+				backendSwap := &swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusInvoicePaid,
+					ContractAddress:    &contractAddress,
+					TimeoutBlockHeight: 2000,
+					UnlockTx:           &unlockTx,
+					Outcome:            models.OutcomeSuccess,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+					Invoice:            "test-invoice",
+				}
+				mockSwapClient.EXPECT().GetSwapOut(ctx, swapId).Return(backendSwap, nil)
+				
+				mockRepository.EXPECT().SaveSwapOut(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, swap *models.SwapOut) error {
+					require.Equal(t, models.StatusInvoicePaid, swap.Status)
+					require.Equal(t, "new-contract-address", swap.ContractAddress)
+					require.Equal(t, int64(2000), swap.TimeoutBlockHeight)
+					// TxID should be updated from UnlockTx
+					require.NotEmpty(t, swap.TxID)
+					return nil
+				})
+			},
+			expectedDbSave: true,
+			description:    "Status, contract address, timeout block height, and TxID should be updated",
+		},
+		{
+			name: "should update outcome when swap is done",
+			setupMocks: func() {
+				localSwap := &models.SwapOut{
+					SwapID:  swapId,
+					Status:  models.StatusInvoicePaid,
+					Outcome: nil,
+				}
+				mockRepository.EXPECT().GetSwapOut(ctx, swapId).Return(localSwap, nil)
+				
+				backendSwap := &swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusDone,
+					Outcome:            models.OutcomeSuccess,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+					Invoice:            "test-invoice",
+					TimeoutBlockHeight: 1000,
+				}
+				mockSwapClient.EXPECT().GetSwapOut(ctx, swapId).Return(backendSwap, nil)
+				
+				mockRepository.EXPECT().SaveSwapOut(ctx, gomock.Any()).DoAndReturn(func(ctx context.Context, swap *models.SwapOut) error {
+					require.Equal(t, models.StatusDone, swap.Status)
+					require.NotNil(t, swap.Outcome)
+					require.Equal(t, models.OutcomeSuccess, *swap.Outcome)
+					return nil
+				})
+			},
+			expectedDbSave: true,
+			description:    "Outcome should be set when status becomes DONE",
+		},
+		{
+			name: "should handle database save errors gracefully",
+			setupMocks: func() {
+				localSwap := &models.SwapOut{
+					SwapID: swapId,
+					Status: models.StatusCreated,
+				}
+				mockRepository.EXPECT().GetSwapOut(ctx, swapId).Return(localSwap, nil)
+				
+				backendSwap := &swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusInvoicePaid,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+					Invoice:            "test-invoice",
+					TimeoutBlockHeight: 1000,
+				}
+				mockSwapClient.EXPECT().GetSwapOut(ctx, swapId).Return(backendSwap, nil)
+				
+				// Simulate database save error
+				mockRepository.EXPECT().SaveSwapOut(ctx, gomock.Any()).Return(errors.New("database error"))
+			},
+			expectedDbSave: true,
+			description:    "Should continue normally even when database save fails",
+		},
+		{
+			name: "should not update database when no changes",
+			setupMocks: func() {
+				localSwap := &models.SwapOut{
+					SwapID:             swapId,
+					Status:             models.StatusCreated,
+					ContractAddress:    "same-address",
+					TimeoutBlockHeight: 1000,
+					TxID:               "",
+					Outcome:            nil,
+				}
+				mockRepository.EXPECT().GetSwapOut(ctx, swapId).Return(localSwap, nil)
+				
+				contractAddress := "same-address"
+				backendSwap := &swaps.SwapOutResponse{
+					SwapId:             swapId,
+					Status:             models.StatusCreated,
+					ContractAddress:    &contractAddress,
+					TimeoutBlockHeight: 1000,
+					InputAmount:        decimal.NewFromFloat(0.001),
+					OutputAmount:       decimal.NewFromFloat(0.0009),
+					CreatedAt:          time.Now(),
+					Invoice:            "test-invoice",
+				}
+				mockSwapClient.EXPECT().GetSwapOut(ctx, swapId).Return(backendSwap, nil)
+				
+				// Should NOT call SaveSwapOut when nothing changed
+			},
+			expectedDbSave: false,
+			description:    "Database should not be updated when no fields changed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMocks()
+			
+			req := &GetSwapOutRequest{Id: swapId}
+			res, err := server.GetSwapOut(ctx, req)
+			
+			require.NoError(t, err, tt.description)
+			require.NotNil(t, res)
+			require.Equal(t, swapId, res.Id)
+		})
+	}
+}
+
+func TestGetTxId(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		description string
+	}{
+		{
+			name:        "should return empty string for empty input",
+			input:       "",
+			expectError: false,
+			description: "Empty input should return empty string without error",
+		},
+		{
+			name:        "should return error for invalid hex",
+			input:       "invalid-hex",
+			expectError: true,
+			description: "Invalid hex should return error",
+		},
+		{
+			name:        "should return error for invalid transaction",
+			input:       "deadbeef",
+			expectError: true,
+			description: "Valid hex but invalid transaction should return error",
+		},
+		{
+			name: "should extract transaction ID from valid transaction hex",
+			// This is a valid coinbase transaction (genesis block style)
+			input:       "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08044c86041b020602ffffffff0100f2052a010000004341041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84ac00000000",
+			expectError: false,
+			description: "Valid transaction hex should return transaction ID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := getTxId(tt.input)
+			
+			if tt.expectError {
+				require.Error(t, err, tt.description)
+			} else {
+				require.NoError(t, err, tt.description)
+				if tt.input == "" {
+					require.Empty(t, result)
+				} else if !tt.expectError {
+					require.NotEmpty(t, result)
+					// TxID should be a valid hex string of 64 characters
+					require.Len(t, result, 64)
+				}
 			}
 		})
 	}
