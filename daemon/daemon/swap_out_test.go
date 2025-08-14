@@ -411,6 +411,7 @@ func TestSwapMonitor_MonitorSwapOut_StatusDone_Outcomes(t *testing.T) {
 						require.Equal(t, tt.expectedOnchain, swap.OnchainFeeSats)
 						require.Equal(t, tt.outcome, *swap.Outcome)
 						require.Equal(t, models.StatusDone, swap.Status)
+
 						return nil
 					})
 				}
@@ -422,6 +423,7 @@ func TestSwapMonitor_MonitorSwapOut_StatusDone_Outcomes(t *testing.T) {
 					require.Equal(t, tt.expectedOnchain, swap.OnchainFeeSats)
 					require.Equal(t, tt.outcome, *swap.Outcome)
 					require.Equal(t, models.StatusDone, swap.Status)
+
 					return nil
 				})
 			}
