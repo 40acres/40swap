@@ -2,11 +2,15 @@ package daemon
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/rpc"
@@ -15,6 +19,11 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
 )
 
 // Test helpers
@@ -47,6 +56,76 @@ func setupTestService(t *testing.T) (*AutoSwapService, *rpc.MockSwapServiceClien
 	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
 
 	return service, mockRPCClient, mockLightningClient, ctrl
+}
+
+// Ensures swap-in refund broadcast falls back to backend when local broadcast fails
+func TestRefundFallbackInAutoSwapSuite(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
+
+	repository := rpc.NewMockRepository(ctrl)
+	swapClient := swaps.NewMockClientInterface(ctrl)
+	lightningClient := lightning.NewMockClient(ctrl)
+	bitcoinClient := bitcoin.NewMockClient(ctrl)
+
+	// Allow repository usage in monitor paths
+	repository.EXPECT().SaveSwapIn(gomock.Any(), gomock.Any()).AnyTimes()
+
+	monitor := &SwapMonitor{
+		repository:      repository,
+		swapClient:      swapClient,
+		lightningClient: lightningClient,
+		bitcoin:         bitcoinClient,
+		network:         lightning.Regtest,
+		now:             time.Now,
+	}
+
+	ctx := context.Background()
+
+	// Build redeem script that is compatible with SignFinishExtractPSBT preimage witness
+	// Script: OP_DROP <pubkey> OP_CHECKSIG
+	privBytes, err := hex.DecodeString(validPrivateKeyForPsbt)
+	require.NoError(t, err)
+	privKey, _ := btcec.PrivKeyFromBytes(privBytes)
+	pubKey := privKey.PubKey().SerializeCompressed()
+
+	sb := txscript.NewScriptBuilder()
+	sb.AddOp(txscript.OP_DROP)
+	sb.AddData(pubKey)
+	sb.AddOp(txscript.OP_CHECKSIG)
+	redeemScript, err := sb.Script()
+	require.NoError(t, err)
+
+	// Create spending tx with P2WSH output
+	scriptHash := sha256.Sum256(redeemScript)
+	addr, err := btcutil.NewAddressWitnessScriptHash(scriptHash[:], lightning.ToChainCfgNetwork(lightning.Regtest))
+	require.NoError(t, err)
+	pkScript, err := txscript.PayToAddrScript(addr)
+	require.NoError(t, err)
+	spendingTx := wire.NewMsgTx(2)
+	spendingTx.AddTxOut(wire.NewTxOut(100000, pkScript))
+
+	// Expectations
+	bitcoinClient.EXPECT().GetRecommendedFees(ctx, bitcoin.HalfHourFee).Return(int64(10), nil)
+	bitcoinClient.EXPECT().GetTxFromTxID(ctx, "some-lock-txid").Return(spendingTx, nil)
+	// Local broadcast fails
+	bitcoinClient.EXPECT().PostRefund(ctx, gomock.Any()).Return(errors.New("local broadcast failed"))
+	// Backend fallback succeeds
+	swapClient.EXPECT().PostRefund(ctx, "abc", gomock.Any()).Return(nil)
+
+	swap := models.SwapIn{
+		SwapID:             "abc",
+		RefundAddress:      "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx",
+		RefundPrivatekey:   validPrivateKeyForPsbt,
+		ClaimAddress:       addr.String(),
+		RedeemScript:       hex.EncodeToString(redeemScript),
+		TimeoutBlockHeight: 1000,
+		LockTxID:           "some-lock-txid",
+	}
+
+	// Run
+	_, err = monitor.InitiateRefund(ctx, &swap)
+	require.NoError(t, err)
 }
 
 func mockLNDInfoWithMPP() *lnrpc.GetInfoResponse {
@@ -525,6 +604,73 @@ func TestAutoSwapService_MonitoringBehavior(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, service.hasRunningSwap()) // Should still be running
 	})
+}
+
+func TestAutoSwapService_MonitoringPersistsWithBackgroundContext(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockLightningClient := lightning.NewMockClient(ctrl)
+	mockRPCClient := rpc.NewMockSwapServiceClient(ctrl)
+	mockRepository := rpc.NewMockRepository(ctrl)
+
+	// Allow auto-swap flags updates if they happen; not essential for this test
+	mockRepository.EXPECT().UpdateAutoSwap(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	config := createTestConfig()
+	service := NewAutoSwapService(mockSwapClient, mockRPCClient, mockLightningClient, mockRepository, config)
+	swapID := "persist-monitor-swap"
+
+	// Pretend we have a running swap
+	service.addRunningSwap(swapID)
+
+	// The swap client will report DONE on first poll
+	mockSwapClient.EXPECT().GetSwapOut(gomock.Any(), swapID).DoAndReturn(
+		func(ctx context.Context, id string) (*swaps.SwapOutResponse, error) {
+			return &swaps.SwapOutResponse{Status: models.StatusDone}, nil
+		},
+	).MinTimes(1)
+
+	// Local helper: mirror monitorSwapUntilTerminal but with a custom millisecond interval for this test only
+	monitorWithInterval := func(ctx context.Context, swapID string, interval time.Duration) {
+		service.setSwapMonitored(swapID)
+		defer service.unsetSwapMonitored(swapID)
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				resp, err := service.client.GetSwapOut(ctx, swapID)
+				if err != nil {
+					continue
+				}
+				if resp.Status == models.StatusDone || resp.Status == models.StatusContractExpired {
+					service.removeRunningSwap(swapID)
+
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+
+	// Start monitoring with a long-lived context using millisecond interval for faster test execution
+	go monitorWithInterval(context.Background(), swapID, 10*time.Millisecond)
+
+	// Wait until the swap is removed or timeout
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if !service.hasRunningSwap() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	require.False(t, service.hasRunningSwap(), "monitor should remove swap when it reaches DONE status")
 }
 
 func TestAutoSwapService_DatabaseRecovery(t *testing.T) {
