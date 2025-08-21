@@ -129,7 +129,9 @@ program
     .command('create-address')
     .description('Create new deposit address on Bitfinex')
     .option('-w, --wallet <string>', 'Wallet type (default: exchange)', 'exchange')
-    .option('-m, --method <string>', 'Deposit method (default: LNX)', 'LNX')
+    // For more methods info: https://api-pub.bitfinex.com//v2/conf/pub:map:tx:method
+    // https://docs.bitfinex.com/reference/rest-auth-deposit-address
+    .option('-m, --method <string>', 'Deposit method (default: BTC)', 'BTC')
     .action(async (cmdOptions) => {
         try {
             console.log('💼 Creating new deposit address');
@@ -269,8 +271,8 @@ program
 program
     .command('exchange')
     .description('Convert one currency to another using wallet transfers')
-    .requiredOption('-f, --from <string>', 'Currency to convert from (e.g., BTC)')
-    .requiredOption('-t, --to <string>', 'Currency to convert to (e.g., LBTC)')
+    .requiredOption('-f, --from <string>', 'Currency to convert from (e.g., BTC, LBT, LNX)')
+    .requiredOption('-t, --to <string>', 'Currency to convert to (e.g., BTC, LBT, LNX)')
     .requiredOption('-a, --amount <number>', 'Amount to convert')
     .option('-o, --origin <string>', 'Source wallet type (default: exchange)', 'exchange')
     .option('-d, --destination <string>', 'Destination wallet type (default: exchange)', 'exchange')
@@ -302,7 +304,7 @@ program
     .description('Withdraw funds from Bitfinex account to external wallet')
     .option('-a, --amount <number>', 'Amount to withdraw', '0.001')
     .requiredOption('-d, --destination <string>', 'Destination wallet address')
-    .option('-c, --currency <string>', 'Currency to withdraw (bitcoin, lbtc, LNX)', 'bitcoin')
+    .option('-c, --currency <string>', 'Currency to withdraw (BTC, LBT, LNX)', 'BTC')
     .option('-w, --wallet <string>', 'Source wallet type (exchange, margin, funding)', 'exchange')
     .option('-t, --tag <string>', 'Optional tag/memo for certain networks')
     .action(async (cmdOptions) => {
