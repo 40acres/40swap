@@ -88,6 +88,7 @@ export class BitfinexProvider extends SwapProvider {
             }
 
             // Step 2: Generate Lightning invoice
+            console.log('💫 Step 2: Generating Lightning invoice...');
             const invoiceResponse = await this.generateInvoice(amount.toString());
 
             // Extract invoice and txId from response
@@ -110,12 +111,12 @@ export class BitfinexProvider extends SwapProvider {
 
             console.log(`✅ Payment successful! Preimage: ${paymentResult.preimage}`);
 
-            // Step 4: Monitor the invoice until it's paid
-            console.log('👀 Step 4: Monitoring invoice status...');
-            const monitorResult = await this.monitorInvoice(txId, 20, 3000); // 20 retries, 3 seconds each
+            // Step 3: Monitor the invoice until it's paid
+            console.log('👀 Step 3: Monitoring invoice status...');
+            const monitorResult = await this.monitorInvoice(txId, 100, 10000); // 100 retries, 10 seconds each
 
             if (!monitorResult.success || monitorResult.finalState !== 'paid') {
-                console.log('❌ Step 7: Invoice was never marked as paid - swap failed');
+                console.log('❌ Invoice was never marked as paid - swap failed');
                 console.log(`📊 Final state: ${monitorResult.finalState || 'unknown'}`);
                 console.log(`🔄 Attempts made: ${monitorResult.attempts}`);
                 throw new Error(`Invoice monitoring failed. Final state: ${monitorResult.finalState}`);
@@ -123,13 +124,18 @@ export class BitfinexProvider extends SwapProvider {
 
             console.log(`✅ Invoice confirmed as paid! State: ${monitorResult.finalState}`);
 
-            // Step 5: Exchange BTC to LBTC
-            console.log('🔄 Step 5: Converting BTC to LBTC...');
-            await this.exchangeCurrency('BTC', 'LBTC', amount);
-            console.log('✅ Currency exchange submitted successfully');
+            // Step 4: Exchange LNX to BTC
+            console.log('🔄 Step 4: Converting LNX to BTC...');
+            await this.exchangeCurrency('LNX', 'BTC', amount);
+            console.log('✅ LNX to BTC conversion submitted successfully');
 
-            // Step 6: Withdraw LBTC to the requested address
-            console.log('💰 Step 6: Withdrawing LBTC to destination address...');
+            // Step 5: Exchange BTC to LBT (Liquid Bitcoin)
+            console.log('🔄 Step 5: Converting BTC to LBT...');
+            await this.exchangeCurrency('BTC', 'LBT', amount);
+            console.log('✅ BTC to LBT conversion submitted successfully');
+
+            // Step 6: Withdraw LBT to the requested address
+            console.log('💰 Step 6: Withdrawing LBT to destination address...');
             await this.withdraw(amount, liquidAddress, 'lbtc');
             console.log('✅ Withdrawal request submitted successfully');
 
