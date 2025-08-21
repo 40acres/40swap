@@ -77,12 +77,22 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
-		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
-		if err != nil {
-			return fmt.Errorf("failed to get fees: %w", err)
+
+		// Only calculate fees for successful swaps
+		// For refunded/failed/expired swaps, the payment never completed successfully
+		if newSwap.Outcome == models.OutcomeSuccess {
+			offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
+			if err != nil {
+				return fmt.Errorf("failed to get fees for successful swap: %w", err)
+			}
+			currentSwap.OffchainFeeSats = offchainFees
+			currentSwap.OnchainFeeSats = onchainFees
+		} else {
+			logger.Debugf("Swap outcome is %s, skipping fee calculation", newSwap.Outcome)
+			// For non-success outcomes, set fees to 0 or unknown
+			currentSwap.OffchainFeeSats = 0
+			currentSwap.OnchainFeeSats = 0
 		}
-		currentSwap.OffchainFeeSats = offchainFees
-		currentSwap.OnchainFeeSats = onchainFees
 	case models.StatusContractExpired:
 	case models.StatusContractRefundedUnconfirmed:
 		logger.Debug("contract refunded unconfirmed")
