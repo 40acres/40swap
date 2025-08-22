@@ -350,6 +350,46 @@ func AddContractFieldsToSwapOut() *gormigrate.Migration {
 	}
 }
 
+func RenameOnchainFeeSatsAndAddCreatedAndUpdatedAt() *gormigrate.Migration {
+	const ID = "11_rename_onchain_fee_sats_and_add_created_updated_at"
+
+	type swapIn struct {
+		OnChainFeeSATS uint64 `gorm:"column:on_chain_fee_sats"`
+	}
+
+	type swapOut struct {
+		OnChainFeeSATS uint64    `gorm:"column:on_chain_fee_sats"`
+		CreatedAt      time.Time `gorm:"autoCreateTime"`
+		UpdatedAt      time.Time `gorm:"autoUpdateTime"`
+	}
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Migrator().AddColumn(&swapOut{}, "CreatedAt"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().AddColumn(&swapOut{}, "UpdatedAt"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().RenameColumn(&swapIn{}, "on_chain_fee_sats", "onchain_fee_sats")
+		},
+		Rollback: func(tx *gorm.DB) error {
+			if err := tx.Migrator().RenameColumn(&swapIn{}, "onchain_fee_sats", "on_chain_fee_sats"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().DropColumn(&swapOut{}, "UpdatedAt"); err != nil {
+				return err
+			}
+
+			return tx.Migrator().DropColumn(&swapOut{}, "CreatedAt")
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
@@ -361,6 +401,7 @@ var migrations = []*gormigrate.Migration{
 	AddLockTxIdToSwapIn(),
 	AddIsAutoSwapToSwapOut(),
 	AddContractFieldsToSwapOut(),
+	RenameOnchainFeeSatsAndAddCreatedAndUpdatedAt(),
 }
 
 type Migrator struct {
