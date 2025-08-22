@@ -77,12 +77,22 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
-		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
-		if err != nil {
-			return fmt.Errorf("failed to get fees: %w", err)
+
+		// Only calculate fees for successful swaps
+		// For refunded/failed/expired swaps, the payment never completed successfully
+		if newSwap.Outcome == models.OutcomeSuccess {
+			offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
+			if err != nil {
+				return fmt.Errorf("failed to get fees for successful swap: %w", err)
+			}
+			currentSwap.OffchainFeeSats = offchainFees
+			currentSwap.OnchainFeeSats = onchainFees
+		} else {
+			logger.Debugf("Swap outcome is %s, skipping fee calculation", newSwap.Outcome)
+			// For non-success outcomes, set fees to 0 or unknown
+			currentSwap.OffchainFeeSats = 0
+			currentSwap.OnchainFeeSats = 0
 		}
-		currentSwap.OffchainFeeSats = offchainFees
-		currentSwap.OnchainFeeSats = onchainFees
 	case models.StatusContractExpired:
 	case models.StatusContractRefundedUnconfirmed:
 		logger.Debug("contract refunded unconfirmed")
@@ -133,15 +143,36 @@ func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (s
 		return "", fmt.Errorf("failed to build claim PSBT: %w", err)
 	}
 
-	// Sign and broadcast the PSBT
-	txID, err := psbtBuilder.SignAndBroadcastPSBT(ctx, pkt, swap.ClaimPrivateKey, swap.PreImage, logger)
+	// Sign and broadcast the PSBT (local first, then backend fallback)
+	claimKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign and broadcast claim transaction: %w", err)
+		return "", fmt.Errorf("failed to decode claim private key: %w", err)
 	}
 
-	logger.Info("Successfully built and broadcast claim transaction locally")
+	signedTx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, claimKey, swap.PreImage, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign PSBT: %w", err)
+	}
 
-	return txID, nil
+	serializedTx, err := bitcoin.SerializeTx(signedTx)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize transaction: %w", err)
+	}
+
+	// Try local broadcast first
+	logger.Debug("Broadcasting claim transaction directly to bitcoin network")
+	if err := m.bitcoin.PostRefund(ctx, serializedTx); err != nil {
+		logger.WithError(err).Warn("Local claim broadcast failed, falling back to backend")
+
+		// Fallback: broadcast via backend API
+		if backendErr := m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx); backendErr != nil {
+			return "", fmt.Errorf("failed to broadcast claim locally (%w) and via backend (%w)", err, backendErr)
+		}
+	}
+
+	logger.Info("Successfully built and broadcast claim transaction")
+
+	return signedTx.TxID(), nil
 }
 
 func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) (int64, int64, error) {

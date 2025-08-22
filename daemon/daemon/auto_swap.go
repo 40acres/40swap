@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/money"
 	"github.com/40acres/40swap/daemon/rpc"
@@ -66,8 +67,8 @@ func (s *AutoSwapService) RecoverPendingAutoSwaps(ctx context.Context) error {
 		log.Infof("[AutoSwap] Recovering auto swap: %s", swap.SwapID)
 		s.addRunningSwap(swap.SwapID)
 
-		// Start monitoring this swap in the background
-		go s.monitorSwapUntilTerminal(ctx, swap.SwapID)
+		// Start monitoring this swap in the background with a long-lived context
+		go s.monitorSwapUntilTerminal(context.Background(), swap.SwapID)
 	}
 
 	if len(pendingAutoSwaps) > 0 {
@@ -136,18 +137,19 @@ func (s *AutoSwapService) unsetSwapMonitored(swapID string) {
 func (s *AutoSwapService) monitorSwapUntilTerminal(ctx context.Context, swapID string) {
 	s.setSwapMonitored(swapID)
 	defer s.unsetSwapMonitored(swapID)
-	ticker := time.NewTicker(time.Minute)
+	// Use the configured check interval for monitoring
+	ticker := time.NewTicker(s.config.GetCheckInterval())
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			resp, err := s.rpcClient.GetSwapOut(ctx, &rpc.GetSwapOutRequest{Id: swapID})
+			resp, err := s.client.GetSwapOut(ctx, swapID)
 			if err != nil {
 				log.Errorf("[AutoSwap] Error polling swap %s: %v", swapID, err)
 
 				continue
 			}
-			if resp.Status == rpc.Status_DONE || resp.Status == rpc.Status_CONTRACT_EXPIRED {
+			if resp.Status == models.StatusDone || resp.Status == models.StatusContractExpired {
 				s.removeRunningSwap(swapID)
 				log.Infof("[AutoSwap] Swap %s removed from running list after reaching terminal state (%v)", swapID, resp.Status)
 
@@ -179,7 +181,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		s.runningSwapsMu.Unlock()
 		for _, swapID := range swapsToMonitor {
 			if !s.isSwapBeingMonitored(swapID) {
-				go s.monitorSwapUntilTerminal(ctx, swapID)
+				go s.monitorSwapUntilTerminal(context.Background(), swapID)
 			}
 		}
 
@@ -192,7 +194,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 		log.Warnf("[AutoSwap] Could not fetch LND node info to check MPP support: %v", err)
 	}
 	mppSupported := false
-	if info.Features != nil {
+	if info != nil && info.Features != nil {
 		for _, feature := range info.Features {
 			if feature.Name == "multi-path-payments" && feature.IsKnown {
 				mppSupported = true
@@ -278,7 +280,7 @@ func (s *AutoSwapService) RunAutoSwapCheck(ctx context.Context) error {
 			}
 
 			log.Infof("[AutoSwap] Auto swap out completed successfully for swap: %v, now processing swap:", swap.SwapId)
-			go s.monitorSwapUntilTerminal(ctx, swap.SwapId)
+			go s.monitorSwapUntilTerminal(context.Background(), swap.SwapId)
 
 			return nil // Success, exit
 		}
