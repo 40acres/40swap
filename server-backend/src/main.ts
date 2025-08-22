@@ -25,7 +25,7 @@ async function bootstrap(): Promise<void> {
 }
 
 function getLogLevels(environment?: string): LogLevel[] {
-    if (environment === 'development' || environment === 'dev' || process.env.NODE_ENV === 'development') {
+    if (environment === 'development' || process.env.NODE_ENV === 'development') {
         logger.log('Log level set to development');
         return ['log', 'error', 'warn', 'debug', 'verbose', 'fatal'];
     }
