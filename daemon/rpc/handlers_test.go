@@ -242,27 +242,28 @@ func TestStatus_SwapIn(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockRepositoryClient := NewMockRepository(ctrl)
 
 	ctx := context.Background()
 	req := &GetSwapInRequest{
 		Id: "swap-in-id",
 	}
 
-	mockSwapClient.EXPECT().GetSwapIn(ctx, "swap-in-id").Return(&swaps.SwapInResponse{
-		SwapId:             "swap-in-id",
+	mockRepositoryClient.EXPECT().GetSwapIn(ctx, "swap-in-id").Return(&models.SwapIn{
+		SwapID:             "swap-in-id",
 		Status:             models.StatusCreated,
-		ContractAddress:    "dummy-contract-address",
+		ClaimAddress:       "dummy-contract-address",
 		CreatedAt:          time.Now(),
-		InputAmount:        decimal.NewFromFloat(100),
-		LockTx:             nil,
-		Outcome:            "dummy-outcome",
-		OutputAmount:       decimal.NewFromFloat(90),
+		AmountSats:         1300000,
+		OnchainFeeSats:     33,
+		ServiceFeeSats:     6500,
+		LockTxID:           "",
+		Outcome:            nil,
 		RedeemScript:       "dummy-redeem-script",
 		TimeoutBlockHeight: 12345,
 	}, nil)
 
-	server := NewRPCServer(8080, nil, mockSwapClient, nil, nil, 1000, Network_REGTEST)
+	server := NewRPCServer(8080, mockRepositoryClient, nil, nil, nil, 1000, Network_REGTEST)
 
 	res, err := server.GetSwapIn(ctx, req)
 	require.NoError(t, err)
@@ -271,9 +272,9 @@ func TestStatus_SwapIn(t *testing.T) {
 	require.Equal(t, Status_CREATED, res.Status)
 	require.Equal(t, "dummy-contract-address", res.ContractAddress)
 	require.NotZero(t, res.CreatedAt)
-	require.Equal(t, 100.0, res.InputAmount)
-	require.Equal(t, "dummy-outcome", *res.Outcome)
-	require.Equal(t, 90.0, res.OutputAmount)
+	require.Equal(t, 0.01306533, res.InputAmount)
+	require.Nil(t, res.Outcome)
+	require.Equal(t, 0.013, res.OutputAmount)
 	require.Equal(t, "dummy-redeem-script", res.RedeemScript)
 	require.Equal(t, uint32(12345), res.TimeoutBlockHeight)
 }
@@ -282,9 +283,9 @@ func TestStatus_SwapOut(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSwapClient := swaps.NewMockClientInterface(ctrl)
+	mockRepositoryClient := NewMockRepository(ctrl)
 	server := &Server{
-		swapClient: mockSwapClient,
+		Repository: mockRepositoryClient,
 	}
 
 	ctx := context.Background()
@@ -292,13 +293,13 @@ func TestStatus_SwapOut(t *testing.T) {
 		Id: "swap-out-id",
 	}
 
-	mockSwapClient.EXPECT().GetSwapOut(ctx, "swap-out-id").Return(&swaps.SwapOutResponse{
-		SwapId:             "swap-out-id",
+	mockRepositoryClient.EXPECT().GetSwapOut(ctx, "swap-out-id").Return(&models.SwapOut{
+		SwapID:             "swap-out-id",
 		Status:             models.StatusCreated,
 		TimeoutBlockHeight: 12345,
-		Invoice:            "dummy-invoice",
-		InputAmount:        decimal.NewFromInt(1000),
-		OutputAmount:       decimal.NewFromInt(900),
+		PaymentRequest:     "dummy-invoice",
+		AmountSats:         200000,
+		ServiceFeeSats:     1000,
 		CreatedAt:          time.Now(),
 	}, nil)
 
@@ -309,8 +310,8 @@ func TestStatus_SwapOut(t *testing.T) {
 	require.Equal(t, Status_CREATED, res.Status)
 	require.Equal(t, uint32(12345), res.TimeoutBlockHeight)
 	require.Equal(t, "dummy-invoice", res.Invoice)
-	require.Equal(t, 1000.0, res.InputAmount)
-	require.Equal(t, 900.0, res.OutputAmount)
+	require.Equal(t, 0.002, res.InputAmount)
+	require.Equal(t, 0.00199, res.OutputAmount)
 	require.NotZero(t, res.CreatedAt)
 }
 
