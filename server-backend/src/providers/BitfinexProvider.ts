@@ -1,6 +1,7 @@
 import { SwapProvider } from './SwapProvider.js';
 import { LndService } from '../LndService.js';
 import * as crypto from 'crypto';
+import { LiquidService } from '../LiquidService.js';
 
 type BitfinexMethod = 'bitcoin' | 'LNX' | 'lbtc';
 type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
@@ -12,16 +13,19 @@ type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
 export class BitfinexProvider extends SwapProvider {
     private baseUrl = 'https://api.bitfinex.com';
     private lndService: LndService;
+    private elements: LiquidService;
 
     /**
      * Creates a new BitfinexProvider instance.
      * @param key - Bitfinex API key
      * @param secret - Bitfinex API secret
      * @param lndService - Optional LND service for Lightning Network operations
+     * @param elements - Optional Elements service for Liquid operations
      */
-    constructor(key: string, secret: string, lndService: LndService) {
+    constructor(key: string, secret: string, lndService: LndService, elements: LiquidService) {
         super('Bitfinex', key, secret);
         this.lndService = lndService;
+        this.elements = elements;
     }
 
     /**
@@ -70,7 +74,7 @@ export class BitfinexProvider extends SwapProvider {
      * @param amount - Amount to swap in BTC
      * @param liquidAddress - Destination Liquid wallet address
      */
-    async swap(amount: number, liquidAddress: string): Promise<void> {
+    async swap(amount: number, liquidAddress?: string): Promise<void> {
         console.log(`🔄 Starting complete swap: ${amount} BTC → Lightning → Liquid`);
 
         try {
@@ -136,6 +140,10 @@ export class BitfinexProvider extends SwapProvider {
 
             // Step 6: Withdraw LBT to the requested address
             console.log('💰 Step 6: Withdrawing LBT to destination address...');
+            if (!liquidAddress) {
+                console.log('❌ Liquid destination address not passed, getting one from Elements');
+                liquidAddress = await this.elements.getNewAddress();
+            }
             await this.withdraw(amount, liquidAddress, 'lbtc');
             console.log('✅ Withdrawal request submitted successfully');
 

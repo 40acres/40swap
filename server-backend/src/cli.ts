@@ -7,10 +7,12 @@
 
 import { Command } from 'commander';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './AppModule.js';
+import { CLIModule } from './CLIModule.js';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
 import { LndService } from './LndService.js';
+import { LiquidService } from './LiquidService.js';
 import { INestApplicationContext } from '@nestjs/common';
+import configuration from './configuration.js';
 
 const program = new Command();
 
@@ -19,8 +21,44 @@ let app: INestApplicationContext;
 
 program.name('cli').description('40swap backend CLI').version('1.0.0');
 
-program.requiredOption('-k, --id-key <string>', 'Bitfinex API ID Key');
-program.requiredOption('-s, --secret-key <string>', 'Bitfinex API Secret');
+program.option('-k, --id-key <string>', 'Bitfinex API ID Key (got from env vars if not passed)');
+program.option('-s, --secret-key <string>', 'Bitfinex API Secret (got from env vars if not passed)');
+
+/**
+ * Gets Bitfinex credentials from configuration file or CLI options.
+ * Throws an error if credentials are not available from either source.
+ */
+function getBitfinexCredentials(): { apiKey: string; apiSecret: string } {
+    const globalOptions = program.opts();
+    
+    // Try to get credentials from CLI options first
+    if (globalOptions.idKey && globalOptions.secretKey) {
+        return {
+            apiKey: globalOptions.idKey,
+            apiSecret: globalOptions.secretKey,
+        };
+    }
+    
+    // If not provided via CLI, try to get from configuration
+    try {
+        const config = configuration();
+        if (config.bitfinex?.apiKey && config.bitfinex?.apiSecret) {
+            return {
+                apiKey: config.bitfinex.apiKey,
+                apiSecret: config.bitfinex.apiSecret,
+            };
+        }
+    } catch (error) {
+        // Configuration loading failed, continue to error below
+    }
+    
+    // Neither CLI options nor configuration provided the credentials
+    throw new Error(
+        '❌ Bitfinex API credentials not found. Please provide them either:\n' +
+        '   • As CLI options: --id-key <key> --secret-key <secret>\n' +
+        '   • In configuration file under bitfinex.apiKey and bitfinex.apiSecret'
+    );
+}
 
 /**
  * Initializes the NestJS application context for dependency injection.
@@ -29,7 +67,7 @@ program.requiredOption('-s, --secret-key <string>', 'Bitfinex API Secret');
 async function initializeApp(): Promise<INestApplicationContext> {
     if (!app) {
         console.log('🔧 Initializing NestJS application context...');
-        app = await NestFactory.createApplicationContext(AppModule, {
+        app = await NestFactory.createApplicationContext(CLIModule, {
             logger: false, // Disable NestJS logs for CLI
         });
         console.log('✅ Application context initialized');
@@ -40,6 +78,7 @@ async function initializeApp(): Promise<INestApplicationContext> {
 /**
  * Gets an LndService instance from the NestJS container.
  * This ensures we use the same configuration as the main application.
+ * @returns LndService instance
  */
 async function getLndService(): Promise<LndService> {
     const appContext = await initializeApp();
@@ -47,14 +86,25 @@ async function getLndService(): Promise<LndService> {
 }
 
 /**
- * Creates a BitfinexProvider instance with global options and LndService from NestJS container.
+ * Gets a LiquidService instance from the NestJS container.
+ * This ensures we use the same configuration as the main application.
+ * @returns LiquidService instance
+ */
+async function getElementsService(): Promise<LiquidService> {
+    const appContext = await initializeApp();
+    return appContext.get(LiquidService);
+}
+
+/**
+ * Creates a BitfinexProvider instance with credentials from configuration or CLI options.
  * This centralizes the provider initialization logic.
  */
 async function getBitfinexProvider(): Promise<BitfinexProvider> {
-    const globalOptions = program.opts();
+    const credentials = getBitfinexCredentials();
     console.log('🔧 Getting LND service from application context...');
     const lndService = await getLndService();
-    return new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+    const elements = await getElementsService();
+    return new BitfinexProvider(credentials.apiKey, credentials.apiSecret, lndService, elements);
 }
 
 /**
@@ -75,7 +125,7 @@ program
     .command('swap')
     .description('Execute complete swap: Lightning → Liquid')
     .requiredOption('-a, --amount <number>', 'Amount to swap')
-    .requiredOption('-d, --destination <string>', 'Liquid destination wallet address')
+    .option('-d, --destination <string>', 'Liquid destination wallet address')
     .action(async (cmdOptions) => {
         try {
             console.log('🔄 Swap command executed');
