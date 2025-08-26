@@ -11,7 +11,7 @@ type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
  */
 export class BitfinexProvider extends SwapProvider {
     private baseUrl = 'https://api.bitfinex.com';
-    private lndService?: LndService;
+    private lndService: LndService;
 
     /**
      * Creates a new BitfinexProvider instance.
@@ -19,7 +19,7 @@ export class BitfinexProvider extends SwapProvider {
      * @param secret - Bitfinex API secret
      * @param lndService - Optional LND service for Lightning Network operations
      */
-    constructor(key: string, secret: string, lndService?: LndService) {
+    constructor(key: string, secret: string, lndService: LndService) {
         super('Bitfinex', key, secret);
         this.lndService = lndService;
     }
@@ -220,13 +220,13 @@ export class BitfinexProvider extends SwapProvider {
     /**
      * Pays a Lightning Network invoice using the configured LND service.
      * @param invoice - Lightning invoice payment request string
-     * @param cltvLimit - CLTV limit for the payment (default: 40)
+     * @param cltvLimit - CLTV limit for the payment (default: 0)
      * @param options - Additional payment options (timeout, maxFeePercent)
      * @returns Promise resolving to payment result with success status and preimage
      */
     async payInvoice(
         invoice: string,
-        cltvLimit: number = 40,
+        cltvLimit: number = 0,
         options: {
             timeout?: number;
             maxFeePercent?: number;

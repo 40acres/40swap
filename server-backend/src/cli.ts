@@ -47,6 +47,17 @@ async function getLndService(): Promise<LndService> {
 }
 
 /**
+ * Creates a BitfinexProvider instance with global options and LndService from NestJS container.
+ * This centralizes the provider initialization logic.
+ */
+async function getBitfinexProvider(): Promise<BitfinexProvider> {
+    const globalOptions = program.opts();
+    console.log('🔧 Getting LND service from application context...');
+    const lndService = await getLndService();
+    return new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+}
+
+/**
  * Cleanup function to close the NestJS application context.
  */
 async function cleanup(): Promise<void> {
@@ -63,19 +74,12 @@ process.on('exit', cleanup);
 program
     .command('swap')
     .description('Execute complete swap: Lightning → Liquid')
-    .option('-a, --amount <number>', 'Amount to swap', '0.001')
+    .requiredOption('-a, --amount <number>', 'Amount to swap')
     .requiredOption('-d, --destination <string>', 'Liquid destination wallet address')
     .action(async (cmdOptions) => {
         try {
             console.log('🔄 Swap command executed');
-            const globalOptions = program.opts();
-
-            // Get LndService from NestJS container
-            console.log('🔧 Getting LND service from application context...');
-            const lndService = await getLndService();
-
-            // Create BitfinexProvider with dependency-injected LndService
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+            const provider = await getBitfinexProvider();
             await provider.swap(parseFloat(cmdOptions.amount), cmdOptions.destination);
             console.log('🎉 Complete swap operation finished successfully!');
         } catch (error) {
@@ -92,8 +96,7 @@ program
     .action(async () => {
         try {
             console.log('💼 Getting wallet information');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
             const result = await provider.getWallets();
             console.log('👀 Wallets:', JSON.stringify(result, null, 2));
         } catch (error) {
@@ -113,8 +116,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('💼 Getting deposit addresses');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
             const result = await provider.getDepositAddresses(cmdOptions.method, cmdOptions.page, cmdOptions.pageSize);
             console.log('👀 Deposit Addresses:', JSON.stringify(result, null, 2));
         } catch (error) {
@@ -135,8 +137,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('💼 Creating new deposit address');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
             const result = await provider.createDepositAddress(cmdOptions.wallet, cmdOptions.method);
             console.log('👀 Deposit Address Created:', JSON.stringify(result, null, 2));
         } catch (error) {
@@ -154,8 +155,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('💼 Creating new Lightning invoice');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
             const result = await provider.generateInvoice(cmdOptions.amount);
             console.log('👀 Lightning Invoice Created:', JSON.stringify(result, null, 2));
         } catch (error) {
@@ -179,8 +179,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('⚡ Getting Lightning invoices/payments');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
 
             // Construct the query object
             const query: { offset?: number; txid?: string } = {};
@@ -213,14 +212,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('⚡ Paying Lightning invoice using LND');
-            const globalOptions = program.opts();
-
-            // Get LndService from NestJS container
-            console.log('🔧 Getting LND service from application context...');
-            const lndService = await getLndService();
-
-            // Create BitfinexProvider with dependency-injected LndService
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey, lndService);
+            const provider = await getBitfinexProvider();
             const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
 
             if (result.success) {
@@ -247,8 +239,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('👁️ Starting invoice monitoring');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
 
             const result = await provider.monitorInvoice(cmdOptions.txid, parseInt(cmdOptions.maxRetries), parseInt(cmdOptions.interval));
 
@@ -279,8 +270,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('🔄 Executing currency conversion');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
 
             const result = await provider.exchangeCurrency(
                 cmdOptions.from.toUpperCase(),
@@ -310,8 +300,7 @@ program
     .action(async (cmdOptions) => {
         try {
             console.log('💰 Withdraw command executed');
-            const globalOptions = program.opts();
-            const provider = new BitfinexProvider(globalOptions.idKey, globalOptions.secretKey);
+            const provider = await getBitfinexProvider();
 
             const result = await provider.withdraw(
                 parseFloat(cmdOptions.amount),
