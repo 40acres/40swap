@@ -66,6 +66,12 @@ export const configSchema = z.object({
             esploraUrl: z.string().url(),
         })
         .optional(),
+    bitfinex: z
+        .object({
+            apiKey: z.string(),
+            apiSecret: z.string(),
+        })
+        .optional(),
 });
 
 export type FortySwapConfiguration = z.infer<typeof configSchema>;
