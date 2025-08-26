@@ -8,6 +8,7 @@
         "build:loop-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/loop src/loop/loop.client.proto",
         "build:lnd-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/lnd src/lnd/lnd.client.proto",
         "build:protos": "npm run build:lnd-proto && npm run build:loop-proto",
+        "cli": "node --loader ts-node/esm src/cli.ts",
         "start": "node dist/main.js",
         "start:dev": "nest start --watch",
         "start:debug": "nest start --debug --watch",
@@ -36,6 +37,7 @@
         "bip32": "^5.0.0-rc.0",
         "bitcoinjs-lib": "6.1.6",
         "bolt11": "^1.4.1",
+        "commander": "^14.0.0",
         "decimal.js": "^10.4.3",
         "ecpair": "2.1.0",
         "js-yaml": "^4.1.0",
@@ -53,6 +55,7 @@
     "devDependencies": {
         "@nestjs/cli": "^10.4.2",
         "@nestjs/schematics": "^10.1.3",
+        "@types/commander": "^2.12.5",
         "@types/express": "^4.17.21",
         "@types/jest": "^29.5.14",
         "@types/js-yaml": "^4.0.9",
