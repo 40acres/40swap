@@ -369,4 +369,5 @@ program
         }
     });
 
-program.parseAsync();
+// @ts-ignore
+await program.parseAsync();
