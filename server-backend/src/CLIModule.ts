@@ -38,13 +38,13 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     providers: [
         // NBXplorer service - required by LiquidService
         NbxplorerService,
-        
+
         // LND Service
         LndService,
-        
+
         // Liquid Service
         LiquidService,
-        
+
         // LND Lightning client provider
         {
             inject: [ConfigService],
@@ -64,7 +64,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
             },
             provide: 'lnd-lightning',
         },
-        
+
         // LND Invoices client provider
         {
             inject: [ConfigService],
@@ -84,7 +84,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
             },
             provide: 'lnd-invoices',
         },
-        
+
         // Elements configuration provider
         {
             inject: [ConfigService],

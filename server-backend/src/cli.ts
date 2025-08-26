@@ -30,7 +30,7 @@ program.option('-s, --secret-key <string>', 'Bitfinex API Secret (got from env v
  */
 function getBitfinexCredentials(): { apiKey: string; apiSecret: string } {
     const globalOptions = program.opts();
-    
+
     // Try to get credentials from CLI options first
     if (globalOptions.idKey && globalOptions.secretKey) {
         return {
@@ -38,7 +38,7 @@ function getBitfinexCredentials(): { apiKey: string; apiSecret: string } {
             apiSecret: globalOptions.secretKey,
         };
     }
-    
+
     // If not provided via CLI, try to get from configuration
     try {
         const config = configuration();
@@ -51,12 +51,12 @@ function getBitfinexCredentials(): { apiKey: string; apiSecret: string } {
     } catch (error) {
         // Configuration loading failed, continue to error below
     }
-    
+
     // Neither CLI options nor configuration provided the credentials
     throw new Error(
         '❌ Bitfinex API credentials not found. Please provide them either:\n' +
-        '   • As CLI options: --id-key <key> --secret-key <secret>\n' +
-        '   • In configuration file under bitfinex.apiKey and bitfinex.apiSecret'
+            '   • As CLI options: --id-key <key> --secret-key <secret>\n' +
+            '   • In configuration file under bitfinex.apiKey and bitfinex.apiSecret',
     );
 }
 

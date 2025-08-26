@@ -27,12 +27,7 @@ export class BitfinexProvider extends SwapProvider {
      * @param maxRetries - Maximum number of retries for API calls (default: 5)
      * @param retryInterval - Interval between retries in milliseconds (default: 5000)
      */
-    constructor(
-        key: string, 
-        secret: string, 
-        lndService: LndService, 
-        elements: LiquidService,
-    ) {
+    constructor(key: string, secret: string, lndService: LndService, elements: LiquidService) {
         super('Bitfinex', key, secret);
         this.lndService = lndService;
         this.elements = elements;
@@ -78,17 +73,17 @@ export class BitfinexProvider extends SwapProvider {
      */
     private async withRetry<T>(apiCall: () => Promise<T>, operation: string): Promise<T> {
         let lastError: Error | null = null;
-        
+
         for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
             try {
                 return await apiCall();
             } catch (error) {
                 lastError = error as Error;
-                
+
                 if (this.isRetryableError(lastError) && attempt < this.maxRetries) {
                     console.log(`⚠️ ${operation} failed (attempt ${attempt}/${this.maxRetries}): ${lastError.message}`);
                     console.log(`🔄 Retrying in ${this.retryInterval}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, this.retryInterval));
+                    await new Promise((resolve) => setTimeout(resolve, this.retryInterval));
                 } else {
                     // Not retryable error or max retries reached
                     break;
