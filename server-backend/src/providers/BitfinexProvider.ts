@@ -103,7 +103,7 @@ export class BitfinexProvider extends SwapProvider {
             }
 
             // Step 3: Pay the invoice using LND service
-            const paymentResult = await this.payInvoice(invoice, 120);
+            const paymentResult = await this.payInvoice(invoice, 0);
 
             if (!paymentResult.success) {
                 throw new Error(`Payment failed: ${paymentResult.error}`);
