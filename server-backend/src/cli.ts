@@ -8,7 +8,6 @@
 import { Command } from 'commander';
 import { NestFactory } from '@nestjs/core';
 import { CLIModule } from './CLIModule.js';
-import { AppModule } from './AppModule.js';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
 import { LndService } from './LndService.js';
 import { LiquidService } from './LiquidService.js';
