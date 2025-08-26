@@ -330,4 +330,5 @@ program
         }
     });
 
-program.parse();
+// @ts-ignore
+await program.parseAsync();
