@@ -8,6 +8,7 @@
 import { Command } from 'commander';
 import { NestFactory } from '@nestjs/core';
 import { CLIModule } from './CLIModule.js';
+import { AppModule } from './AppModule.js';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
 import { LndService } from './LndService.js';
 import { LiquidService } from './LiquidService.js';
@@ -80,8 +81,8 @@ async function initializeApp(): Promise<INestApplicationContext> {
  * This ensures we use the same configuration as the main application.
  * @returns LndService instance
  */
-async function getLndService(): Promise<LndService> {
-    const appContext = await initializeApp();
+async function getLndService(appContext: INestApplicationContext): Promise<LndService> {
+    console.log('🔧 Getting LND service from application context...');
     return appContext.get(LndService);
 }
 
@@ -90,8 +91,8 @@ async function getLndService(): Promise<LndService> {
  * This ensures we use the same configuration as the main application.
  * @returns LiquidService instance
  */
-async function getElementsService(): Promise<LiquidService> {
-    const appContext = await initializeApp();
+async function getElementsService(appContext: INestApplicationContext): Promise<LiquidService> {
+    console.log('🔧 Getting Elements service from application context...');
     return appContext.get(LiquidService);
 }
 
@@ -101,9 +102,9 @@ async function getElementsService(): Promise<LiquidService> {
  */
 async function getBitfinexProvider(): Promise<BitfinexProvider> {
     const credentials = getBitfinexCredentials();
-    console.log('🔧 Getting LND service from application context...');
-    const lndService = await getLndService();
-    const elements = await getElementsService();
+    const appContext = await initializeApp();
+    const lndService = await getLndService(appContext);
+    const elements = await getElementsService(appContext);
     return new BitfinexProvider(credentials.apiKey, credentials.apiSecret, lndService, elements);
 }
 

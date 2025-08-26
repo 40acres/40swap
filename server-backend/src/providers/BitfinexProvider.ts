@@ -141,8 +141,11 @@ export class BitfinexProvider extends SwapProvider {
             // Step 6: Withdraw LBT to the requested address
             console.log('💰 Step 6: Withdrawing LBT to destination address...');
             if (!liquidAddress) {
-                console.log('❌ Liquid destination address not passed, getting one from Elements');
-                liquidAddress = await this.elements.getNewAddress();
+                console.log('❌ Liquid destination address not provided, getting one from Elements');
+                liquidAddress = await this.elements?.getNewAddress();
+                console.log('📝 Using new liquid address: ', liquidAddress);
+            } else {
+                console.log('📝 Using provided liquid address: ', liquidAddress);
             }
             await this.withdraw(amount, liquidAddress, 'lbtc');
             console.log('✅ Withdrawal request submitted successfully');

@@ -10,14 +10,30 @@ import { ProtoGrpcType as InvoicesGrpcType } from './lnd/invoices.js';
 import { LndService } from './LndService.js';
 import { LiquidService } from './LiquidService.js';
 import { NbxplorerService } from './NbxplorerService.js';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
     imports: [
+        TypeOrmModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
+                const config = configService.getOrThrow('db', { infer: true });
+                return {
+                    ...config,
+                    type: 'postgres',
+                    entities: [dirname(fileURLToPath(import.meta.url)) + '/**/entities/*{.ts,.js}'],
+                    migrations: [dirname(fileURLToPath(import.meta.url)) + '/migrations/*{.ts,.js}'],
+                    logging: ['schema', 'migration', 'info'],
+                };
+            },
+        }),
         ConfigModule.forRoot({
             ignoreEnvFile: true,
             isGlobal: true,
             load: [configuration],
         }),
+        EventEmitterModule.forRoot(),
     ],
     providers: [
         // NBXplorer service - required by LiquidService
