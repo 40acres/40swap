@@ -12,6 +12,9 @@ type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
  */
 export class BitfinexProvider extends SwapProvider {
     private baseUrl = 'https://api.bitfinex.com';
+    // Together the retries are set to 1 minute of retrying
+    private maxRetries = 20; // Maximum number of retries for API calls
+    private retryInterval = 5000; // Interval between retries in milliseconds
     private lndService: LndService;
     private elements: LiquidService;
 
@@ -21,11 +24,80 @@ export class BitfinexProvider extends SwapProvider {
      * @param secret - Bitfinex API secret
      * @param lndService - Optional LND service for Lightning Network operations
      * @param elements - Optional Elements service for Liquid operations
+     * @param maxRetries - Maximum number of retries for API calls (default: 5)
+     * @param retryInterval - Interval between retries in milliseconds (default: 5000)
      */
-    constructor(key: string, secret: string, lndService: LndService, elements: LiquidService) {
+    constructor(
+        key: string, 
+        secret: string, 
+        lndService: LndService, 
+        elements: LiquidService,
+    ) {
         super('Bitfinex', key, secret);
         this.lndService = lndService;
         this.elements = elements;
+    }
+
+    /**
+     * Checks if an error is a "Please wait few seconds" error that should be retried.
+     * @param error - The error to check
+     * @returns true if the error should be retried, false otherwise
+     */
+    private isRetryableError(error: Error): boolean {
+        if (!error.message.includes('500')) {
+            return false;
+        }
+
+        try {
+            // Extract the JSON part from the error message
+            const jsonMatch = error.message.match(/\[(.*)\]/);
+            if (!jsonMatch) {
+                return false;
+            }
+
+            const errorArray = JSON.parse(`[${jsonMatch[1]}]`);
+            if (Array.isArray(errorArray) && errorArray.length > 2) {
+                const errorMessage = errorArray[2];
+                return typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('please wait');
+            }
+        } catch (parseError) {
+            // If we can't parse the error, don't retry
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * Wrapper function that handles automatic retries for Bitfinex API calls.
+     * Automatically retries when encountering "Please wait few seconds" errors.
+     * @param apiCall - Function that makes the API call
+     * @param operation - Description of the operation for logging
+     * @returns Promise resolving to the API response
+     * @throws Error if all retries are exhausted
+     */
+    private async withRetry<T>(apiCall: () => Promise<T>, operation: string): Promise<T> {
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                return await apiCall();
+            } catch (error) {
+                lastError = error as Error;
+                
+                if (this.isRetryableError(lastError) && attempt < this.maxRetries) {
+                    console.log(`⚠️ ${operation} failed (attempt ${attempt}/${this.maxRetries}): ${lastError.message}`);
+                    console.log(`🔄 Retrying in ${this.retryInterval}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, this.retryInterval));
+                } else {
+                    // Not retryable error or max retries reached
+                    break;
+                }
+            }
+        }
+
+        // All retries exhausted
+        throw lastError || new Error(`Operation ${operation} failed after ${this.maxRetries} attempts`);
     }
 
     /**
@@ -38,35 +110,37 @@ export class BitfinexProvider extends SwapProvider {
      * @throws Error if the API request fails
      */
     private async authenticatedRequest(method: string, endpoint: string, body?: unknown): Promise<unknown> {
-        const url = `${this.baseUrl}${endpoint}`;
-        const nonce = Date.now().toString();
-        const bodyString = body ? JSON.stringify(body) : '';
+        return this.withRetry(async () => {
+            const url = `${this.baseUrl}${endpoint}`;
+            const nonce = Date.now().toString();
+            const bodyString = body ? JSON.stringify(body) : '';
 
-        // Create signature according to Bitfinex API v2 documentation
-        const apiPath = endpoint;
-        const payload = `/api${apiPath}${nonce}${bodyString}`;
-        const signature = crypto.createHmac('sha384', this.secret).update(payload).digest('hex');
+            // Create signature according to Bitfinex API v2 documentation
+            const apiPath = endpoint;
+            const payload = `/api${apiPath}${nonce}${bodyString}`;
+            const signature = crypto.createHmac('sha384', this.secret).update(payload).digest('hex');
 
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'bfx-nonce': nonce,
-            'bfx-apikey': this.key,
-            'bfx-signature': signature,
-        };
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'bfx-nonce': nonce,
+                'bfx-apikey': this.key,
+                'bfx-signature': signature,
+            };
 
-        try {
-            const response = await this.makeHttpRequest(url, method, headers, bodyString);
+            try {
+                const response = await this.makeHttpRequest(url, method, headers, bodyString);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`❌ Bitfinex API error: ${response.status} - ${errorText}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`❌ Bitfinex API error: ${response.status} - ${errorText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('❌ Bitfinex API call failed:', error);
+                throw error;
             }
-
-            return await response.json();
-        } catch (error) {
-            console.error('❌ Bitfinex API call failed:', error);
-            throw error;
-        }
+        }, `${method} ${endpoint}`);
     }
 
     /**
