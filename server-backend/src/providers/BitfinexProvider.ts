@@ -468,13 +468,7 @@ export class BitfinexProvider extends SwapProvider {
      * @returns Promise resolving to withdrawal result
      * @throws Error if withdrawal submission fails
      */
-    async withdraw(
-        amount: number,
-        address: string,
-        currency: BitfinexMethod = 'BTC',
-        wallet: BitfinexWalletType = 'exchange',
-        tag?: string,
-    ): Promise<unknown> {
+    async withdraw(amount: number, address: string, currency: BitfinexMethod = 'BTC', wallet: BitfinexWalletType = 'exchange', tag?: string): Promise<unknown> {
         console.log(`💰 Withdrawing ${amount} ${currency.toUpperCase()} to address: ${address}`);
 
         // Parameters for withdrawal according to Bitfinex documentation
