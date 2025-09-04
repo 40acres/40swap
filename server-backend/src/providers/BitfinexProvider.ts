@@ -64,10 +64,12 @@ export class BitfinexProvider extends SwapProvider {
             if (Array.isArray(responseOrError) && responseOrError.length >= 8) {
                 const status = responseOrError[6];
                 const message = responseOrError[7];
-                
-                if (status === 'SUCCESS' && 
-                    typeof message === 'string' && 
-                    message.includes('Settlement / Transfer in progress, please try again in few seconds')) {
+
+                if (
+                    status === 'SUCCESS' &&
+                    typeof message === 'string' &&
+                    message.includes('Settlement / Transfer in progress, please try again in few seconds')
+                ) {
                     return true;
                 }
             }
