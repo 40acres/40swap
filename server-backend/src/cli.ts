@@ -19,7 +19,6 @@ const program = new Command();
 // Global NestJS application context
 let app: INestApplicationContext;
 
-<<<<<<< HEAD
 program
     .name('cli')
     .description('40swap backend CLI')
@@ -27,9 +26,6 @@ program
     .addHelpText(
         'after',
         `
-=======
-program.name('cli').description('40swap backend CLI').version('1.0.0').addHelpText('after', `
->>>>>>> master
 ⚠️ If running in production, remember to run it under the '/dist' folder where the compiled JS files are.
 Use 'npm run cli -- <command> <flags>' from the project root while working on dev.
 Use 'node cli.js <command> <flags>' when in production under '/dist'.
@@ -44,12 +40,8 @@ Examples:
   $ node cli.js monitor-invoice -t <txid> -r 10 -i 5000
   $ node cli.js exchange -f BTC -t LNX -a 0.0001 -o exchange -d exchange
   $ node cli.js withdraw -a 0.001 -d <destination_address> -c BTC -w exchange -t <tag>
-<<<<<<< HEAD
 `,
     );
-=======
-`);
->>>>>>> master
 
 program.option('-k, --id-key <string>', 'Bitfinex API ID Key (got from env vars if not passed)');
 program.option('-s, --secret-key <string>', 'Bitfinex API Secret (got from env vars if not passed)');
