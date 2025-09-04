@@ -3,7 +3,7 @@ import { LndService } from '../LndService.js';
 import * as crypto from 'crypto';
 import { LiquidService } from '../LiquidService.js';
 
-type BitfinexMethod = 'bitcoin' | 'LNX' | 'lbtc';
+type BitfinexMethod = 'BTC' | 'LNX' | 'LBT';
 type BitfinexWalletType = 'exchange' | 'margin' | 'funding';
 
 /**
@@ -216,7 +216,7 @@ export class BitfinexProvider extends SwapProvider {
             } else {
                 console.log('📝 Using provided liquid address: ', liquidAddress);
             }
-            await this.withdraw(amount, liquidAddress, 'lbtc');
+            await this.withdraw(amount, liquidAddress, 'LBT');
             console.log('✅ Withdrawal request submitted successfully');
 
             console.log('🎉 Complete swap operation finished successfully!');
@@ -462,7 +462,7 @@ export class BitfinexProvider extends SwapProvider {
      * Withdraws funds from Bitfinex account to an external wallet address.
      * @param amount - Amount to withdraw
      * @param address - Destination wallet address
-     * @param currency - Currency to withdraw (default: bitcoin)
+     * @param currency - Currency to withdraw (default: BTC)
      * @param wallet - Source wallet type (default: exchange)
      * @param tag - Optional tag/memo for certain networks
      * @returns Promise resolving to withdrawal result
@@ -471,7 +471,7 @@ export class BitfinexProvider extends SwapProvider {
     async withdraw(
         amount: number,
         address: string,
-        currency: BitfinexMethod = 'bitcoin',
+        currency: BitfinexMethod = 'BTC',
         wallet: BitfinexWalletType = 'exchange',
         tag?: string,
     ): Promise<unknown> {

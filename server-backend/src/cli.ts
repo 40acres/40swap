@@ -19,7 +19,22 @@ const program = new Command();
 // Global NestJS application context
 let app: INestApplicationContext;
 
-program.name('cli').description('40swap backend CLI').version('1.0.0');
+program.name('cli').description('40swap backend CLI').version('1.0.0').addHelpText('after', `
+⚠️ If running in production, remember to run it under the '/dist' folder where the compiled JS files are.
+Use 'npm run cli -- <command> <flags>' from the project root while working on dev.
+Use 'node cli.js <command> <flags>' when in production under '/dist'.
+Examples:
+  $ node cli.js swap -a 0.0001 -d <liquid_address>
+  $ node cli.js wallets
+  $ node cli.js list-addresses -m LNX -p 1 -s 100
+  $ node cli.js create-address -w exchange -m BTC
+  $ node cli.js create-invoice -a 0.000001
+  $ node cli.js get-invoices -a getInvoicesByUser -o 0
+  $ node cli.js pay-invoice -i <invoice> -c 40
+  $ node cli.js monitor-invoice -t <txid> -r 10 -i 5000
+  $ node cli.js exchange -f BTC -t LNX -a 0.0001 -o exchange -d exchange
+  $ node cli.js withdraw -a 0.001 -d <destination_address> -c BTC -w exchange -t <tag>
+`);
 
 program.option('-k, --id-key <string>', 'Bitfinex API ID Key (got from env vars if not passed)');
 program.option('-s, --secret-key <string>', 'Bitfinex API Secret (got from env vars if not passed)');
@@ -344,7 +359,7 @@ program
     .description('Withdraw funds from Bitfinex account to external wallet')
     .option('-a, --amount <number>', 'Amount to withdraw', '0.001')
     .requiredOption('-d, --destination <string>', 'Destination wallet address')
-    .option('-c, --currency <string>', 'Currency to withdraw (BTC, LBT, LNX)', 'BTC')
+    .option('-c, --currency <string>', 'Currency to withdraw (BTC, LBT, LNX)')
     .option('-w, --wallet <string>', 'Source wallet type (exchange, margin, funding)', 'exchange')
     .option('-t, --tag <string>', 'Optional tag/memo for certain networks')
     .action(async (cmdOptions) => {
