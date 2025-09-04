@@ -359,7 +359,7 @@ program
     .description('Withdraw funds from Bitfinex account to external wallet')
     .option('-a, --amount <number>', 'Amount to withdraw', '0.001')
     .requiredOption('-d, --destination <string>', 'Destination wallet address')
-    .option('-c, --currency <string>', 'Currency to withdraw (BTC, LBT, LNX)', 'BTC')
+    .option('-c, --currency <string>', 'Currency to withdraw (BTC, LBT, LNX)')
     .option('-w, --wallet <string>', 'Source wallet type (exchange, margin, funding)', 'exchange')
     .option('-t, --tag <string>', 'Optional tag/memo for certain networks')
     .action(async (cmdOptions) => {
