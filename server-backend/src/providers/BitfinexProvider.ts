@@ -34,29 +34,45 @@ export class BitfinexProvider extends SwapProvider {
     }
 
     /**
-     * Checks if an error is a "Please wait few seconds" error that should be retried.
-     * @param error - The error to check
-     * @returns true if the error should be retried, false otherwise
+     * Checks if a response or error should be retried.
+     * Checks for success responses with "Settlement / Transfer in progress" message.
+     * Also checks for 500 errors with "please wait" message.
+     * @param responseOrError - The response or error to check
+     * @returns true if the operation should be retried, false otherwise
      */
-    private isRetryableError(error: Error): boolean {
-        if (!error.message.includes('500')) {
-            return false;
-        }
-
+    private isRetryableResponse(responseOrError: unknown): boolean {
         try {
-            // Extract the JSON part from the error message
-            const jsonMatch = error.message.match(/\[(.*)\]/);
-            if (!jsonMatch) {
+            // If it's an Error object, check for 500 errors with "please wait" message
+            if (responseOrError instanceof Error) {
+                if (responseOrError.message.includes('500')) {
+                    const jsonMatch = responseOrError.message.match(/\[(.*)\]/);
+                    if (jsonMatch) {
+                        const errorArray = JSON.parse(`[${jsonMatch[1]}]`);
+                        if (Array.isArray(errorArray) && errorArray.length > 2) {
+                            const errorMessage = errorArray[2];
+                            if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('please wait')) {
+                                return true;
+                            }
+                        }
+                    }
+                }
                 return false;
             }
 
-            const errorArray = JSON.parse(`[${jsonMatch[1]}]`);
-            if (Array.isArray(errorArray) && errorArray.length > 2) {
-                const errorMessage = errorArray[2];
-                return typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('please wait');
+            // Check if it's a success response with "Settlement / Transfer in progress" message
+            // Format: [timestamp, 'acc_wd-req', null, null, [...], null, 'SUCCESS', 'Settlement / Transfer in progress, please try again in few seconds']
+            if (Array.isArray(responseOrError) && responseOrError.length >= 8) {
+                const status = responseOrError[6];
+                const message = responseOrError[7];
+                
+                if (status === 'SUCCESS' && 
+                    typeof message === 'string' && 
+                    message.includes('Settlement / Transfer in progress, please try again in few seconds')) {
+                    return true;
+                }
             }
         } catch (parseError) {
-            // If we can't parse the error, don't retry
+            // If we can't parse, don't retry
             return false;
         }
 
@@ -65,7 +81,7 @@ export class BitfinexProvider extends SwapProvider {
 
     /**
      * Wrapper function that handles automatic retries for Bitfinex API calls.
-     * Automatically retries when encountering "Please wait few seconds" errors.
+     * Automatically retries when encountering responses that need retry or "Please wait few seconds" errors.
      * @param apiCall - Function that makes the API call
      * @param operation - Description of the operation for logging
      * @returns Promise resolving to the API response
@@ -73,14 +89,27 @@ export class BitfinexProvider extends SwapProvider {
      */
     private async withRetry<T>(apiCall: () => Promise<T>, operation: string): Promise<T> {
         let lastError: Error | null = null;
+        let lastResponse: T | null = null;
 
         for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
             try {
-                return await apiCall();
+                const response = await apiCall();
+                lastResponse = response;
+
+                // Check if the successful response requires retry
+                if (this.isRetryableResponse(response) && attempt < this.maxRetries) {
+                    console.log(`⚠️ ${operation} requires retry (attempt ${attempt}/${this.maxRetries}): Settlement in progress`);
+                    console.log(`🔄 Retrying in ${this.retryInterval}ms...`);
+                    await new Promise((resolve) => setTimeout(resolve, this.retryInterval));
+                    continue;
+                }
+
+                // Response doesn't need retry, return it
+                return response;
             } catch (error) {
                 lastError = error as Error;
 
-                if (this.isRetryableError(lastError) && attempt < this.maxRetries) {
+                if (this.isRetryableResponse(lastError) && attempt < this.maxRetries) {
                     console.log(`⚠️ ${operation} failed (attempt ${attempt}/${this.maxRetries}): ${lastError.message}`);
                     console.log(`🔄 Retrying in ${this.retryInterval}ms...`);
                     await new Promise((resolve) => setTimeout(resolve, this.retryInterval));
@@ -91,8 +120,15 @@ export class BitfinexProvider extends SwapProvider {
             }
         }
 
-        // All retries exhausted
-        throw lastError || new Error(`Operation ${operation} failed after ${this.maxRetries} attempts`);
+        // All retries exhausted - throw error or return last response
+        if (lastError) {
+            throw lastError;
+        } else if (lastResponse !== null) {
+            // If we have a response but it still requires retry, return it anyway
+            return lastResponse;
+        } else {
+            throw new Error(`Operation ${operation} failed after ${this.maxRetries} attempts`);
+        }
     }
 
     /**
