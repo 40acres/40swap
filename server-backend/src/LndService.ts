@@ -13,29 +13,56 @@ export class LndService {
         @Inject('lnd-invoices') private invoices: InvoicesClient,
     ) {}
 
-    async sendPayment(invoice: string, cltvLimit: number): Promise<Buffer> {
+    async sendPayment(invoice: string, cltvLimit: number, channel: number | string | null = null): Promise<Buffer> {
         this.logger.debug(`paying invoice ${invoice} with cltvLimit=${cltvLimit}`);
-        return new Promise((resolve, reject) => {
-            this.lightning.sendPaymentSync(
-                {
-                    paymentRequest: invoice,
-                    cltvLimit,
-                    finalCltvDelta: 20,
-                },
-                (err, value) => {
-                    if (err) {
-                        this.logger.debug(`error paying invoice ${err}`);
-                        reject(err);
-                    } else if (value?.paymentPreimage != null) {
-                        this.logger.debug(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
-                        resolve(value.paymentPreimage!);
-                    } else {
-                        this.logger.debug(`error paying invoice ${value?.paymentError}`);
-                        reject(new Error(`error paying invoice ${value?.paymentError}`));
-                    }
-                },
-            );
-        });
+        if (channel) {
+            this.logger.debug(`attempting to pay through specific channel ${channel}`);
+            return new Promise((resolve, reject) => {
+                this.lightning.sendPaymentSync(
+                    {
+                        paymentRequest: invoice,
+                        outgoingChanId: channel,
+                        cltvLimit,
+                        finalCltvDelta: 20,
+                    },
+                    (err, value) => {
+                        if (err) {
+                            this.logger.debug(`error paying invoice ${err}`);
+                            reject(err);
+                        } else if (value?.paymentPreimage != null) {
+                            this.logger.debug(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
+                            resolve(value.paymentPreimage!);
+                        } else {
+                            this.logger.debug(`error paying invoice ${value?.paymentError}`);
+                            reject(new Error(`error paying invoice ${value?.paymentError}`));
+                        }
+                    },
+                );
+            });
+
+        } else{
+            return new Promise((resolve, reject) => {
+                this.lightning.sendPaymentSync(
+                    {
+                        paymentRequest: invoice,
+                        cltvLimit,
+                        finalCltvDelta: 20,
+                    },
+                    (err, value) => {
+                        if (err) {
+                            this.logger.debug(`error paying invoice ${err}`);
+                            reject(err);
+                        } else if (value?.paymentPreimage != null) {
+                            this.logger.debug(`payment success, preimage ${value?.paymentPreimage.toString('hex')}`);
+                            resolve(value.paymentPreimage!);
+                        } else {
+                            this.logger.debug(`error paying invoice ${value?.paymentError}`);
+                            reject(new Error(`error paying invoice ${value?.paymentError}`));
+                        }
+                    },
+                );
+            });
+        }
     }
 
     getNewAddress(): Promise<string> {

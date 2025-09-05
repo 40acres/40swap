@@ -180,8 +180,9 @@ export class BitfinexProvider extends SwapProvider {
      * Executes a complete swap operation: amount BTC → Lightning → Liquid.
      * @param amount - Amount to swap in BTC
      * @param liquidAddress - Destination Liquid wallet address
+     * @param channel - Optional specific channel ID to use for the payment
      */
-    async swap(amount: number, liquidAddress?: string): Promise<void> {
+    async swap(amount: number, liquidAddress?: string, channel?: string | number): Promise<void> {
         console.log(`🔄 Starting complete swap: ${amount} BTC → Lightning → Liquid`);
 
         try {
@@ -214,7 +215,7 @@ export class BitfinexProvider extends SwapProvider {
             }
 
             // Step 3: Pay the invoice using LND service
-            const paymentResult = await this.payInvoice(invoice, 0);
+            const paymentResult = await this.payInvoice(invoice, 0, channel);
 
             if (!paymentResult.success) {
                 throw new Error(`Payment failed: ${paymentResult.error}`);
@@ -339,12 +340,14 @@ export class BitfinexProvider extends SwapProvider {
      * Pays a Lightning Network invoice using the configured LND service.
      * @param invoice - Lightning invoice payment request string
      * @param cltvLimit - CLTV limit for the payment (default: 0)
+     * @param channel - Optional specific channel ID to use for the payment (default: null)
      * @param options - Additional payment options (timeout, maxFeePercent)
      * @returns Promise resolving to payment result with success status and preimage
      */
     async payInvoice(
         invoice: string,
         cltvLimit: number = 0,
+        channel: number | string | null = null,
         options: {
             timeout?: number;
             maxFeePercent?: number;
@@ -362,7 +365,7 @@ export class BitfinexProvider extends SwapProvider {
 
         try {
             console.log(`🚀 Initiating payment through LND...`);
-            const preimage = await this.lndService.sendPayment(invoice, cltvLimit);
+            const preimage = await this.lndService.sendPayment(invoice, cltvLimit, channel);
             const preimageHex = preimage.toString('hex');
 
             console.log(`✅ Payment successful!`);

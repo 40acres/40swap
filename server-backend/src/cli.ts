@@ -30,16 +30,16 @@ program
 Use 'npm run cli -- <command> <flags>' from the project root while working on dev.
 Use 'node cli.js <command> <flags>' when in production under '/dist'.
 Examples:
-  $ node cli.js swap -a 0.0001 -d <liquid_address>
+  $ node cli.js swap -a <amount> -d <liquid_address>
   $ node cli.js wallets
-  $ node cli.js list-addresses -m LNX -p 1 -s 100
-  $ node cli.js create-address -w exchange -m BTC
-  $ node cli.js create-invoice -a 0.000001
-  $ node cli.js get-invoices -a getInvoicesByUser -o 0
-  $ node cli.js pay-invoice -i <invoice> -c 40
-  $ node cli.js monitor-invoice -t <txid> -r 10 -i 5000
-  $ node cli.js exchange -f BTC -t LNX -a 0.0001 -o exchange -d exchange
-  $ node cli.js withdraw -a 0.001 -d <destination_address> -c BTC -w exchange -t <tag>
+  $ node cli.js list-addresses -m <method> -p <page> -s <page size>
+  $ node cli.js create-address -w <wallet> -m <method>
+  $ node cli.js create-invoice -a <amount>
+  $ node cli.js get-invoices -a <action> -o <offset> -t <txid>
+  $ node cli.js pay-invoice -i <invoice> -c <channel> -l <cltv-limit>
+  $ node cli.js monitor-invoice -t <txid> -r <rate> -i <interval>
+  $ node cli.js exchange -f <from> -t <to> -a <amount> -o <from_wallet> -d <to_wallet>
+  $ node cli.js withdraw -a <amount> -d <destination_address> -c <currency> -w <wallet> -t <tag>
 `,
     );
 
@@ -148,11 +148,12 @@ program
     .description('Execute complete swap: Lightning → Liquid')
     .requiredOption('-a, --amount <number>', 'Amount to swap')
     .option('-d, --destination <string>', 'Liquid destination wallet address')
+    .option('-c, --channel <number>', 'Optional specific channel ID to use for the payment')
     .action(async (cmdOptions) => {
         try {
             console.log('🔄 Swap command executed');
             const provider = await getBitfinexProvider();
-            await provider.swap(parseFloat(cmdOptions.amount), cmdOptions.destination);
+            await provider.swap(parseFloat(cmdOptions.amount), cmdOptions.destination, cmdOptions.channel);
             console.log('🎉 Complete swap operation finished successfully!');
         } catch (error) {
             console.error('❌ Swap failed:', error);
@@ -280,12 +281,17 @@ program
     .command('pay-invoice')
     .description('Pay a Lightning Network invoice using LND (uses NestJS dependency injection)')
     .requiredOption('-i, --invoice <string>', 'Lightning invoice to pay (payment request string)')
-    .option('-c, --cltv-limit <number>', 'CLTV limit for the payment (default: 40)', '40')
+    .option('-l, --cltv-limit <number>', 'CLTV limit for the payment (default: 40)', '40')
+    .option('-c, --channel <number>', 'Optional specific channel ID to use for the payment')
     .action(async (cmdOptions) => {
         try {
             console.log('⚡ Paying Lightning invoice using LND');
             const provider = await getBitfinexProvider();
-            const result = await provider.payInvoice(cmdOptions.invoice, parseInt(cmdOptions.cltvLimit));
+            const result = await provider.payInvoice(
+                cmdOptions.invoice,
+                cmdOptions.channel,
+                parseInt(cmdOptions.cltvLimit)
+            );
 
             if (result.success) {
                 console.log('✅ Payment successful!');
