@@ -287,11 +287,7 @@ program
         try {
             console.log('⚡ Paying Lightning invoice using LND');
             const provider = await getBitfinexProvider();
-            const result = await provider.payInvoice(
-                cmdOptions.invoice,
-                cmdOptions.channel,
-                parseInt(cmdOptions.cltvLimit)
-            );
+            const result = await provider.payInvoice(cmdOptions.invoice, cmdOptions.channel, parseInt(cmdOptions.cltvLimit));
 
             if (result.success) {
                 console.log('✅ Payment successful!');
