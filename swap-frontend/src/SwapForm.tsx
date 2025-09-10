@@ -334,7 +334,7 @@ export const SwapForm: Component = () => {
                 <div class="text-muted text-center small border border-primary rounded-3 p-2">
                     <Fa icon={faInfoCircle} />
                     Minimum amount {currencyFormat(config()?.minimumAmount ?? 0)}
-                    &nbsp; | Maximum amount {currencyFormat(config()?.maximumAmount ?? 0)}
+                    &nbsp; | Maximum amount {0.009 /* currencyFormat(config()?.maximumAmount ?? 0) */}
                 </div>
                 <Show when={errorMessage() !== ''}>
                     <div class="text-muted text-center small border border-danger rounded-3 p-2 bg-danger-subtle" style="border-style: dashed !important">
