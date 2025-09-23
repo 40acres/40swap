@@ -153,8 +153,14 @@ export class SwapOutRunner {
     private async getCltvExpiry(): Promise<number> {
         const invoice = await this.lnd.lookUpInvoice(this.swap.preImageHash);
         assert(invoice.state === 'ACCEPTED');
-        assert(invoice.htlcs.length === 1);
-        return invoice.htlcs[0].expiryHeight;
+        
+        // If there's only one HTLC, return its expiry height
+        if (invoice.htlcs.length === 1) {
+            return invoice.htlcs[0].expiryHeight;
+        }
+        
+        // If there are multiple HTLCs, find the one with the lowest expiry height
+        return Math.min(...invoice.htlcs.map(htlc => htlc.expiryHeight));
     }
 
     private async getLiquidTimeoutBlockHeight(nbxplorer: NbxplorerService, cltvExpiry: number): Promise<number> {
