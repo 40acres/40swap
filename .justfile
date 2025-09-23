@@ -17,8 +17,15 @@ install-dependencies:
 
 # Start services with docker compose
 [working-directory: 'docker']
-docker-up $COMPOSE_PROFILES='mempool-btc,esplora-liquid':
-    docker compose up -d
+docker-up $COMPOSE_PROFILES='mempool':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IFS=',' read -ra profiles <<< "$COMPOSE_PROFILES"
+    profile_args=""
+    for profile in "${profiles[@]}"; do
+        profile_args="$profile_args --profile $profile"
+    done
+    docker compose $profile_args up -d
 
 # Stop and remove services with docker compose
 [working-directory: 'docker']
@@ -91,6 +98,34 @@ user-lncli *cmd:
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
 
+# Big network node commands
+bob-lncli *cmd:
+    docker exec -it 40swap_lnd_bob lncli -n regtest {{cmd}}
+
+charlie-lncli *cmd:
+    docker exec -it 40swap_lnd_charlie lncli -n regtest {{cmd}}
+
+david-lncli *cmd:
+    docker exec -it 40swap_lnd_david lncli -n regtest {{cmd}}
+
+eve-lncli *cmd:
+    docker exec -it 40swap_lnd_eve lncli -n regtest {{cmd}}
+
+frank-lncli *cmd:
+    docker exec -it 40swap_lnd_frank lncli -n regtest {{cmd}}
+
+grace-lncli *cmd:
+    docker exec -it 40swap_lnd_grace lncli -n regtest {{cmd}}
+
+henry-lncli *cmd:
+    docker exec -it 40swap_lnd_henry lncli -n regtest {{cmd}}
+
+iris-lncli *cmd:
+    docker exec -it 40swap_lnd_iris lncli -n regtest {{cmd}}
+
+jack-lncli *cmd:
+    docker exec -it 40swap_lnd_jack lncli -n regtest {{cmd}}
+
 # Run command within elements container
 elements-cli *cmd:
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main {{cmd}}
@@ -120,3 +155,22 @@ check-lint:
 [working-directory: 'docs']
 build-docs:
     docker run -v ./:/book peaceiris/mdbook:v0.4.40 build
+
+# Initialize blockchain and lightning nodes
+[working-directory: 'docker']
+initialize-big-network: 
+    ./big-network-setup.sh
+
+# Reset everything on normal network size
+reset:
+    just drm
+    just build-shared
+    just du
+    just initialize-nodes
+
+# Reset big network
+reset-big-network:
+    just drm
+    just build-shared
+    just du COMPOSE_PROFILES='mempool,big-network'
+    just initialize-big-network

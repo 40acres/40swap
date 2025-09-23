@@ -374,11 +374,220 @@ services:
       API_URL: http://localhost:3000
     ports:
       - 35000:5000
+  
+  # Additional nodes for big network setup
+  lnd-bob:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_bob
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=bob --externalip=lnd-bob
+      --tlsextradomain=lnd-bob --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-bob-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-charlie:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_charlie
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=charlie --externalip=lnd-charlie
+      --tlsextradomain=lnd-charlie --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-charlie-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-david:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_david
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=david --externalip=lnd-david
+      --tlsextradomain=lnd-david --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-david-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-eve:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_eve
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=eve --externalip=lnd-eve
+      --tlsextradomain=lnd-eve --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-eve-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-frank:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_frank
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=frank --externalip=lnd-frank
+      --tlsextradomain=lnd-frank --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-frank-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-grace:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_grace
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=grace --externalip=lnd-grace
+      --tlsextradomain=lnd-grace --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-grace-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-henry:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_henry
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=henry --externalip=lnd-henry
+      --tlsextradomain=lnd-henry --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-henry-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-iris:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_iris
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=iris --externalip=lnd-iris
+      --tlsextradomain=lnd-iris --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-iris-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
+  lnd-jack:
+    image: lightninglabs/lnd:v0.18.4-beta
+    container_name: 40swap_lnd_jack
+    command: >-
+      --noseedbackup --trickledelay=5000 --alias=jack --externalip=lnd-jack
+      --tlsextradomain=lnd-jack --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=40swap --bitcoind.rpcpass=pass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --maxpendingchannels=20 --gossip.channel-update-interval=10s
+    restart: always
+    depends_on:
+      - "bitcoind"
+    volumes:
+      - lnd-jack-data:/root/.lnd
+    expose:
+      - "8080"
+      - "10009"
+      - "9735"
+    profiles:
+      - big-network
+
 volumes:
   bitcoind-data:
   lnd-lsp-data:
   lnd-user-data:
   lnd-alice-data:
+  lnd-bob-data:
+  lnd-charlie-data:
+  lnd-david-data:
+  lnd-eve-data:
+  lnd-frank-data:
+  lnd-grace-data:
+  lnd-henry-data:
+  lnd-iris-data:
+  lnd-jack-data:
   nbxplorer-data:
   cloudbeaver-data:
   rtl-user-data:
