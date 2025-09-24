@@ -436,44 +436,6 @@ docker exec -it 40swap_lnd_alice lncli -n regtest listchannels | jq -r '.channel
 docker exec -it 40swap_lnd_bob lncli -n regtest listchannels | jq -r '.channels[] | select(.remote_pubkey == "'$lsp_pubkey'") | "Bob -> LSP: local_balance=" + .local_balance + " sats"'
 docker exec -it 40swap_lnd_charlie lncli -n regtest listchannels | jq -r '.channels[] | select(.remote_pubkey == "'$lsp_pubkey'") | "Charlie -> LSP: local_balance=" + .local_balance + " sats"'
 
-echo ""
-echo "=== MULTIPATH READINESS CHECK ==="
-alice_to_lsp_channels=$(docker exec -it 40swap_lnd_alice lncli -n regtest listchannels | jq '[.channels[] | select(.remote_pubkey == "'$lsp_pubkey'")] | length')
-alice_total_balance=$(docker exec -it 40swap_lnd_alice lncli -n regtest channelbalance | jq -r '.local_balance.sat // .local_balance')
-
-# Also check indirect paths via Bob, Charlie, David
-alice_paths_count=0
-if [ $(docker exec -it 40swap_lnd_alice lncli -n regtest listchannels | jq '[.channels[] | select(.remote_pubkey == "'$bob_pubkey'")] | length') -gt 0 ]; then
-    alice_paths_count=$((alice_paths_count + 1))
-fi
-if [ $(docker exec -it 40swap_lnd_alice lncli -n regtest listchannels | jq '[.channels[] | select(.remote_pubkey == "'$charlie_pubkey'")] | length') -gt 0 ]; then
-    alice_paths_count=$((alice_paths_count + 1))
-fi
-if [ $(docker exec -it 40swap_lnd_alice lncli -n regtest listchannels | jq '[.channels[] | select(.remote_pubkey == "'$david_pubkey'")] | length') -gt 0 ]; then
-    alice_paths_count=$((alice_paths_count + 1))
-fi
-
-echo "Alice direct channels to LSP: $alice_to_lsp_channels"
-echo "Alice indirect paths to LSP (via Bob/Charlie/David): $alice_paths_count"
-echo "Alice total outbound balance: $alice_total_balance sats"
-
-total_paths=$((alice_to_lsp_channels + alice_paths_count))
-
-if [ "$total_paths" -ge 2 ] && [ "$alice_total_balance" -gt 500000 ]; then
-    echo "✅ MULTIPATH READY: Alice can send multipath payments to LSP"
-    echo "   - Direct paths: $alice_to_lsp_channels"
-    echo "   - Indirect paths: $alice_paths_count"
-    echo "   - Total available paths: $total_paths"
-    echo "💡 Recommended: Test with amounts > 300,000 sats for automatic multipath routing"
-elif [ "$total_paths" -ge 1 ] && [ "$alice_total_balance" -gt 300000 ]; then
-    echo "⚠️  LIMITED MULTIPATH: Alice has some payment capability but limited paths"
-    echo "   - Available paths: $total_paths"
-    echo "   - Consider amounts < 300,000 sats for single-path payments"
-else
-    echo "❌ MULTIPATH NOT READY: Alice needs more channels or balance for reliable payments"
-fi
-
-
 while [ $(40swap-lsp-lncli describegraph | jq '.nodes | length') -lt 3 ]
 do
   sleep 0.3
