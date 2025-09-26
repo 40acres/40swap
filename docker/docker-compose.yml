@@ -374,6 +374,7 @@ services:
       API_URL: http://localhost:3000
     ports:
       - 35000:5000
+
 volumes:
   bitcoind-data:
   lnd-lsp-data:
