@@ -31,6 +31,7 @@ docker-up $COMPOSE_PROFILES='mempool':
 [working-directory: 'docker']
 docker-rm:
     docker compose --profile '*' down  -v
+    just big-network-down
 
 # Initialize blockchain and lightning nodes
 [working-directory: 'docker']
@@ -156,9 +157,18 @@ check-lint:
 build-docs:
     docker run -v ./:/book peaceiris/mdbook:v0.4.40 build
 
-# Initialize blockchain and lightning nodes
+# Stop big network services
 [working-directory: 'docker']
-initialize-big-network: 
+big-network-down:
+    docker compose -f docker-compose-big-network.yml down
+    echo "=== Big network services stopped ==="
+
+# Initialize complete big network with channels
+[working-directory: 'docker']
+initialize-big-network:
+    echo "=== Starting big network services ==="
+    docker compose -f docker-compose-big-network.yml up -d
+    echo "=== All services ready. Setting up Lightning Network with channels ==="
     ./big-network-setup.sh
 
 # Reset everything on normal network size
@@ -166,6 +176,7 @@ reset:
     just drm
     just build-shared
     just du
+    sleep 10
     just initialize-nodes
 
 # Reset big network
@@ -173,4 +184,7 @@ reset-big-network:
     just drm
     just build-shared
     just du COMPOSE_PROFILES='mempool,big-network'
+    sleep 10
+    just initialize-nodes
+    sleep 10
     just initialize-big-network
