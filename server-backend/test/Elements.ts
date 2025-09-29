@@ -62,4 +62,29 @@ export class Elements {
         }
         return parseInt(res.stdout.trim(), 10);
     }
+
+    async issueAsset(amount: number, label: string): Promise<{ asset: string; token: string }> {
+        const res = await this.container.exec(
+            `elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} issueasset ${amount} 0 false`
+        );
+        if (res.exitCode !== 0) {
+            throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
+        }
+        const result = JSON.parse(res.stdout);
+        return {
+            asset: result.asset,
+            token: result.token
+        };
+    }
+
+    async sendAssetToAddress(address: string, amount: number, asset: string): Promise<string> {
+        const res = await this.container.exec(
+            `elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -named sendtoaddress address=${address} amount=${amount} assetlabel=${asset} fee_rate=25`
+        );
+        if (res.exitCode !== 0) {
+            throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
+        }
+        // sendtoaddress returns just the transaction hash, not JSON
+        return res.stdout.trim();
+    }
 }
