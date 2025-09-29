@@ -267,10 +267,8 @@ describe('40Swap backend', () => {
         swap.start();
         await waitForSwapStatus(swap, 'CREATED');
         assert(swap.value != null);
-        
         // Create a custom asset instead of using L-BTC
         const customAsset = await elements.issueAsset(1, 'wrongasset');
-        
         // Send the custom asset to the contract address instead of L-BTC
         await elements.sendAssetToAddress(swap.value.contractAddress, swap.value.inputAmount, customAsset.asset);
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;

@@ -64,22 +64,20 @@ export class Elements {
     }
 
     async issueAsset(amount: number, label: string): Promise<{ asset: string; token: string }> {
-        const res = await this.container.exec(
-            `elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} issueasset ${amount} 0 false`
-        );
+        const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} issueasset ${amount} 0 false`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
         const result = JSON.parse(res.stdout);
         return {
             asset: result.asset,
-            token: result.token
+            token: result.token,
         };
     }
 
     async sendAssetToAddress(address: string, amount: number, asset: string): Promise<string> {
         const res = await this.container.exec(
-            `elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -named sendtoaddress address=${address} amount=${amount} assetlabel=${asset} fee_rate=25`
+            `elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} -named sendtoaddress address=${address} amount=${amount} assetlabel=${asset} fee_rate=25`,
         );
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
