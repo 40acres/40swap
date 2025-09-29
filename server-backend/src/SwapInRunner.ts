@@ -182,7 +182,9 @@ export class SwapInRunner {
                 const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
                 const expectedAsset = network.assetHash;
                 // The asset in UnblindOutputResult is in little-endian format
-                const receivedAsset = Buffer.from([...output.asset]).reverse().toString('hex');
+                const receivedAsset = Buffer.from([...output.asset])
+                    .reverse()
+                    .toString('hex');
                 if (receivedAsset !== expectedAsset) {
                     this.logger.error(`Asset mismatch in swap-in funding: expected ${expectedAsset}, received ${receivedAsset} (id=${this.swap.id})`);
                     return;
