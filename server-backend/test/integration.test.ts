@@ -275,7 +275,7 @@ describe('40Swap backend', () => {
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 10;
         await elements.mine(blocksToMine);
-        await waitForSwapStatus(swap, 'CREATED');
+        await waitFor(async () => swap.value?.status === 'CREATED');
     });
 
     async function setUpComposeEnvironment(): Promise<void> {
