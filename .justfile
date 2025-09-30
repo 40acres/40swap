@@ -166,9 +166,12 @@ big-network-down:
 # Initialize complete big network with channels
 [working-directory: 'docker']
 initialize-big-network:
+    #!/usr/bin/env bash
     echo "=== Starting big network services ==="
     docker compose -f docker-compose-big-network.yml up -d
-    echo "=== All services ready. Setting up Lightning Network with channels ==="
+    echo "⏳ Waiting for services to stabilize..."
+    sleep 20
+    echo "=== Setting up Lightning Network ==="
     ./big-network-setup.sh
 
 # Reset everything on normal network size
@@ -179,12 +182,30 @@ reset:
     sleep 10
     just initialize-nodes
 
-# Reset big network
+# Reset big network with proper cleanup and setup
 reset-big-network:
+    #!/usr/bin/env bash
+    set -e
+    echo "🔄 Starting complete big network reset..."
+    
+    # Stop and clean everything
     just drm
     just build-shared
+    
+    # Start basic services first
     just du COMPOSE_PROFILES='mempool,big-network'
-    sleep 10
+    echo "⏳ Waiting for services to initialize..."
+    sleep 15
+    
+    # Initialize basic nodes first
     just initialize-nodes
     sleep 10
+    
+    # Generate extra blocks to avoid sync issues
+    echo "⛏️  Generating blocks to ensure proper sync..."
+    mining_addr=$(docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest getnewaddress)
+    docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest generatetoaddress 20 $mining_addr
+    sleep 10
+    
+    # Now initialize big network
     just initialize-big-network
