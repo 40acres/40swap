@@ -256,6 +256,30 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
+    it('should reject swap-in payment with wrong asset in liquid', async () => {
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        const swap = await swapService.createSwapIn({
+            chain: 'LIQUID',
+            invoice: paymentRequest!,
+            lockBlockDeltaIn: 144, // Minimum allowed value
+            refundAddress: async () => await elements.getNewAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+        // Create a custom asset instead of using L-BTC
+        const customAsset = await elements.issueAsset(1);
+        // Send the custom asset to the contract address instead of L-BTC
+        await elements.sendAssetToAddress(swap.value.contractAddress, swap.value.inputAmount, customAsset.asset);
+        const timeoutBlockHeight = swap.value.timeoutBlockHeight;
+        const currentHeight = await elements.getBlockHeight();
+        const blocksToMine = timeoutBlockHeight - currentHeight + 10;
+        await elements.mine(blocksToMine);
+        await waitFor(async () => swap.value?.status === 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('ERROR');
+        swap.stop();
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')

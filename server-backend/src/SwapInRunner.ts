@@ -178,6 +178,21 @@ export class SwapInRunner {
             const unblindableOutputs = await findUnblindableOutputs(tx, swap.blindingPrivKey!);
             if (unblindableOutputs.length > 0) {
                 output = unblindableOutputs[0];
+                // Validate that the asset is the expected one (L-BTC)
+                const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+                const expectedAsset = network.assetHash;
+                // The asset in UnblindOutputResult is in little-endian format
+                const receivedAsset = Buffer.from([...output.asset])
+                    .reverse()
+                    .toString('hex');
+                if (receivedAsset !== expectedAsset) {
+                    this.logger.error(`Asset mismatch in swap-in funding: expected ${expectedAsset}, received ${receivedAsset} (id=${this.swap.id})`);
+                    swap.status = 'DONE';
+                    swap.outcome = 'ERROR';
+                    this.swap = await this.repository.save(swap);
+                    void this.onStatusChange('DONE');
+                    return;
+                }
             } else {
                 this.logger.warn(`Could not unblind any outputs (id=${this.swap.id})`);
                 return;
