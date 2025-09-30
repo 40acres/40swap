@@ -63,7 +63,7 @@ export class Elements {
         return parseInt(res.stdout.trim(), 10);
     }
 
-    async issueAsset(amount: number, label: string): Promise<{ asset: string; token: string }> {
+    async issueAsset(amount: number): Promise<{ asset: string; token: string }> {
         const res = await this.container.exec(`elements-cli -chain=liquidregtest -rpcwallet=${this.walletName} issueasset ${amount} 0 false`);
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);

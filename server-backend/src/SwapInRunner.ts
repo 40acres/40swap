@@ -187,6 +187,10 @@ export class SwapInRunner {
                     .toString('hex');
                 if (receivedAsset !== expectedAsset) {
                     this.logger.error(`Asset mismatch in swap-in funding: expected ${expectedAsset}, received ${receivedAsset} (id=${this.swap.id})`);
+                    swap.status = 'DONE';
+                    swap.outcome = 'ERROR';
+                    this.swap = await this.repository.save(swap);
+                    void this.onStatusChange('DONE');
                     return;
                 }
             } else {

@@ -268,14 +268,15 @@ describe('40Swap backend', () => {
         await waitForSwapStatus(swap, 'CREATED');
         assert(swap.value != null);
         // Create a custom asset instead of using L-BTC
-        const customAsset = await elements.issueAsset(1, 'wrongasset');
+        const customAsset = await elements.issueAsset(1);
         // Send the custom asset to the contract address instead of L-BTC
         await elements.sendAssetToAddress(swap.value.contractAddress, swap.value.inputAmount, customAsset.asset);
         const timeoutBlockHeight = swap.value.timeoutBlockHeight;
         const currentHeight = await elements.getBlockHeight();
         const blocksToMine = timeoutBlockHeight - currentHeight + 10;
         await elements.mine(blocksToMine);
-        await waitFor(async () => swap.value?.status === 'CREATED');
+        await waitFor(async () => swap.value?.status === 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('ERROR');
         swap.stop();
     });
 

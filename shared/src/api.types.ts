@@ -65,11 +65,12 @@ const swapOutStatusSchema = z.enum(SWAP_OUT_STATUSES).describe(`
     `);
 export type SwapOutStatus = z.infer<typeof swapOutStatusSchema>;
 
-const SWAP_OUTCOMES = ['SUCCESS', 'REFUNDED', 'EXPIRED'] as const;
+const SWAP_OUTCOMES = ['SUCCESS', 'REFUNDED', 'EXPIRED', 'ERROR'] as const;
 const swapOutcomesSchema = z.enum(SWAP_OUTCOMES).describe(`
         SUCCESS: The swap was successful.
         REFUNDED: The swap failed and was refunded.
         EXPIRED: The swap expired before any funds were sent.
+        ERROR: There was an error processing the swap.
     `);
 export type SwapOutcome = z.infer<typeof swapOutcomesSchema>;
 
