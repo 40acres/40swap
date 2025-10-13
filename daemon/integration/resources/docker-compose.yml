@@ -1,0 +1,39 @@
+include:
+  - "../../../docker/docker-compose.yml"
+
+services:
+  # Override the daemon with a test-specific configuration  
+  daemon:
+    container_name: 40swap_daemon_test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres-daemon:
+        condition: service_healthy
+      lnd-lsp:
+        condition: service_started
+      bitcoind:
+        condition: service_started
+      mempool-backend-btc:
+        condition: service_started
+    environment:
+      - IS_TESTING=true
+    volumes:
+      - lnd-lsp-data:/lnd-data:ro
+    # Wait for the daemon to be ready
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "nc -z localhost 7081 || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+    ports:
+      - "7081"
+    # Override command to wait for dependencies and start daemon
+    command: >
+      /bin/sh -c '
+        echo "Waiting for dependencies...";
+        sleep 15;
+        echo "Starting daemon...";
+        /usr/bin/40swapd start -regtest -db-keep-alive -db-host postgres-daemon -server-url http://localhost:7081 -lndconnect "lndconnect://lnd-lsp:10009?cert=$$(base64 -w0 /lnd-data/tls.cert | sed \"s/+/-/g; s|/|_|g; s/=//g\")&macaroon=$$(base64 -w0 /lnd-data/data/chain/bitcoin/regtest/admin.macaroon | sed \"s/+/-/g; s|/|_|g; s/=//g\")" -mempool-endpoint "http://mempool-backend-btc:8999/api" -mempool-token "test"
+      '

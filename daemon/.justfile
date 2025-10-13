@@ -21,6 +21,22 @@ generate:
 test:
     go test ./...
 
+# Test only unit tests (excluding integration tests)
+test-unit:
+    go test -short ./...
+
+# Test integration tests
+test-integration:
+    go test -timeout 10m ./integration
+
+# Test integration tests with verbose output
+test-integration-verbose:
+    go test -v -timeout 10m ./integration
+
+# Test only LND integration
+test-lnd:
+    go test -v -timeout 10m ./integration -run TestLndHelper
+
 run *cmd:
     go run ./cmd/main.go {{cmd}}
 
