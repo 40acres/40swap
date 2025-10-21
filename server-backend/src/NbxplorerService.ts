@@ -316,7 +316,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async getBalance(xpub: string, cryptoCode: string = 'btc'): Promise<NBXplorerBalance> {
-        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/balance`)).json();
+        const baseUrl = new URL(`${cryptoCode}/derivations/${xpub}/balance`, this.config.baseUrl);
+        const response = await (await fetch(baseUrl.href)).json();
         return nbxplorerBalanceSchema.parse(response);
     }
 
@@ -344,11 +345,10 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     ): Promise<NBXplorerAddress> {
         const change = opts?.change ?? false;
         const reserve = opts?.reserve ?? false;
-        const params = new URLSearchParams({
-            feature: change ? 'Change' : 'Deposit',
-            reserve: reserve.toString(),
-        });
-        const response = await (await fetch(`${this.getUrl(cryptoCode)}/derivations/${xpub}/addresses/unused?${params}`)).json();
+        const baseUrl = new URL(`${cryptoCode}/derivations/${xpub}/addresses/unused`, this.config.baseUrl);
+        baseUrl.searchParams.set('feature', change ? 'Change' : 'Deposit');
+        baseUrl.searchParams.set('reserve', reserve.toString());
+        const response = await (await fetch(baseUrl.href)).json();
         return nbxplorerAddressSchema.parse(response);
     }
 
@@ -616,7 +616,8 @@ export class NbxplorerService implements OnApplicationBootstrap, OnApplicationSh
     }
 
     async getNetworkStatus(cryptoCode: string = 'btc'): Promise<NBXplorerNetworkStatus> {
-        const response = await fetch(`${this.getUrl(cryptoCode)}/status`);
+        const baseUrl = new URL(`${cryptoCode}/status`, this.config.baseUrl);
+        const response = await fetch(baseUrl.href);
         if (response.status >= 300) {
             throw new Error('nbxplorer threw an when fetching the network status');
         }
