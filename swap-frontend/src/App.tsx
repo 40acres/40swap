@@ -13,43 +13,95 @@ import { Header } from './Header.js';
 import { Footer } from './Footer.js';
 import { Faq } from './Faq.js';
 import { SupportWidget } from './SupportWidget.js';
+import { BetaDisclaimer } from './BetaDisclaimer.js';
 
 const Layout: Component<RouteSectionProps> = (props) => {
-    return <>
-        <div id="main">
-            <Header />
-            {props.children}
-        </div>
-        <SupportWidget />
-        <Footer />
-        <Toaster toastOptions={{
-            duration: 5000,
-            position: 'bottom-right',
-        }}/>
-    </>;
+    return (
+        <>
+            <div id="main">
+                <Header />
+                {props.children}
+            </div>
+            <SupportWidget />
+            <Footer />
+            <BetaDisclaimer />
+            <Toaster
+                toastOptions={{
+                    duration: 5000,
+                    position: 'bottom-right',
+                }}
+            />
+        </>
+    );
 };
 
 const NarrowContainer: ParentComponent = (props) => {
-    return <div style="max-width: 600px" class="mx-auto content narrow-container">
-        {props.children}
-    </div>;
+    return (
+        <div style="max-width: 600px" class="mx-auto content narrow-container">
+            {props.children}
+        </div>
+    );
 };
 
 const WideContainer: ParentComponent = (props) => {
-    return <Container class="content wide-container">
-        {props.children}
-    </Container>;
+    return <Container class="content wide-container">{props.children}</Container>;
 };
 
 const App: Component = () => {
-    return <Router root={Layout}>
-        <Route path="/" component={() => <><NarrowContainer><SwapForm /></NarrowContainer></>} />
-        <Route path="/swap/in/:id" component={() => <NarrowContainer><SwapInDetails /></NarrowContainer>} />
-        <Route path="/swap/out/:id" component={() => <NarrowContainer><SwapOutDetails /></NarrowContainer>} />
-        <Route path="/history" component={() => <WideContainer><History /></WideContainer>} />
-        <Route path="/faq" component={() => <><Faq /></>} />
-        <Route path="/*" component={() => <WideContainer><h3 class="text-center">Page not found</h3></WideContainer>} />
-    </Router>;
+    return (
+        <Router root={Layout}>
+            <Route
+                path="/"
+                component={() => (
+                    <>
+                        <NarrowContainer>
+                            <SwapForm />
+                        </NarrowContainer>
+                    </>
+                )}
+            />
+            <Route
+                path="/swap/in/:id"
+                component={() => (
+                    <NarrowContainer>
+                        <SwapInDetails />
+                    </NarrowContainer>
+                )}
+            />
+            <Route
+                path="/swap/out/:id"
+                component={() => (
+                    <NarrowContainer>
+                        <SwapOutDetails />
+                    </NarrowContainer>
+                )}
+            />
+            <Route
+                path="/history"
+                component={() => (
+                    <WideContainer>
+                        <History />
+                    </WideContainer>
+                )}
+            />
+            <Route
+                path="/faq"
+                component={() => (
+                    <>
+                        <Faq />
+                    </>
+                )}
+            />
+            <Route
+                path="/*"
+                component={() => (
+                    <WideContainer>
+                        <h3 class="text-center">Page not found</h3>
+                    </WideContainer>
+                )}
+            />
+        </Router>
+    );
 };
 
-render(() => <App/>, document.getElementById('root') as HTMLElement);
+render(() => <App />, document.getElementById('root') as HTMLElement);

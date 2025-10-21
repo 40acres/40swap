@@ -54,17 +54,6 @@ func init() {
 	}
 }
 
-// New returns a new logger with our standard hooks attached.
-// The formatter is set by the LOG_FORMAT environment variable.
-func New() *log.Logger {
-	logger := log.New()
-	logger.AddHook(&logrusContextHook{})
-	logger.AddHook(&logrusFieldFilterHook{})
-	logger.SetFormatter(formatterFromEnv())
-
-	return logger
-}
-
 // formatterFromEnv returns a new formatter based on LOG_FORMAT.
 func formatterFromEnv() log.Formatter {
 	logFormat := os.Getenv("LOG_FORMAT")

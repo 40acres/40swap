@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/40acres/40swap/daemon/database/models"
 	"github.com/40acres/40swap/daemon/lightning"
 	"github.com/40acres/40swap/daemon/swaps"
-	"github.com/btcsuite/btcd/btcutil/psbt"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lntypes"
 	"github.com/lightningnetwork/lnd/zpay32"
 
@@ -42,6 +43,25 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 
 	newStatus := models.SwapStatus(newSwap.Status)
 	changed := currentSwap.Status != newStatus
+
+	// Update contract information from backend if available
+	contractChanged := false
+	if newSwap.RedeemScript != "" && currentSwap.RedeemScript != newSwap.RedeemScript {
+		currentSwap.RedeemScript = newSwap.RedeemScript
+		currentSwap.ClaimAddress = newSwap.ContractAddress
+		contractChanged = true
+		logger.Debugf("Updated redeem script: %s", newSwap.RedeemScript)
+		logger.Debugf("Updated claim address (contract address): %s", newSwap.ContractAddress)
+	}
+	if newSwap.TimeoutBlockHeight > 0 {
+		timeoutBlockHeight := int64(newSwap.TimeoutBlockHeight)
+		if currentSwap.TimeoutBlockHeight != timeoutBlockHeight {
+			currentSwap.TimeoutBlockHeight = timeoutBlockHeight
+			contractChanged = true
+			logger.Debugf("Updated timeout block height: %d", newSwap.TimeoutBlockHeight)
+		}
+	}
+
 	switch newStatus {
 	case models.StatusCreated:
 		// Do nothing
@@ -99,7 +119,7 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 		}
 	}
 
-	if changed {
+	if changed || contractChanged {
 		currentSwap.Status = newStatus
 		err := m.repository.SaveSwapIn(ctx, currentSwap)
 		if err != nil {
@@ -118,45 +138,83 @@ func (m *SwapMonitor) InitiateRefund(ctx context.Context, swap *models.SwapIn) (
 	})
 
 	logger.Infof("Claiming swap in refund: %s", swap.SwapID)
-	res, err := m.swapClient.GetRefundPSBT(ctx, swap.SwapID, swap.RefundAddress)
+
+	// Get recommended fee rate
+	recommendedFeeRate, err := m.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
 	if err != nil {
-		return "", fmt.Errorf("failed to get refund psbt: %w", err)
+		return "", fmt.Errorf("failed to get recommended fees: %w", err)
 	}
 
-	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
+	if recommendedFeeRate > 200 {
+		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
+	}
+
+	// If we don't have the lock transaction ID, try to get it from backend
+	if swap.LockTxID == "" {
+		logger.Debug("Lock transaction ID not available locally, fetching from backend")
+
+		backendSwap, err := m.swapClient.GetSwapIn(ctx, swap.SwapID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get swap from backend: %w", err)
+		}
+
+		if backendSwap.LockTx != nil {
+			txId, err := getTxId(*backendSwap.LockTx)
+			if err != nil {
+				return "", fmt.Errorf("failed to get tx id from backend data: %w", err)
+			}
+			swap.LockTxID = txId
+			logger.Debugf("Retrieved lock transaction ID from backend: %s", txId)
+
+			// Save the updated swap with the lock transaction ID
+			err = m.repository.SaveSwapIn(ctx, swap)
+			if err != nil {
+				return "", fmt.Errorf("failed to save swap with lock tx id: %w", err)
+			}
+		}
+
+		// Still no lock transaction ID after checking backend
+		if swap.LockTxID == "" {
+			return "", fmt.Errorf("lock transaction ID not available for local construction (not found in backend either)")
+		}
+	}
+
+	psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
+
+	pkt, err := psbtBuilder.BuildRefundPSBT(ctx, swap, recommendedFeeRate, logger)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode psbt: %w", err)
+		return "", fmt.Errorf("failed to build refund PSBT: %w", err)
 	}
 
-	// check if the refund address returned in the psbt is our own
-	if !bitcoin.PSBTHasValidOutputAddress(pkt, m.network, swap.RefundAddress) {
-		return "", fmt.Errorf("invalid refund tx")
-	}
-
-	privateKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
+	// Sign the PSBT and attempt to broadcast locally. If local broadcast fails,
+	// fall back to broadcasting through the backend client.
+	refundKey, err := bitcoin.ParsePrivateKey(swap.RefundPrivatekey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode refund private key: %w", err)
 	}
 
-	// Process the PSBT
-	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, &lntypes.Preimage{}, 0)
+	signedTx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, refundKey, &lntypes.Preimage{}, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign PSBT: %w", err)
 	}
 
-	serializedTx, err := bitcoin.SerializeTx(tx)
+	serializedTx, err := bitcoin.SerializeTx(signedTx)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
 
-	// Send transaction back to the swap client
-	logger.Debug("Sending transaction back to swap client")
-	err = m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx)
-	if err != nil {
-		return "", err
+	// Try local broadcast first
+	logger.Debug("Broadcasting refund transaction directly to bitcoin network")
+	if err := m.bitcoin.PostRefund(ctx, serializedTx); err != nil {
+		logger.WithError(err).Warn("Local refund broadcast failed, falling back to backend")
+
+		// Fallback: broadcast via backend API
+		if backendErr := m.swapClient.PostRefund(ctx, swap.SwapID, serializedTx); backendErr != nil {
+			return "", fmt.Errorf("failed to broadcast refund locally (%w) and via backend (%w)", err, backendErr)
+		}
 	}
 
-	return tx.TxID(), nil
+	return signedTx.TxID(), nil
 }
 
 func (m *SwapMonitor) getPreimage(ctx context.Context, paymentRequest string) (*lntypes.Preimage, error) {
@@ -181,12 +239,17 @@ func getTxId(tx string) (string, error) {
 		return "", nil
 	}
 
-	packet, err := psbt.NewFromRawBytes(
-		bytes.NewReader([]byte(tx)), false,
-	)
+	// If PSBT parsing fails, try to parse as raw hex transaction
+	txBytes, err := hex.DecodeString(tx)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse PSBT: %w", err)
+		return "", fmt.Errorf("failed to decode hex transaction: %w", err)
 	}
 
-	return packet.UnsignedTx.TxID(), nil
+	transaction := wire.NewMsgTx(wire.TxVersion)
+	err = transaction.Deserialize(bytes.NewReader(txBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to deserialize transaction: %w", err)
+	}
+
+	return transaction.TxHash().String(), nil
 }

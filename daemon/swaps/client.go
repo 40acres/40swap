@@ -51,6 +51,9 @@ type SwapOutResponse struct {
 	CreatedAt          time.Time          `json:"createdAt"`
 	LockTx             *string            `json:"lockTx"`
 	UnlockTx           *string            `json:"unlockTx"`
+	ContractAddress    *string            `json:"contractAddress"`
+	RedeemScript       *string            `json:"redeemScript"`
+	RefundPublicKey    *string            `json:"refundPublicKey"`
 }
 
 type GetClaimPSBTResponse struct {
@@ -66,6 +69,7 @@ type CreateSwapInRequest struct {
 type SwapInResponse struct {
 	// ContractAddress is the claim address for the swap
 	ContractAddress    string             `json:"contractAddress"`
+	Chain              models.Chain       `json:"chain"`
 	CreatedAt          time.Time          `json:"createdAt"`
 	InputAmount        decimal.Decimal    `json:"inputAmount"`
 	LockTx             *string            `json:"lockTx"`

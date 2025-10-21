@@ -87,6 +87,8 @@ message GetSwapInResponse {
   string redeem_script = 8; // Redeem script for the contract.
   Status status = 9; // Current status of the swap.
   uint32 timeout_block_height = 10; // Block height at which the swap times out.
+  optional string pre_image = 11; // Preimage for the swap.
+  optional string refund_tx_id = 12; // Refund transaction ID.
 }
 
 // Message definitions for querying SwapOut status.

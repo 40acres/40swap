@@ -204,6 +204,10 @@ textarea {
   min-height: auto;
 }
 
+.beta-pill-logo {
+  filter: brightness(0) invert(1) !important;
+}
+
 input {
   &:focus {
     background-color: $light !important;

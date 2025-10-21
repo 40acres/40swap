@@ -37,6 +37,24 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 
 	newStatus := models.SwapStatus(newSwap.Status)
 	changed := currentSwap.Status != newStatus
+
+	// Update contract information from backend if available
+	contractChanged := false
+	if newSwap.ContractAddress != nil && *newSwap.ContractAddress != "" {
+		if currentSwap.ContractAddress != *newSwap.ContractAddress {
+			currentSwap.ContractAddress = *newSwap.ContractAddress
+			contractChanged = true
+			logger.Debugf("Updated contract address: %s", *newSwap.ContractAddress)
+		}
+	}
+	if newSwap.RefundPublicKey != nil && *newSwap.RefundPublicKey != "" {
+		if currentSwap.RefundPublicKey != *newSwap.RefundPublicKey {
+			currentSwap.RefundPublicKey = *newSwap.RefundPublicKey
+			contractChanged = true
+			logger.Debugf("Updated refund public key: %s", *newSwap.RefundPublicKey)
+		}
+	}
+
 	switch newStatus {
 	case models.StatusCreated:
 		logger.Debug("waiting for payment")
@@ -44,7 +62,8 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 		logger.Debug("off-chain payment detected")
 	case models.StatusContractFundedUnconfirmed:
 		logger.Debug("on-chain HTLC contract detected, waiting for confirmation")
-		currentSwap.TimeoutBlockHeight = int64(newSwap.TimeoutBlockHeight)
+		timeoutBlockHeight := int64(newSwap.TimeoutBlockHeight)
+		currentSwap.TimeoutBlockHeight = timeoutBlockHeight
 	case models.StatusContractFunded:
 		logger.Debug("contract funded confirmed, claiming on-chain tx")
 		tx, err := m.ClaimSwapOut(ctx, currentSwap)
@@ -58,18 +77,28 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 	case models.StatusDone:
 		// Once it gets to DONE, we update the outcome
 		currentSwap.Outcome = &newSwap.Outcome
-		offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
-		if err != nil {
-			return fmt.Errorf("failed to get fees: %w", err)
+
+		// Only calculate fees for successful swaps
+		// For refunded/failed/expired swaps, the payment never completed successfully
+		if newSwap.Outcome == models.OutcomeSuccess {
+			offchainFees, onchainFees, err := m.GetFeesSwapOut(ctx, currentSwap)
+			if err != nil {
+				return fmt.Errorf("failed to get fees for successful swap: %w", err)
+			}
+			currentSwap.OffchainFeeSats = offchainFees
+			currentSwap.OnchainFeeSats = onchainFees
+		} else {
+			logger.Debugf("Swap outcome is %s, skipping fee calculation", newSwap.Outcome)
+			// For non-success outcomes, set fees to 0 or unknown
+			currentSwap.OffchainFeeSats = 0
+			currentSwap.OnchainFeeSats = 0
 		}
-		currentSwap.OffchainFeeSats = offchainFees
-		currentSwap.OnchainFeeSats = onchainFees
 	case models.StatusContractExpired:
 	case models.StatusContractRefundedUnconfirmed:
 		logger.Debug("contract refunded unconfirmed")
 	}
 
-	if changed {
+	if changed || contractChanged {
 		currentSwap.Status = newStatus
 		err := m.repository.SaveSwapOut(ctx, currentSwap)
 		if err != nil {
@@ -85,42 +114,65 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 func (m *SwapMonitor) ClaimSwapOut(ctx context.Context, swap *models.SwapOut) (string, error) {
 	logger := log.WithField("id", swap.SwapID)
 
-	logger.Infof("claiming swap out: %s", swap.SwapID)
-	res, err := m.swapClient.GetClaimPSBT(ctx, swap.SwapID, swap.DestinationAddress)
+	logger.Infof("Building claim transaction for swap out: %s", swap.SwapID)
+
+	// Get recommended fee rate
+	recommendedFeeRate, err := m.bitcoin.GetRecommendedFees(ctx, bitcoin.HalfHourFee)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get recommended fees: %w", err)
 	}
 
-	// Get psbt from response
-	pkt, err := bitcoin.Base64ToPsbt(res.PSBT)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse PSBT: %w", err)
+	if recommendedFeeRate > 200 {
+		return "", fmt.Errorf("recommended fee rate is too high: %d", recommendedFeeRate)
 	}
 
-	privateKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
+	// Build claim transaction locally
+	swapInfo, err := m.swapClient.GetSwapOut(ctx, swap.SwapID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get swap info: %w", err)
+	}
+
+	if swapInfo.LockTx == nil {
+		return "", fmt.Errorf("lock transaction not available for local construction")
+	}
+
+	psbtBuilder := NewPSBTBuilder(m.bitcoin, m.network)
+
+	pkt, err := psbtBuilder.BuildClaimPSBT(ctx, swap, swapInfo, recommendedFeeRate, logger)
+	if err != nil {
+		return "", fmt.Errorf("failed to build claim PSBT: %w", err)
+	}
+
+	// Sign and broadcast the PSBT (local first, then backend fallback)
+	claimKey, err := bitcoin.ParsePrivateKey(swap.ClaimPrivateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode claim private key: %w", err)
 	}
 
-	// Process the PSBT
-	tx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, privateKey, swap.PreImage, 0)
+	signedTx, err := bitcoin.SignFinishExtractPSBT(logger, pkt, claimKey, swap.PreImage, 0)
 	if err != nil {
-		return "", fmt.Errorf("failed to process PSBT: %w", err)
+		return "", fmt.Errorf("failed to sign PSBT: %w", err)
 	}
 
-	serializedTx, err := bitcoin.SerializeTx(tx)
+	serializedTx, err := bitcoin.SerializeTx(signedTx)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize transaction: %w", err)
 	}
 
-	// Send transaction back to the swap client
-	logger.Debug("sending transaction back to swap client")
-	err = m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx)
-	if err != nil {
-		return "", err
+	// Try local broadcast first
+	logger.Debug("Broadcasting claim transaction directly to bitcoin network")
+	if err := m.bitcoin.PostRefund(ctx, serializedTx); err != nil {
+		logger.WithError(err).Warn("Local claim broadcast failed, falling back to backend")
+
+		// Fallback: broadcast via backend API
+		if backendErr := m.swapClient.PostClaim(ctx, swap.SwapID, serializedTx); backendErr != nil {
+			return "", fmt.Errorf("failed to broadcast claim locally (%w) and via backend (%w)", err, backendErr)
+		}
 	}
 
-	return tx.TxID(), nil
+	logger.Info("Successfully built and broadcast claim transaction")
+
+	return signedTx.TxID(), nil
 }
 
 func (m *SwapMonitor) GetFeesSwapOut(ctx context.Context, swap *models.SwapOut) (int64, int64, error) {

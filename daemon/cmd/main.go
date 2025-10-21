@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	bitcoinutils "github.com/40acres/40swap/daemon/bitcoin"
 	"github.com/40acres/40swap/daemon/bitcoin/mempool"
@@ -141,6 +142,54 @@ func main() {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("MEMPOOL_TOKEN")),
 			},
+			&cli.BoolFlag{
+				Name:    "auto-swap-enabled",
+				Usage:   "Enable or disable auto swap out feature",
+				Value:   false,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_ENABLED")),
+			},
+			&cli.DurationFlag{
+				Name:    "auto-swap-interval",
+				Usage:   "Interval to check for auto swap out",
+				Value:   10 * time.Minute,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_INTERVAL")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-target-balance",
+				Usage:   "Target outbound liquidity in BTC",
+				Value:   1.0,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_TARGET_BALANCE")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-backoff-factor",
+				Usage:   "Backoff factor to reduce swap size on failure",
+				Value:   0.8,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_BACKOFF_FACTOR")),
+			},
+			&cli.IntFlag{
+				Name:    "auto-swap-max-attempts",
+				Usage:   "Maximum attempts per auto swap out",
+				Value:   3,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_MAX_ATTEMPTS")),
+			},
+			&cli.IntFlag{
+				Name:    "auto-swap-routing-fee-limit",
+				Usage:   "Routing fee limit in parts per million (ppm)",
+				Value:   1000,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_ROUTING_FEE_LIMIT")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-min-size",
+				Usage:   "Minimum size per auto swap out (BTC)",
+				Value:   0.001,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_MIN_SIZE")),
+			},
+			&cli.FloatFlag{
+				Name:    "auto-swap-max-size",
+				Usage:   "Maximum size per auto swap out (BTC)",
+				Value:   0.1,
+				Sources: cli.NewValueSourceChain(cli.EnvVar("40SWAPD_AUTO_SWAP_MAX_SIZE")),
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -188,6 +237,23 @@ func main() {
 						network = rpc.Network_TESTNET
 					}
 
+					// Create auto swap config from CLI flags
+					autoSwapConfig := daemon.NewAutoSwapConfigFromFlags(
+						c.Bool("auto-swap-enabled"),
+						int(c.Duration("auto-swap-interval").Minutes()),
+						c.Float("auto-swap-target-balance"),
+						c.Float("auto-swap-backoff-factor"),
+						int(c.Int("auto-swap-max-attempts")),
+						int(c.Int("auto-swap-routing-fee-limit")),
+						c.Float("auto-swap-min-size"),
+						c.Float("auto-swap-max-size"),
+					)
+
+					// Validate auto swap config
+					if err := autoSwapConfig.Validate(); err != nil {
+						return fmt.Errorf("invalid auto swap config: %w", err)
+					}
+
 					swapClient, err := swaps.NewClient(c.String("server-url"))
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to swap server: %w", err)
@@ -216,7 +282,14 @@ func main() {
 					server := rpc.NewRPCServer(grpcPort, db, swapClient, lnClient, mempool, c.Int("minrelayfee"), network)
 					defer server.Stop()
 
-					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network))
+					// Create auto swap service if enabled
+					var autoSwapService *daemon.AutoSwapService
+					if autoSwapConfig.IsEnabled() {
+						rpcClient := rpc.NewRPCClient("localhost", grpcPort)
+						autoSwapService = daemon.NewAutoSwapService(swapClient, rpcClient, lnClient, db, autoSwapConfig)
+					}
+
+					err = daemon.Start(ctx, server, db, swapClient, lnClient, mempool, rpc.ToLightningNetworkType(network), autoSwapService)
 					if err != nil {
 						return err
 					}

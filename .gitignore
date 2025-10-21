@@ -26,3 +26,7 @@ daemon/tmp
 build-errors.log
 daemon/tls.cert
 daemon/admin.macaroon
+daemon/40swapd
+
+# ACT
+act.vars

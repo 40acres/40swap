@@ -1,9 +1,7 @@
 import { StartedGenericContainer } from 'testcontainers/build/generic-container/started-generic-container.js';
 
 export class Bitcoind {
-    constructor(
-        private container: StartedGenericContainer,
-    ) {}
+    constructor(private container: StartedGenericContainer) {}
 
     async mine(blocks = 3): Promise<void> {
         const res = await this.container.exec(`bitcoin-cli -regtest -generate ${blocks}`, {
@@ -12,7 +10,6 @@ export class Bitcoind {
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
-        console.log(res.stdout);
     }
 
     async sendToAddress(address: string, amount: number): Promise<void> {
@@ -22,7 +19,5 @@ export class Bitcoind {
         if (res.exitCode !== 0) {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
-        console.log(res.stdout);
-
     }
 }

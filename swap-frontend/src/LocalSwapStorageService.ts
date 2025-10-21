@@ -1,7 +1,6 @@
-import { getSwapInResponseSchema, getSwapOutResponseSchema } from '@40swap/shared';
+import { getSwapInResponseSchema, getSwapOutResponseSchema, SwapPersistence, SwapType } from '@40swap/shared';
 import * as idb from 'idb';
 import { DBSchema, IDBPDatabase } from 'idb';
-import { SwapType } from './utils.js';
 import { z } from 'zod';
 
 const persistedSwapInSchema = getSwapInResponseSchema.extend({
@@ -21,26 +20,23 @@ const persistedSwapOutSchema = getSwapOutResponseSchema.extend({
 });
 export type PersistedSwapOut = z.infer<typeof persistedSwapOutSchema>;
 
-export interface FourtySwapDbSchema extends DBSchema {
-    'swap': {
-        key: string,
-        value: PersistedSwapIn | PersistedSwapOut,
+export interface FortySwapDbSchema extends DBSchema {
+    swap: {
+        key: string;
+        value: PersistedSwapIn | PersistedSwapOut;
         indexes: {
-            'by-created-at': string,
-        },
+            'by-created-at': string;
+        };
     };
 }
 
-export type PersistedSwapKey = Pick<PersistedSwapIn | PersistedSwapOut, 'type' | 'swapId'>;
-
-export class LocalSwapStorageService {
-
-    private db: Promise<IDBPDatabase<FourtySwapDbSchema>>;
+export class LocalSwapStorageService implements SwapPersistence {
+    private db: Promise<IDBPDatabase<FortySwapDbSchema>>;
 
     constructor() {
         if (navigator.storage && navigator.storage.persist) {
             try {
-                navigator.storage.persist().then(persisted => {
+                navigator.storage.persist().then((persisted) => {
                     if (persisted) {
                         console.log('PERSISTED DATA GRANTED');
                     } else {
@@ -51,28 +47,29 @@ export class LocalSwapStorageService {
                 console.error('PERSISTED DATA ERROR', error);
             }
         }
-        this.db = idb.openDB<FourtySwapDbSchema>('40swap', 2, {
+        this.db = idb.openDB<FortySwapDbSchema>('40swap', 2, {
             upgrade(db, oldVersion, newVersion, transaction) {
-                const store = db.objectStoreNames.contains('swap')
-                    ? transaction.objectStore('swap')
-                    : db.createObjectStore('swap', { keyPath: 'swapId' });
-        
+                const store = db.objectStoreNames.contains('swap') ? transaction.objectStore('swap') : db.createObjectStore('swap', { keyPath: 'swapId' });
+
                 if (oldVersion < 1) {
                     store.createIndex('by-created-at', 'createdAt', { unique: false });
                 }
-        
+
                 if (oldVersion < 2) {
                     const index = store.index('by-created-at');
-                    index.getAll().then((swaps: (PersistedSwapIn | PersistedSwapOut)[]) => {
-                        for (const swap of swaps) {
-                            if (!swap.chain) {
-                                swap.chain = 'BITCOIN';
-                                store.put(swap);
+                    index
+                        .getAll()
+                        .then((swaps: (PersistedSwapIn | PersistedSwapOut)[]) => {
+                            for (const swap of swaps) {
+                                if (!swap.chain) {
+                                    swap.chain = 'BITCOIN';
+                                    store.put(swap);
+                                }
                             }
-                        }
-                    }).catch(err => {
-                        console.error('Migration failed', err);
-                    });
+                        })
+                        .catch((err) => {
+                            console.error('Migration failed', err);
+                        });
                 }
             },
         });
@@ -82,7 +79,7 @@ export class LocalSwapStorageService {
         await (await this.db).add('swap', swap);
     }
 
-    async update<T extends PersistedSwapIn | PersistedSwapOut>(swap: Partial<T> & PersistedSwapKey): Promise<void> {
+    async update<T extends PersistedSwapIn | PersistedSwapOut>(swap: Partial<T> & Pick<PersistedSwapIn, 'swapId'> & { type: SwapType }): Promise<void> {
         const existing = await this.findById(swap.type, swap.swapId);
         if (existing == null) {
             throw new Error();
@@ -91,9 +88,9 @@ export class LocalSwapStorageService {
     }
 
     async findById<T extends SwapType>(type: T, swapId: PersistedSwapIn['swapId']): Promise<(T extends 'in' ? PersistedSwapIn : PersistedSwapOut) | null> {
-        const obj = (await (await this.db).get('swap', swapId));
+        const obj = await (await this.db).get('swap', swapId);
         if (obj != null && obj.type === type) {
-            return obj as (T extends 'in' ? PersistedSwapIn : PersistedSwapOut);
+            return obj as T extends 'in' ? PersistedSwapIn : PersistedSwapOut;
         }
         return null;
     }
@@ -122,5 +119,4 @@ export class LocalSwapStorageService {
             await this.persist(item);
         }
     }
-
 }

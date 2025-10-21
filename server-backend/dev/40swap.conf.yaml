@@ -1,5 +1,6 @@
 server:
   port: 7081
+  environment: development
 db:
   host: 'localhost'
   port: 5432
@@ -22,4 +23,8 @@ swap:
   lockBlockDelta:
     minIn: 144
     in: 432
-    out: 20
+    out: 144
+# Bitfinex API credentials (optional - can also be provided via CLI options)
+# bitfinex:
+#   apiKey: "your_bitfinex_api_key_here"
+#   apiSecret: "your_bitfinex_api_secret_here"

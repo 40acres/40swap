@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Network, networks } from 'bitcoinjs-lib';
 import { ConfigService } from '@nestjs/config';
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 
@@ -15,10 +15,10 @@ export class BitcoinService {
     private readonly logger = new Logger(BitcoinService.name);
 
     readonly configurationDetails: BitcoinConfigurationDetails;
-    private config: FourtySwapConfiguration['bitcoin'];
+    private config: FortySwapConfiguration['bitcoin'];
 
     constructor(
-        config: ConfigService<FourtySwapConfiguration>,
+        config: ConfigService<FortySwapConfiguration>,
         private nbxplorer: NbxplorerService,
         private mempoolDotSpace: MempoolDotSpaceService,
     ) {
@@ -34,12 +34,14 @@ export class BitcoinService {
         return (await this.nbxplorer.getNetworkStatus()).chainHeight;
     }
 
-    public async getMinerFeeRate(priority: 'high_prio'|'low_prio'): Promise<number> {
+    public async getMinerFeeRate(priority: 'high_prio' | 'low_prio'): Promise<number> {
         try {
             const feeRates = await this.mempoolDotSpace.getFeeRate();
             switch (priority) {
-            case 'high_prio': return feeRates.fastestFee;
-            case 'low_prio': return feeRates.halfHourFee;
+                case 'high_prio':
+                    return feeRates.fastestFee;
+                case 'low_prio':
+                    return feeRates.halfHourFee;
             }
         } catch (e) {
             this.logger.warn('failed to get miner fee rate from mempool.space. Trying with nbxplorer');
@@ -49,6 +51,6 @@ export class BitcoinService {
     }
 
     public hasEnoughConfirmations(txHeight: number, blockchainHeight: number): boolean {
-        return txHeight > 0 && blockchainHeight - txHeight + 1  >= this.configurationDetails.requiredConfirmations;
+        return txHeight > 0 && blockchainHeight - txHeight + 1 >= this.configurationDetails.requiredConfirmations;
     }
 }

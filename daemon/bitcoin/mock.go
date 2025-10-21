@@ -86,6 +86,21 @@ func (mr *MockClientMockRecorder) GetTxFromOutpoint(ctx, outpoint any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxFromOutpoint", reflect.TypeOf((*MockClient)(nil).GetTxFromOutpoint), ctx, outpoint)
 }
 
+// GetTxFromTxID mocks base method.
+func (m *MockClient) GetTxFromTxID(ctx context.Context, txID string) (*wire.MsgTx, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTxFromTxID", ctx, txID)
+	ret0, _ := ret[0].(*wire.MsgTx)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTxFromTxID indicates an expected call of GetTxFromTxID.
+func (mr *MockClientMockRecorder) GetTxFromTxID(ctx, txID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxFromTxID", reflect.TypeOf((*MockClient)(nil).GetTxFromTxID), ctx, txID)
+}
+
 // PostRefund mocks base method.
 func (m *MockClient) PostRefund(ctx context.Context, tx string) error {
 	m.ctrl.T.Helper()

@@ -1,12 +1,7 @@
 import { address, crypto, Network, payments, Psbt, script, Transaction } from 'bitcoinjs-lib';
 import assert from 'node:assert';
 
-export function swapScript(
-    preimageHash: Buffer,
-    claimPublicKey: Buffer,
-    refundPublicKey: Buffer,
-    timeoutBlockHeight: number,
-): Buffer {
+export function swapScript(preimageHash: Buffer, claimPublicKey: Buffer, refundPublicKey: Buffer, timeoutBlockHeight: number): Buffer {
     return script.fromASM(
         `
         OP_HASH160 ${crypto.ripemd160(preimageHash).toString('hex')} OP_EQUAL
@@ -23,12 +18,7 @@ export function swapScript(
     );
 }
 
-export function reverseSwapScript(
-    preimageHash: Buffer,
-    claimPublicKey: Buffer,
-    refundPublicKey: Buffer,
-    timeoutBlockHeight: number,
-): Buffer {
+export function reverseSwapScript(preimageHash: Buffer, claimPublicKey: Buffer, refundPublicKey: Buffer, timeoutBlockHeight: number): Buffer {
     return script.fromASM(
         `
         OP_SIZE ${script.number.encode(32).toString('hex')} OP_EQUAL
@@ -44,25 +34,29 @@ export function reverseSwapScript(
     );
 }
 
-export function buildTransactionWithFee(
-    satsPerVbyte: number,
-    buildFn: (feeAmount: number, isFeeCalculationRun: boolean) => Psbt,
-): Psbt {
+export function buildTransactionWithFee(satsPerVbyte: number, buildFn: (feeAmount: number, isFeeCalculationRun: boolean) => Psbt): Psbt {
     const txWithoutAmount = buildFn(1, true).extractTransaction();
     return buildFn(Math.ceil((txWithoutAmount.virtualSize() + txWithoutAmount.ins.length) * satsPerVbyte), false);
 }
 
-export function buildContractSpendBasePsbt({ contractAddress, lockScript, network, spendingTx, outputAddress, feeAmount }: {
-    contractAddress: string,
-    lockScript: Buffer,
-    network: Network,
-    spendingTx: Transaction,
-    outputAddress: string,
-    feeAmount: number,
+export function buildContractSpendBasePsbt({
+    contractAddress,
+    lockScript,
+    network,
+    spendingTx,
+    outputAddress,
+    feeAmount,
+}: {
+    contractAddress: string;
+    lockScript: Buffer;
+    network: Network;
+    spendingTx: Transaction;
+    outputAddress: string;
+    feeAmount: number;
 }): Psbt {
     const spendingOutput = spendingTx.outs
         .map((value, index) => ({ ...value, index }))
-        .find(o => {
+        .find((o) => {
             try {
                 return address.fromOutputScript(o.script, network) === contractAddress;
             } catch (e) {
@@ -74,7 +68,8 @@ export function buildContractSpendBasePsbt({ contractAddress, lockScript, networ
     const psbt = new Psbt({ network });
 
     const value = spendingOutput.value - feeAmount;
-    if (value <= 1000) { // dust
+    if (value <= 1000) {
+        // dust
         throw new Error(`amount is too low: ${value}`);
     }
     psbt.addOutput({

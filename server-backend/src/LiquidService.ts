@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { FourtySwapConfiguration } from './configuration.js';
+import { FortySwapConfiguration } from './configuration.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nestjs/common';
 import Decimal from 'decimal.js';
@@ -48,6 +48,30 @@ const MempoolInfoSchema = z.object({
     unbroadcastcount: z.number(),
 });
 
+const AddressInfoSchema = z.object({
+    address: z.string(),
+    scriptPubKey: z.string(),
+    ismine: z.boolean(),
+    solvable: z.boolean(),
+    desc: z.string(),
+    parent_desc: z.string(),
+    iswatchonly: z.boolean(),
+    isscript: z.boolean(),
+    iswitness: z.boolean(),
+    witness_version: z.number().optional(),
+    witness_program: z.string().optional(),
+    pubkey: z.string().optional(),
+    confidential: z.string().optional(),
+    confidential_key: z.string().optional(),
+    unconfidential: z.string().optional(),
+    ischange: z.boolean(),
+    timestamp: z.number().optional(),
+    hdkeypath: z.string().optional(),
+    hdseedid: z.string().optional(),
+    hdmasterfingerprint: z.string().optional(),
+    labels: z.array(z.string()).optional(),
+});
+
 const WalletProcessPsbtResultSchema = z.object({
     complete: z.boolean(),
     psbt: z.string(),
@@ -64,20 +88,20 @@ export type FinalizedPsbtResult = z.infer<typeof FinalizedPsbtResultSchema>;
 
 export type RPCUtxo = z.infer<typeof RPCUtxoSchema>;
 export type MempoolInfo = z.infer<typeof MempoolInfoSchema>;
+export type AddressInfo = z.infer<typeof AddressInfoSchema>;
 
 @Injectable({ scope: Scope.DEFAULT })
-export class LiquidService implements OnApplicationBootstrap  {
-
+export class LiquidService implements OnApplicationBootstrap {
     configurationDetails?: LiquidConfigurationDetails;
     public readonly xpub?: string;
     private readonly logger = new Logger(LiquidService.name);
     private readonly rpcUrl?: string;
-    private readonly rpcAuth?: {username: string, password: string, wallet: string};
-    private readonly isLiquidEnabled: boolean = false;
+    private readonly rpcAuth?: { username: string; password: string; wallet: string };
+    public readonly isLiquidEnabled: boolean = false;
 
     constructor(
         private nbxplorer: NbxplorerService,
-        @Inject('ELEMENTS_CONFIG') private elementsConfig: FourtySwapConfiguration['elements'] | undefined,
+        @Inject('ELEMENTS_CONFIG') private elementsConfig: FortySwapConfiguration['elements'] | undefined,
     ) {
         if (!this.elementsConfig) {
             this.logger.warn('Elements configuration not provided. Liquid functionality will be disabled.');
@@ -93,7 +117,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             password: this.elementsConfig.rpcPassword,
             wallet: this.elementsConfig.rpcWallet,
         };
-        
+
         try {
             this.configurationDetails = LiquidConfigurationDetailsSchema.parse({
                 wallet: this.elementsConfig.rpcWallet,
@@ -107,7 +131,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             this.isLiquidEnabled = false;
         }
     }
-    
+
     async onApplicationBootstrap(): Promise<void> {
         if (!this.isLiquidEnabled || !this.xpub) {
             this.logger.log('Liquid functionality is disabled. Skipping LiquidService initialization.');
@@ -129,15 +153,15 @@ export class LiquidService implements OnApplicationBootstrap  {
             this.logger.warn(`Liquid functionality is disabled. Cannot call RPC method: ${method}`);
             throw new Error('Liquid functionality is disabled');
         }
-        
-        wallet = wallet || this.rpcAuth.wallet;
+
+        wallet = wallet ?? this.rpcAuth.wallet;
         try {
             const authString = Buffer.from(`${this.rpcAuth.username}:${this.rpcAuth.password}`).toString('base64');
             const response = await fetch(`${this.rpcUrl}/wallet/${wallet}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Basic ${authString}`,
+                    Authorization: `Basic ${authString}`,
                 },
                 body: JSON.stringify({
                     jsonrpc: '1.0',
@@ -146,12 +170,12 @@ export class LiquidService implements OnApplicationBootstrap  {
                     params,
                 }),
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}, ${await response.text()}`);
             }
-            
-            const data = await response.json() as { result: unknown };
+
+            const data = (await response.json()) as { result: unknown };
             return data.result;
         } catch (error) {
             this.logger.error(`Error calling Elements RPC ${method}: ${(error as Error).message}`);
@@ -176,7 +200,7 @@ export class LiquidService implements OnApplicationBootstrap  {
         if (amount === null) {
             utxoResponse = await this.callRPC('listunspent');
         } else {
-            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [] , false, { 'minimumSumAmount': amount } ]);
+            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [], false, { minimumSumAmount: amount }]);
         }
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
@@ -186,9 +210,9 @@ export class LiquidService implements OnApplicationBootstrap  {
      * @param amount Total amount in BTC/L-BTC format (satoshis/1e8).
      * @returns An object with the unspent UTXOs and the total input value (total sum of all UTXOs values).
      */
-    async getConfirmedUtxosAndInputValueForAmount(amount: Decimal): Promise<{ 
-        utxos: RPCUtxo[], 
-        totalInputValue: number,
+    async getConfirmedUtxosAndInputValueForAmount(amount: Decimal): Promise<{
+        utxos: RPCUtxo[];
+        totalInputValue: number;
     }> {
         if (!this.isLiquidEnabled) {
             this.logger.warn('Liquid functionality is disabled. Cannot get confirmed UTXOs.');
@@ -215,6 +239,11 @@ export class LiquidService implements OnApplicationBootstrap  {
         return z.string().parse(address);
     }
 
+    async getAddressInfo(address: string): Promise<AddressInfo> {
+        const addressInfo = await this.callRPC('getaddressinfo', [address]);
+        return AddressInfoSchema.parse(addressInfo);
+    }
+
     async getUtxoTx(utxo: RPCUtxo, xpub: string): Promise<liquid.Transaction> {
         if (!this.isLiquidEnabled) {
             this.logger.warn('Liquid functionality is disabled. Cannot get UTXO transaction.');
@@ -238,11 +267,9 @@ export class LiquidService implements OnApplicationBootstrap  {
             this.logger.warn('Liquid functionality is disabled. Cannot sign PSET.');
             throw new Error('Liquid functionality is disabled');
         }
-        const result = WalletProcessPsbtResultSchema.parse(
-            await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL'])
-        );
+        const result = WalletProcessPsbtResultSchema.parse(await this.callRPC('walletprocesspsbt', [psetBase64, true, 'ALL']));
         if (!result.complete) {
-            throw new Error('Could not process PSET');
+            throw new Error(`Could not process PSET: ${psetBase64}`);
         }
         const processedPset = liquid.Pset.fromBase64(result.psbt);
         if (!processedPset.isComplete()) {
@@ -256,9 +283,7 @@ export class LiquidService implements OnApplicationBootstrap  {
             this.logger.warn('Liquid functionality is disabled. Cannot finalize PSET.');
             throw new Error('Liquid functionality is disabled');
         }
-        const response = FinalizedPsbtResultSchema.parse(
-            await this.callRPC('finalizepsbt', [pset])
-        );
+        const response = FinalizedPsbtResultSchema.parse(await this.callRPC('finalizepsbt', [pset]));
         if (!response.complete) {
             throw new Error('PSET is not complete');
         }
