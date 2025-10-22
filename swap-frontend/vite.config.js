@@ -38,6 +38,11 @@ export default defineConfig({
                 target: 'http://localhost:7081',
             },
         },
+        headers: {
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+            'Content-Security-Policy':
+                "default-src 'self'; object-src 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com/; font-src 'self' https://fonts.gstatic.com/; script-src 'self' 'wasm-unsafe-eval' 'sha256-13AlQYCI1lUfFpJchf4+6xKpe5l5q35faI2w1NMVAxk=' 'sha256-eV5p0xsw4UC/bJ48fZ5luze2UmXZbYuQMHs4vAKQynQ='; form-action 'self'",
+        },
     },
     build: {
         outDir: '../dist',
