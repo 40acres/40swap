@@ -13,6 +13,7 @@ const SEARCH_PATHS = ['dev', homedir(), '/etc', '/etc/40swap'];
 export const configSchema = z.object({
     server: z.object({
         port: z.number().int().positive(),
+        environment: z.enum(['production', 'development']).optional(),
     }),
     db: z.object({
         host: z.string(),
@@ -63,6 +64,12 @@ export const configSchema = z.object({
             rpcPassword: z.string(),
             rpcWallet: z.string(),
             esploraUrl: z.string().url(),
+        })
+        .optional(),
+    bitfinex: z
+        .object({
+            apiKey: z.string(),
+            apiSecret: z.string(),
         })
         .optional(),
 });

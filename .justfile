@@ -17,13 +17,21 @@ install-dependencies:
 
 # Start services with docker compose
 [working-directory: 'docker']
-docker-up $COMPOSE_PROFILES='mempool-btc,esplora-liquid':
-    docker compose up -d
+docker-up $COMPOSE_PROFILES='mempool':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IFS=',' read -ra profiles <<< "$COMPOSE_PROFILES"
+    profile_args=""
+    for profile in "${profiles[@]}"; do
+        profile_args="$profile_args --profile $profile"
+    done
+    docker compose $profile_args up -d
 
 # Stop and remove services with docker compose
 [working-directory: 'docker']
 docker-rm:
     docker compose --profile '*' down  -v
+    just big-network-down
 
 # Initialize blockchain and lightning nodes
 [working-directory: 'docker']
@@ -91,6 +99,34 @@ user-lncli *cmd:
 alice-lncli *cmd:
     docker exec -it 40swap_lnd_alice lncli -n regtest {{cmd}}
 
+# Big network node commands
+bob-lncli *cmd:
+    docker exec -it 40swap_lnd_bob lncli -n regtest {{cmd}}
+
+charlie-lncli *cmd:
+    docker exec -it 40swap_lnd_charlie lncli -n regtest {{cmd}}
+
+david-lncli *cmd:
+    docker exec -it 40swap_lnd_david lncli -n regtest {{cmd}}
+
+eve-lncli *cmd:
+    docker exec -it 40swap_lnd_eve lncli -n regtest {{cmd}}
+
+frank-lncli *cmd:
+    docker exec -it 40swap_lnd_frank lncli -n regtest {{cmd}}
+
+grace-lncli *cmd:
+    docker exec -it 40swap_lnd_grace lncli -n regtest {{cmd}}
+
+henry-lncli *cmd:
+    docker exec -it 40swap_lnd_henry lncli -n regtest {{cmd}}
+
+iris-lncli *cmd:
+    docker exec -it 40swap_lnd_iris lncli -n regtest {{cmd}}
+
+jack-lncli *cmd:
+    docker exec -it 40swap_lnd_jack lncli -n regtest {{cmd}}
+
 # Run command within elements container
 elements-cli *cmd:
     docker exec -it 40swap_elements elements-cli -chain=liquidregtest -rpcwallet=main {{cmd}}
@@ -120,3 +156,56 @@ check-lint:
 [working-directory: 'docs']
 build-docs:
     docker run -v ./:/book peaceiris/mdbook:v0.4.40 build
+
+# Stop big network services
+[working-directory: 'docker']
+big-network-down:
+    docker compose -f docker-compose-big-network.yml down
+    echo "=== Big network services stopped ==="
+
+# Initialize complete big network with channels
+[working-directory: 'docker']
+initialize-big-network:
+    #!/usr/bin/env bash
+    echo "=== Starting big network services ==="
+    docker compose -f docker-compose-big-network.yml up -d
+    echo "⏳ Waiting for services to stabilize..."
+    sleep 20
+    echo "=== Setting up Lightning Network ==="
+    ./big-network-setup.sh
+
+# Reset everything on normal network size
+reset:
+    just drm
+    just build-shared
+    just du
+    sleep 10
+    just initialize-nodes
+
+# Reset big network with proper cleanup and setup
+reset-big-network:
+    #!/usr/bin/env bash
+    set -e
+    echo "🔄 Starting complete big network reset..."
+    
+    # Stop and clean everything
+    just drm
+    just build-shared
+    
+    # Start basic services first
+    just du COMPOSE_PROFILES='mempool,big-network'
+    echo "⏳ Waiting for services to initialize..."
+    sleep 15
+    
+    # Initialize basic nodes first
+    just initialize-nodes
+    sleep 10
+    
+    # Generate extra blocks to avoid sync issues
+    echo "⛏️  Generating blocks to ensure proper sync..."
+    mining_addr=$(docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest getnewaddress)
+    docker exec --user bitcoin 40swap_bitcoind bitcoin-cli -regtest generatetoaddress 20 $mining_addr
+    sleep 10
+    
+    # Now initialize big network
+    just initialize-big-network

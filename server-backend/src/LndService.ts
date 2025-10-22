@@ -13,12 +13,16 @@ export class LndService {
         @Inject('lnd-invoices') private invoices: InvoicesClient,
     ) {}
 
-    async sendPayment(invoice: string, cltvLimit: number): Promise<Buffer> {
+    async sendPayment(invoice: string, cltvLimit: number, channel: number | string | null = null): Promise<Buffer> {
         this.logger.debug(`paying invoice ${invoice} with cltvLimit=${cltvLimit}`);
+        if (channel) {
+            this.logger.debug(`attempting to pay through specific channel ${channel}`);
+        }
         return new Promise((resolve, reject) => {
             this.lightning.sendPaymentSync(
                 {
                     paymentRequest: invoice,
+                    outgoingChanId: channel ?? undefined,
                     cltvLimit,
                     finalCltvDelta: 20,
                 },
