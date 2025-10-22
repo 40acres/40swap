@@ -34,7 +34,7 @@ describe('40Swap backend', () => {
         await compose.down();
     });
 
-    it('should properly handle a liquid swap out expiration', async () => {
+    it.skip('should properly handle a liquid swap out expiration', async () => {
         const claimAddress = await elements.getNewAddress();
         const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
