@@ -20,7 +20,7 @@ export async function waitForSwapStatus<T extends SwapInTracker | SwapOutTracker
     try {
         return await waitFor(() => swap.value?.status === status, maxIterations, delay);
     } catch (error) {
-        throw new Error(`timeout waiting for swap status to become ${status} (current status is ${swap.value?.status})`);
+        throw new Error(`timeout waiting for swap ${swap.id} status to become ${status} (current status is ${swap.value?.status})`);
     }
 }
 

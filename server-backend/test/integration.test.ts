@@ -34,7 +34,7 @@ describe('40Swap backend', () => {
         await compose.down();
     });
 
-    it.skip('should properly handle a liquid swap out expiration', async () => {
+    it('should properly handle a liquid swap out expiration', async () => {
         const claimAddress = await elements.getNewAddress();
         const swap = await swapService.createSwapOut({
             chain: 'LIQUID',
@@ -46,7 +46,7 @@ describe('40Swap backend', () => {
         await waitForSwapStatus(swap, 'CREATED');
 
         assert(swap.value != null);
-        lndUser.sendPayment(swap.value.invoice);
+        void lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
         swap.stop(); // so that it doesn't get claimed
@@ -76,7 +76,7 @@ describe('40Swap backend', () => {
         assert(swap.value != null);
 
         // Pay the Lightning invoice
-        lndUser.sendPayment(swap.value.invoice);
+        void lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
         await bitcoind.mine(5);
@@ -125,7 +125,7 @@ describe('40Swap backend', () => {
         await waitForSwapStatus(swap, 'CREATED');
 
         assert(swap.value != null);
-        lndUser.sendPayment(swap.value.invoice);
+        void lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
 
         await elements.mine(3);

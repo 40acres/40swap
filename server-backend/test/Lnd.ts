@@ -189,6 +189,7 @@ export class Lnd {
         return new Promise((resolve, reject) => {
             this.client.sendPaymentSync({ paymentRequest: invoice }, (err, value) => {
                 if (err != null || value == null) {
+                    console.error(`sendPayment(${invoice}) failed: ${err?.message}`);
                     reject(err);
                 } else {
                     resolve(value);
