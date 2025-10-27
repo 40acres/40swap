@@ -148,7 +148,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.swapConfig,
             this.liquidService,
         );
-        this.runAndMonitor('in', swap, runner);
+        void this.startSwap('in', swap, runner);
         return swap;
     }
 
@@ -209,12 +209,21 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
             this.swapConfig,
             this.liquidService,
         );
-        this.runAndMonitor('out', swap, runner);
+        void this.startSwap('out', swap, runner);
         return swap;
     }
 
-    private async runAndMonitor(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
+    private async startSwap(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
         this.logger.log(`Starting swap-${type} (id=${swap.id}, amount=${swap.inputAmount.toString()})`);
+        await this.runAndMonitor(type, swap, runner);
+    }
+
+    private async resumeSwap(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
+        this.logger.log(`Resuming swap-${type} (id=${swap.id}, amount=${swap.inputAmount.toString()})`);
+        await this.runAndMonitor(type, swap, runner);
+    }
+
+    private async runAndMonitor(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
         this.logger.log(`Swap-${type} finished (id=${swap.id}, outcome=${swap.outcome})`);
@@ -267,7 +276,7 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                           this.liquidService,
                       );
             this.logger.log(`Resuming swap (id=${swap.id}, status=${swap.status})`);
-            this.runAndMonitor(swap instanceof SwapIn ? 'in' : 'out', swap, runner);
+            void this.resumeSwap(swap instanceof SwapIn ? 'in' : 'out', swap, runner);
         }
     }
 
