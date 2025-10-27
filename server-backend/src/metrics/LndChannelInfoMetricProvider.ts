@@ -1,10 +1,11 @@
 import { PrometheusService } from './PrometheusService.js';
 import { LndService } from '../LndService.js';
-import { Injectable, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { Gauge } from 'prom-client';
 
 @Injectable()
 export class LndChannelInfoMetricProvider implements OnApplicationBootstrap, OnApplicationShutdown {
+    private readonly logger = new Logger(LndChannelInfoMetricProvider.name);
     private pollInterval: ReturnType<typeof setInterval> | undefined;
 
     public readonly channelInfo = new Gauge({
@@ -21,12 +22,16 @@ export class LndChannelInfoMetricProvider implements OnApplicationBootstrap, OnA
     }
 
     async run(): Promise<void> {
-        const channels = await this.lnd.getChannelInfo();
-        if (channels != null) {
-            for (const c of channels) {
-                // eslint-disable-next-line no-control-regex
-                this.channelInfo.labels({ chan_id: c.chanId, peer_alias: c.peerAlias.replace(/[^\x00-\x7F]/g, '') }).set(1);
+        try {
+            const channels = await this.lnd.getChannelInfo();
+            if (channels != null) {
+                for (const c of channels) {
+                    // eslint-disable-next-line no-control-regex
+                    this.channelInfo.labels({ chan_id: c.chanId, peer_alias: c.peerAlias.replace(/[^\x00-\x7F]/g, '') }).set(1);
+                }
             }
+        } catch (error) {
+            this.logger.warn(`Error getting LND channel info for metric: ${(error as Error).message}`);
         }
     }
 

@@ -112,7 +112,7 @@ export class SwapInRunner {
             }
             this.swap.status = 'INVOICE_PAID';
             this.swap = await this.repository.save(this.swap);
-            this.onStatusChange('INVOICE_PAID');
+            void this.onStatusChange('INVOICE_PAID');
         } else if (status === 'INVOICE_PAID') {
             let claimTx: Transaction | liquid.Transaction | null = null;
             if (this.swap.chain === 'BITCOIN') {
