@@ -226,7 +226,11 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
     private async runAndMonitor(type: SwapType, swap: SwapIn | SwapOut, runner: SwapInRunner | SwapOutRunner): Promise<void> {
         this.runningSwaps.set(swap.id, runner);
         await runner.run();
-        this.logger.log(`Swap-${type} finished (id=${swap.id}, outcome=${swap.outcome})`);
+        if (swap.status === 'DONE') {
+            this.logger.log(`Swap-${type} finished (id=${swap.id}, outcome=${swap.outcome})`);
+        } else {
+            this.logger.log(`Swap-${type} paused (id=${swap.id}`);
+        }
         this.runningSwaps.delete(swap.id);
     }
 
@@ -275,7 +279,6 @@ export class SwapService implements OnApplicationBootstrap, OnApplicationShutdow
                           this.swapConfig,
                           this.liquidService,
                       );
-            this.logger.log(`Resuming swap (id=${swap.id}, status=${swap.status})`);
             void this.resumeSwap(swap instanceof SwapIn ? 'in' : 'out', swap, runner);
         }
     }
