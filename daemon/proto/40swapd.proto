@@ -89,6 +89,8 @@ message GetSwapInResponse {
   uint32 timeout_block_height = 10; // Block height at which the swap times out.
   optional string pre_image = 11; // Preimage for the swap.
   optional string refund_tx_id = 12; // Refund transaction ID.
+  uint64 service_fee_sats = 13; // Service fee in satoshis.
+  uint64 onchain_fee_sats = 14; // On-chain fee in satoshis.
 }
 
 // Message definitions for querying SwapOut status.
@@ -106,6 +108,9 @@ message GetSwapOutResponse {
   google.protobuf.Timestamp created_at = 7; // Timestamp when the swap was created.
   optional string outcome = 8; // Outcome of the swap.
   optional string claim_tx_id = 9; // Claim transaction txid.
+  uint64 service_fee_sats = 10; // Service fee in satoshis.
+  uint64 onchain_fee_sats = 11; // On-chain fee in satoshis.
+  uint64 offchain_fee_sats = 12; // Off-chain (routing) fee in satoshis.
 }
 
 message RecoverReusedSwapAddressRequest {

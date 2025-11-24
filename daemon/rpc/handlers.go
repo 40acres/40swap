@@ -303,6 +303,8 @@ func (s *Server) GetSwapIn(ctx context.Context, req *GetSwapInRequest) (*GetSwap
 		RedeemScript:       swap.RedeemScript,
 		TimeoutBlockHeight: uint32(swap.TimeoutBlockHeight), // nolint:gosec
 		RefundTxId:         &swap.RefundTxID,
+		ServiceFeeSats:     uint64(swap.ServiceFeeSats), // nolint:gosec
+		OnchainFeeSats:     uint64(swap.OnchainFeeSats), // nolint:gosec
 	}
 
 	if swap.Outcome != nil {
@@ -345,6 +347,9 @@ func (s *Server) GetSwapOut(ctx context.Context, req *GetSwapOutRequest) (*GetSw
 		InputAmount:        money.Money(swap.AmountSats).ToBtc().InexactFloat64(),                       // nolint:gosec
 		OutputAmount:       money.Money(swap.AmountSats - swap.ServiceFeeSats).ToBtc().InexactFloat64(), // nolint:gosec
 		ClaimTxId:          &swap.TxID,
+		ServiceFeeSats:     uint64(swap.ServiceFeeSats),  // nolint:gosec
+		OnchainFeeSats:     uint64(swap.OnchainFeeSats),  // nolint:gosec
+		OffchainFeeSats:    uint64(swap.OffchainFeeSats), // nolint:gosec
 	}
 
 	if swap.Outcome != nil {
