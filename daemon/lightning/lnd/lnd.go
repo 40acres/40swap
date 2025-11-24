@@ -266,7 +266,8 @@ func (c *Client) MonitorPaymentRequest(ctx context.Context, paymentHash string) 
 	}
 
 	monitorRequest := &routerrpc.TrackPaymentRequest{
-		PaymentHash: hash,
+		PaymentHash:       hash,
+		NoInflightUpdates: true, // We only want final status updates
 	}
 
 	stream, err := c.routerClient.TrackPaymentV2(ctx, monitorRequest)
