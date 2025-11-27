@@ -40,7 +40,7 @@
         "commander": "^14.0.0",
         "decimal.js": "^10.4.3",
         "ecpair": "2.1.0",
-        "js-yaml": "^4.1.0",
+        "js-yaml": "^4.1.1",
         "liquidjs-lib": "^6.0.2-liquid.37",
         "moment": "^2.30.1",
         "node-fetch": "^3.3.2",
