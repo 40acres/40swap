@@ -280,6 +280,19 @@ describe('40Swap backend', () => {
         swap.stop();
     });
 
+    it('swap-in creation should fail if lockBlockDeltaIn is >= 5000 (CLTV threshold bypass protection)', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        await expect(
+            backend.in.create({
+                chain: 'BITCOIN',
+                invoice: paymentRequest!,
+                refundPublicKey: refundKey.publicKey.toString('hex'),
+                lockBlockDeltaIn: 5000,
+            }),
+        ).rejects.toThrow();
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
