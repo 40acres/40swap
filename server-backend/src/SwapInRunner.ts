@@ -207,17 +207,14 @@ export class SwapInRunner {
         if (!receivedAmount.equals(swap.inputAmount)) {
             // eslint-disable-next-line max-len
             this.logger.warn(`Contract amount mismatch. Incoming ${receivedAmount.toNumber()}, expected ${swap.inputAmount.toNumber()} (id=${this.swap.id})`);
-            if (this.swap.status === 'CREATED') {
-                swap.status = 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED';
-                this.swap = await this.repository.save(swap);
-                void this.onStatusChange('CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
-                return;
-            }
+            swap.status = 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED';
+            this.swap = await this.repository.save(swap);
+            void this.onStatusChange('CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
         }
 
         if (
             this.swap.status === 'CREATED' ||
-            this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' ||
+            this.swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' || // to handle RBF
             this.swap.status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED'
         ) {
             if (transactionData.height != null) {
