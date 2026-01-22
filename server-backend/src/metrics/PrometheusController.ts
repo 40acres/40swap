@@ -1,8 +1,10 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { PrometheusService } from './PrometheusService.js';
+import { ApiExcludeController } from '@nestjs/swagger';
 
 @Controller('metrics')
+@ApiExcludeController()
 export class PrometheusController {
     constructor(private readonly prometheusService: PrometheusService) {}
 
