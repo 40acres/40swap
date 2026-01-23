@@ -280,6 +280,19 @@ describe('40Swap backend', () => {
         swap.stop();
     });
 
+    it('swap-in creation should fail if lockBlockDeltaIn is >= 5000 (CLTV threshold bypass protection)', async () => {
+        const refundKey = ECPair.makeRandom();
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        await expect(
+            backend.in.create({
+                chain: 'BITCOIN',
+                invoice: paymentRequest!,
+                refundPublicKey: refundKey.publicKey.toString('hex'),
+                lockBlockDeltaIn: 5000,
+            }),
+        ).rejects.toThrow();
+    });
+
     it('swap-in should handle dust griefing attack by transitioning to CONTRACT_AMOUNT_MISMATCH', async () => {
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
         const swap = await swapService.createSwapIn({

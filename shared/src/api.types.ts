@@ -82,6 +82,7 @@ export const swapInRequestSchema = z.object({
         .describe('In case of failure, the corresponding private key can be used to sign the on-chain transaction that returns the funds to the user.'),
     lockBlockDeltaIn: z
         .number()
+        .lt(5000)
         .optional()
         .describe('Number of blocks after which the swap can be considered expired and can be refunded. Leave it empty to use the default value.'),
 });
