@@ -293,6 +293,36 @@ describe('40Swap backend', () => {
         ).rejects.toThrow();
     });
 
+    it('swap-in should handle dust griefing attack by transitioning to CONTRACT_AMOUNT_MISMATCH', async () => {
+        const { paymentRequest } = await lndUser.createInvoice(0.0025);
+        const swap = await swapService.createSwapIn({
+            chain: 'BITCOIN',
+            invoice: paymentRequest!,
+            lockBlockDeltaIn: 144,
+            refundAddress: async () => 'bcrt1qls85t60c5ggt3wwh7d5jfafajnxlhyelcsm3sf',
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // 1. Send the correct amount - swap should be funded correctly
+        await bitcoind.sendToAddress(swap.value.contractAddress, swap.value.inputAmount);
+        await waitFor(async () => swap.value?.status === 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        // 2. Attacker sends dust to the same address (griefing attempt)
+        await bitcoind.sendToAddress(swap.value.contractAddress, 0.0002);
+
+        // 3. The swap should now transition to CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED
+        await waitFor(async () => swap.value?.status === 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED');
+
+        // 4. Mine blocks to pass the timeout and verify refund works
+        await bitcoind.mine(145);
+        await waitFor(async () => swap.value?.status === 'CONTRACT_REFUNDED_UNCONFIRMED');
+        await bitcoind.mine(6);
+        await waitFor(async () => swap.value?.status === 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
