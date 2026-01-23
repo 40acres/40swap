@@ -165,7 +165,10 @@ describe('40Swap backend', () => {
         expect(invoice.state).toEqual('SETTLED');
     });
 
-    it('should fail if lockBlockDeltaIn is less than 144', async () => {
+    it.each([
+        { lockBlockDeltaIn: 100, expectedError: 'lockBlockDeltaIn must be at least 144 blocks', description: 'less than 144' },
+        { lockBlockDeltaIn: 5000, expectedError: /.*/, description: '>= 5000 (CLTV threshold bypass protection)' },
+    ])('swap-in creation should fail if lockBlockDeltaIn is $description', async ({ lockBlockDeltaIn, expectedError }) => {
         const refundKey = ECPair.makeRandom();
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
         await expect(
@@ -173,9 +176,9 @@ describe('40Swap backend', () => {
                 chain: 'BITCOIN',
                 invoice: paymentRequest!,
                 refundPublicKey: refundKey.publicKey.toString('hex'),
-                lockBlockDeltaIn: 100, // Less than the minimum allowed
+                lockBlockDeltaIn,
             }),
-        ).rejects.toThrow('lockBlockDeltaIn must be at least 144 blocks');
+        ).rejects.toThrow(expectedError);
     });
 
     it('should refund after timeout block height', async () => {
@@ -278,19 +281,6 @@ describe('40Swap backend', () => {
         await waitFor(async () => swap.value?.status === 'DONE');
         expect(swap.value.outcome).toEqual<SwapOutcome>('ERROR');
         swap.stop();
-    });
-
-    it('swap-in creation should fail if lockBlockDeltaIn is >= 5000 (CLTV threshold bypass protection)', async () => {
-        const refundKey = ECPair.makeRandom();
-        const { paymentRequest } = await lndUser.createInvoice(0.0025);
-        await expect(
-            backend.in.create({
-                chain: 'BITCOIN',
-                invoice: paymentRequest!,
-                refundPublicKey: refundKey.publicKey.toString('hex'),
-                lockBlockDeltaIn: 5000,
-            }),
-        ).rejects.toThrow();
     });
 
     it('swap-in should handle dust griefing attack by transitioning to CONTRACT_AMOUNT_MISMATCH', async () => {
