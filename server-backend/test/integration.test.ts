@@ -313,6 +313,40 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('REFUNDED');
     });
 
+    it('should complete a swap out when claim happens before contract is confirmed', async () => {
+        // This test verifies that the swap can transition from CONTRACT_FUNDED_UNCONFIRMED
+        // directly to CONTRACT_CLAIMED_UNCONFIRMED when the counterparty claims before
+        // the funding transaction is confirmed
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // Pay the Lightning invoice
+        void lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED', 900);
+
+        // Mine just 1 block - not enough for CONTRACT_FUNDED (requires 3 confirmations)
+        // but the claim should still be processed
+        await bitcoind.mine(1);
+        // @ts-ignore
+        await swap.claim();
+
+        // Wait for the claim to be detected while still in unconfirmed state
+        // The swap should transition directly from CONTRACT_FUNDED_UNCONFIRMED to CONTRACT_CLAIMED_UNCONFIRMED
+        await waitForSwapStatus(swap, 'CONTRACT_CLAIMED_UNCONFIRMED');
+
+        // Verify we never went through CONTRACT_FUNDED state by checking outcome succeeds
+        await bitcoind.mine(5);
+        await waitForSwapStatus(swap, 'DONE');
+
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
@@ -428,7 +462,7 @@ describe('40Swap backend', () => {
         // Force close the channel to avoid flaky issue 'unable to gracefully close channel while peer is offline
         // (try force closing it instead):  channel link not found'
         await lndLsp.closeChannel(ch, true);
-        await bitcoind.mine();
+        await bitcoind.mine(100); // alberto: not sure why, but if we don't mine a bunch of blocks, tests run in isolation fail
         await waitForChainSync(allLnds);
         await waitFor(async () => (await lndLsp.describeGraph()).nodes?.length === 3);
     }

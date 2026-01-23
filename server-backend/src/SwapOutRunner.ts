@@ -324,10 +324,10 @@ export class SwapOutRunner {
                 swap.preImage = preimage;
                 this.swap = await this.repository.save(swap);
 
-                if (swap.status === 'CONTRACT_FUNDED') {
+                if (swap.status === 'CONTRACT_FUNDED' || swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
                     swap.status = 'CONTRACT_CLAIMED_UNCONFIRMED';
                     this.swap = await this.repository.save(swap);
-                    this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
+                    void this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
                 }
             } else {
                 this.logger.warn(`Could not find preimage in claim tx ${transactionData.transactionHash} (id=${this.swap.id})`);
