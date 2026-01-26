@@ -364,7 +364,6 @@ describe('40Swap backend', () => {
         const blocksToMine = timeoutBlockHeight - currentHeight + 1;
         await bitcoind.mine(blocksToMine);
         await sleep(1000);
-        // await waitForSwapStatus(swap, 'CONTRACT_EXPIRED');
         swap.start();
         await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED', 800);
         // to make sure the claim tx replaces the refund tx
