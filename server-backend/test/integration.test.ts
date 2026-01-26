@@ -181,7 +181,7 @@ describe('40Swap backend', () => {
         ).rejects.toThrow(expectedError);
     });
 
-    it('should refund after timeout block height', async () => {
+    it('swap-in should refund after timeout block height', async () => {
         const { paymentRequest } = await lndUser.createInvoice(0.0025);
         const swap = await swapService.createSwapIn({
             chain: 'BITCOIN',
@@ -325,7 +325,6 @@ describe('40Swap backend', () => {
         swap.start();
         await waitForSwapStatus(swap, 'CREATED');
         assert(swap.value != null);
-
         // Pay the Lightning invoice
         void lndUser.sendPayment(swap.value.invoice);
         await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED', 900);
@@ -343,7 +342,36 @@ describe('40Swap backend', () => {
         // Verify we never went through CONTRACT_FUNDED state by checking outcome succeeds
         await bitcoind.mine(5);
         await waitForSwapStatus(swap, 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
+    });
 
+    it('swap-out should handle claiming after expiration', async () => {
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.002,
+            sweepAddress: await lndUser.newAddress(),
+        });
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+        void lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'CONTRACT_FUNDED_UNCONFIRMED');
+
+        swap.stop(); // so that it doesn't get claimed
+        await bitcoind.mine(3); // should move it to CONTRACT_FUNDED, but we can't assert it because the tracker is stopped
+        const timeoutBlockHeight = swap.value.timeoutBlockHeight;
+        const currentHeight = await bitcoind.getBlockHeight();
+        const blocksToMine = timeoutBlockHeight - currentHeight + 1;
+        await bitcoind.mine(blocksToMine);
+        await sleep(1000);
+        // await waitForSwapStatus(swap, 'CONTRACT_EXPIRED');
+        swap.start();
+        await waitForSwapStatus(swap, 'CONTRACT_REFUNDED_UNCONFIRMED', 800);
+        // to make sure the claim tx replaces the refund tx
+        // @ts-ignore
+        await swap.claim({ feeRate: 900 });
+        await bitcoind.mine();
+        await waitForSwapStatus(swap, 'DONE');
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
