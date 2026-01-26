@@ -374,7 +374,7 @@ export class SwapOutRunner {
             return;
         }
         if (swap.status === 'CONTRACT_FUNDED' && swap.timeoutBlockHeight <= event.data.height) {
-            if (swap.unlockTxHeight != null) {
+            if (swap.unlockTxHeight == null) {
                 swap.status = 'CONTRACT_EXPIRED';
                 this.swap = await this.repository.save(swap);
                 void this.onStatusChange('CONTRACT_EXPIRED');
