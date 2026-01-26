@@ -300,8 +300,8 @@ export class SwapOutRunner {
                 swap.unlockTx == null
                     ? '<unknown>'
                     : swap.chain === 'LIQUID'
-                      ? liquid.Transaction.fromBuffer(swap.unlockTx)
-                      : Transaction.fromBuffer(swap.unlockTx);
+                      ? liquid.Transaction.fromBuffer(swap.unlockTx).getId()
+                      : Transaction.fromBuffer(swap.unlockTx).getId();
             this.logger.warn(
                 `Swap-out unlockTx ${transactionData.transactionHash} has been found at block ${transactionData.height}, but another one (${previousUnlockTxId}) was recorded at block ${swap.unlockTxHeight} (id=${swap.id})`,
             );
