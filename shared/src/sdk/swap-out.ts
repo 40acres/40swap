@@ -91,7 +91,7 @@ export class SwapOutTracker {
         }
     }
 
-    private async claim(): Promise<void> {
+    private async claim(opts?: { feeRate: number }): Promise<void> {
         if (this.currentStatus == null) {
             throw new Error('invalid state');
         }
@@ -101,7 +101,7 @@ export class SwapOutTracker {
         }
         const { claimKey, preImage, sweepAddress } = swap;
         const { network } = this;
-        const psbtBase64 = (await this.client.getClaimPsbt(swap.swapId, sweepAddress)).psbt;
+        const psbtBase64 = (await this.client.getClaimPsbt(swap.swapId, sweepAddress, opts?.feeRate)).psbt;
         if (swap.chain === 'BITCOIN') {
             const psbt = Psbt.fromBase64(psbtBase64, { network });
             if (!this.isValidClaimTx(psbt, sweepAddress)) {

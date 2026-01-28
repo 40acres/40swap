@@ -1,7 +1,7 @@
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { createZodDto } from '@anatine/zod-nestjs';
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, NotFoundException, ParseIntPipe } from '@nestjs/common';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -104,9 +104,16 @@ export class SwapOutController {
     @ApiQuery({ name: 'address', required: true, description: 'The address to claim to.' })
     @ApiParam({ name: 'id', required: true, description: 'The swap-out ID to claim.' })
     @ApiOkResponse({ type: PsbtResponseDto })
-    async getClaimPsbt(@Param('id') id: string, @Query('address') outputAddress?: string): Promise<PsbtResponse> {
+    async getClaimPsbt(
+        @Param('id') id: string,
+        @Query('address') outputAddress?: string,
+        @Query('fee_rate', new ParseIntPipe({ optional: true })) feeRate?: number,
+    ): Promise<PsbtResponse> {
         if (outputAddress == null) {
             throw new BadRequestException('address is required');
+        }
+        if (feeRate != null && feeRate < 1) {
+            throw new BadRequestException('invalid fee rate');
         }
         const swap = await this.dataSource.getRepository(SwapOut).findOneBy({ id });
         if (swap === null) {
@@ -120,7 +127,7 @@ export class SwapOutController {
                 throw new BadRequestException(`invalid address ${outputAddress}`);
             }
             const lockTx = Transaction.fromBuffer(swap.lockTx);
-            const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, await this.bitcoinService.getMinerFeeRate('low_prio'));
+            const claimPsbt = this.buildClaimPsbt(swap, lockTx, outputAddress, feeRate ?? (await this.bitcoinService.getMinerFeeRate('low_prio')));
             return { psbt: claimPsbt.toBase64() };
         }
         if (swap.chain === 'LIQUID') {

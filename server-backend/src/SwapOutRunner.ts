@@ -142,7 +142,9 @@ export class SwapOutRunner {
                 const refundTx = this.buildRefundTx(swap, Transaction.fromBuffer(swap.lockTx), await this.bitcoinService.getMinerFeeRate('low_prio'));
                 await this.nbxplorer.broadcastTx(refundTx);
             }
+        } else if (status === 'DONE' && swap.outcome === 'REFUNDED') {
             try {
+                this.logger.warn(`Cancelling swap-out hodl invoice (id=${this.swap.id})`);
                 await this.lnd.cancelInvoice(swap.preImageHash);
             } catch (e) {
                 this.logger.warn(`Error cancelling invoice after expiry (id=${this.swap.id}, paymentHash=${swap.preImageHash.toString('hex')})`, e);
@@ -287,9 +289,23 @@ export class SwapOutRunner {
                 ? liquid.Transaction.fromHex(transactionData.transaction)
                 : Transaction.fromHex(transactionData.transaction);
 
-        swap.unlockTx = Buffer.from(transactionData.transaction, 'hex');
-        if (transactionData.height != null) {
-            swap.unlockTxHeight = transactionData.height;
+        if (swap.unlockTxHeight === 0) {
+            swap.unlockTx = Buffer.from(transactionData.transaction, 'hex');
+            if (transactionData.height != null) {
+                swap.unlockTxHeight = transactionData.height;
+            }
+        } else if (transactionData.height != null) {
+            // TODO handle reorg
+            const previousUnlockTxId =
+                swap.unlockTx == null
+                    ? '<unknown>'
+                    : swap.chain === 'LIQUID'
+                      ? liquid.Transaction.fromBuffer(swap.unlockTx).getId()
+                      : Transaction.fromBuffer(swap.unlockTx).getId();
+            this.logger.warn(
+                `Swap-out unlockTx ${transactionData.transactionHash} has been found at block ${transactionData.height}, but another one (${previousUnlockTxId}) was recorded at block ${swap.unlockTxHeight} (id=${swap.id})`,
+            );
+            return;
         }
         this.swap = await this.repository.save(swap);
 
@@ -311,10 +327,15 @@ export class SwapOutRunner {
             }) != null;
 
         if (isSendingToRefundAddress) {
-            if (this.swap.status === 'CONTRACT_EXPIRED') {
+            if (this.swap.status === 'CONTRACT_EXPIRED' || this.swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED') {
                 swap.status = 'CONTRACT_REFUNDED_UNCONFIRMED';
                 this.swap = await this.repository.save(swap);
                 void this.onStatusChange('CONTRACT_REFUNDED_UNCONFIRMED');
+            } else if (this.swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED') {
+                return;
+            } else {
+                this.logger.warn(`Found refund tx but swap-out status is unexpected (status=${this.swap.status}, id=${this.swap.id})`);
+                return;
             }
         } else {
             const input = unlockTx.ins.find((i) => Buffer.from(i.hash).equals(lockTx.getHash()));
@@ -322,15 +343,26 @@ export class SwapOutRunner {
                 const preimage = input.witness[1];
                 assert(preimage != null);
                 swap.preImage = preimage;
-                this.swap = await this.repository.save(swap);
 
-                if (swap.status === 'CONTRACT_FUNDED' || swap.status === 'CONTRACT_FUNDED_UNCONFIRMED') {
+                // even though the swap has been expired or refund-initiated, it can still go through the claim path
+                if (
+                    swap.status === 'CONTRACT_FUNDED' ||
+                    swap.status === 'CONTRACT_REFUNDED_UNCONFIRMED' ||
+                    swap.status === 'CONTRACT_EXPIRED' ||
+                    swap.status === 'CONTRACT_FUNDED_UNCONFIRMED'
+                ) {
                     swap.status = 'CONTRACT_CLAIMED_UNCONFIRMED';
-                    this.swap = await this.repository.save(swap);
                     void this.onStatusChange('CONTRACT_CLAIMED_UNCONFIRMED');
+                } else if (this.swap.status === 'CONTRACT_CLAIMED_UNCONFIRMED') {
+                    return;
+                } else {
+                    this.logger.warn(`Found claim tx but swap-out status is unexpected (status=${this.swap.status}, id=${this.swap.id})`);
+                    return;
                 }
+                this.swap = await this.repository.save(swap);
             } else {
                 this.logger.warn(`Could not find preimage in claim tx ${transactionData.transactionHash} (id=${this.swap.id})`);
+                return;
             }
         }
     }
@@ -342,9 +374,11 @@ export class SwapOutRunner {
             return;
         }
         if (swap.status === 'CONTRACT_FUNDED' && swap.timeoutBlockHeight <= event.data.height) {
-            swap.status = 'CONTRACT_EXPIRED';
-            this.swap = await this.repository.save(swap);
-            void this.onStatusChange('CONTRACT_EXPIRED');
+            if (swap.unlockTxHeight === 0) {
+                swap.status = 'CONTRACT_EXPIRED';
+                this.swap = await this.repository.save(swap);
+                void this.onStatusChange('CONTRACT_EXPIRED');
+            }
         } else if (swap.status === 'CONTRACT_FUNDED_UNCONFIRMED' && this.bitcoinService.hasEnoughConfirmations(swap.lockTxHeight, event.data.height)) {
             swap.status = 'CONTRACT_FUNDED';
             this.swap = await this.repository.save(swap);

@@ -83,13 +83,13 @@ export class FortySwapClient {
             }
             return getSwapOutResponseSchema.parse(await resp.json());
         },
-        getClaimPsbt: async (swapId: string, address: string): Promise<PsbtResponse> => {
-            const resp = await fetch(
-                `${this.baseUrl}/api/swap/out/${swapId}/claim-psbt?` +
-                    new URLSearchParams({
-                        address,
-                    }),
-            );
+        getClaimPsbt: async (swapId: string, address: string, feeRate?: number): Promise<PsbtResponse> => {
+            const params = new URLSearchParams({ address });
+            if (feeRate != null) {
+                params.set('fee_rate', feeRate.toString());
+            }
+
+            const resp = await fetch(`${this.baseUrl}/api/swap/out/${swapId}/claim-psbt?${params.toString()}`);
             if (resp.status >= 300) {
                 throw new Error(`Unknown error getting claim psbt for swap-out with id ${swapId}. ${await resp.text()}`);
             }

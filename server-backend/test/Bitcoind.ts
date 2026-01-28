@@ -20,4 +20,14 @@ export class Bitcoind {
             throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
         }
     }
+
+    async getBlockHeight(): Promise<number> {
+        const res = await this.container.exec('bitcoin-cli -regtest getblockcount', {
+            user: 'bitcoin',
+        });
+        if (res.exitCode !== 0) {
+            throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
+        }
+        return parseInt(res.stdout.trim(), 10);
+    }
 }
