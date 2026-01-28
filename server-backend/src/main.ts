@@ -6,15 +6,17 @@ import { FortySwapConfiguration } from './configuration.js';
 import { LogLevel } from '@nestjs/common';
 import configurationLoader from './configuration.js';
 import { Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 const logger = new Logger('ApplicationBootstrap');
 
 async function bootstrap(): Promise<void> {
     const config = configurationLoader();
-    const app = await NestFactory.create(AppModule, {
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
         logger: getLogLevels(config.server.environment),
     });
     app.enableShutdownHooks();
+    app.disable('x-powered-by');
     const nestConfig = app.get(ConfigService<FortySwapConfiguration>);
     const port = nestConfig.getOrThrow('server.port', { infer: true });
     app.setGlobalPrefix('api', { exclude: ['metrics'] });
