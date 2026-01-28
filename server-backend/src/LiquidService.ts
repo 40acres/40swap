@@ -5,6 +5,8 @@ import { Injectable, Logger, Inject, OnApplicationBootstrap, Scope } from '@nest
 import Decimal from 'decimal.js';
 import * as liquid from 'liquidjs-lib';
 import { z } from 'zod';
+import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { BitcoinConfigurationDetails } from './BitcoinService.js';
 
 const LiquidConfigurationDetailsSchema = z.object({
     rpcUrl: z.string(),
@@ -102,6 +104,7 @@ export class LiquidService implements OnApplicationBootstrap {
     constructor(
         private nbxplorer: NbxplorerService,
         @Inject('ELEMENTS_CONFIG') private elementsConfig: FortySwapConfiguration['elements'] | undefined,
+        private bitcoinConfig: BitcoinConfigurationDetails,
     ) {
         if (!this.elementsConfig) {
             this.logger.warn('Elements configuration not provided. Liquid functionality will be disabled.');
@@ -196,12 +199,12 @@ export class LiquidService implements OnApplicationBootstrap {
         }
         // Params: [minconf, maxconf, addresses, include_unsafe, query_options]
         // more info: https://elementsproject.org/en/doc/23.2.1/rpc/wallet/listunspent
-        let utxoResponse: unknown;
-        if (amount === null) {
-            utxoResponse = await this.callRPC('listunspent');
-        } else {
-            utxoResponse = await this.callRPC('listunspent', [1, 9999999, [], false, { minimumSumAmount: amount }]);
-        }
+        const network = getLiquidNetworkFromBitcoinNetwork(this.bitcoinConfig.network);
+        const opts = {
+            asset: network.assetHash,
+            minimumSumAmount: amount ?? undefined,
+        };
+        const utxoResponse = await this.callRPC('listunspent', [1, 9999999, [], false, opts]);
         return RPCUtxoSchema.array().parse(utxoResponse);
     }
 
