@@ -513,11 +513,13 @@ export class BitfinexProvider extends SwapProvider {
         console.log(`💰 Withdrawing ${amount} ${currency.toUpperCase()} to address: ${address}`);
 
         // Parameters for withdrawal according to Bitfinex documentation
-        const withdrawData: Record<string, string> = {
+        const withdrawData: Record<string, string | boolean> = {
             wallet,
             method: currency,
             amount: amount.toString(),
             address,
+            travel_rule_tos: true,
+            beneficiary_self: true,
         };
 
         // Add tag if provided
