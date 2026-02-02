@@ -45,6 +45,7 @@ Examples:
 
 program.option('-k, --id-key <string>', 'Bitfinex API ID Key (got from env vars if not passed)');
 program.option('-s, --secret-key <string>', 'Bitfinex API Secret (got from env vars if not passed)');
+program.option('-d, --debug', 'Enable debug logging', false);
 
 /**
  * Gets Bitfinex credentials from configuration file or CLI options.
@@ -90,7 +91,7 @@ async function initializeApp(): Promise<INestApplicationContext> {
     if (!app) {
         console.log('🔧 Initializing NestJS application context...');
         app = await NestFactory.createApplicationContext(CLIModule, {
-            logger: false, // Disable NestJS logs for CLI
+            logger: program.opts().debug ? ['log', 'error', 'warn', 'debug', 'verbose', 'fatal'] : ['error', 'fatal'],
         });
         console.log('✅ Application context initialized');
     }
@@ -146,8 +147,8 @@ process.on('exit', cleanup);
 program
     .command('swap')
     .description('Execute complete swap: Lightning → Liquid')
-    .requiredOption('-a, --amount <number>', 'Amount to swap')
-    .option('-d, --destination <string>', 'Liquid destination wallet address')
+    .requiredOption('-a, --amount <number>', 'Amount to swap (in BTC)')
+    .option('-d, --destination <string>', 'Liquid destination wallet address (default: get a new one from elements)')
     .option('-c, --channel <number>', 'Optional specific channel ID to use for the payment')
     .action(async (cmdOptions) => {
         try {

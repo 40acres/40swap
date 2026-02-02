@@ -12,6 +12,8 @@ import { LiquidService } from './LiquidService.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
+import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
 
 @Module({
     imports: [
@@ -36,16 +38,18 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
         EventEmitterModule.forRoot(),
     ],
     providers: [
-        // NBXplorer service - required by LiquidService
         NbxplorerService,
-
-        // LND Service
         LndService,
-
-        // Liquid Service
         LiquidService,
-
-        // LND Lightning client provider
+        BitcoinService,
+        MempoolDotSpaceService,
+        {
+            inject: [BitcoinService],
+            useFactory: (bitcoinService: BitcoinService) => {
+                return bitcoinService.configurationDetails;
+            },
+            provide: BitcoinConfigurationDetails,
+        },
         {
             inject: [ConfigService],
             useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
