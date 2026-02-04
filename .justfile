@@ -5,7 +5,8 @@ set fallback := true
 # Aliases #
 ###########
 alias du := docker-up
-alias drm := docker-rm
+alias dd := docker-down
+alias dc := docker-clean
 
 # List all the recipes
 help:
@@ -27,10 +28,14 @@ docker-up $COMPOSE_PROFILES='mempool':
     done
     docker compose $profile_args up -d
 
-# Stop and remove services with docker compose
 [working-directory: 'docker']
-docker-rm:
-    docker compose --profile '*' down  -v
+docker-down:
+    docker compose --profile '*' down
+    just big-network-down
+
+[working-directory: 'docker']
+docker-clean:
+    docker compose --profile '*' down -v
     just big-network-down
 
 # Initialize blockchain and lightning nodes

@@ -4,6 +4,7 @@
   "displayName": "40swap",
   "enabled": true,
   "sslRequired": "none",
+  "loginTheme": "40swap",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
