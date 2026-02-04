@@ -1,0 +1,12 @@
+server:
+  port: 7082
+  environment: development
+
+lnd:
+  socket: localhost:10009
+  cert: /path/to/lnd/tls.cert
+  macaroon: /path/to/lnd/admin.macaroon
+
+bitfinex:
+  apiKey: YOUR_API_KEY
+  apiSecret: YOUR_API_SECRET
