@@ -2,10 +2,15 @@ server:
   port: 7082
   environment: development
 
-lnd:
-  socket: localhost:10009
-  cert: /path/to/lnd/tls.cert
-  macaroon: /path/to/lnd/admin.macaroon
+db:
+  host: localhost
+  port: 5434
+  username: 40swap
+  password: 40swap
+  database: liquidity_manager
+  synchronize: false
+  migrationsRun: true
+
 
 bitfinex:
   apiKey: YOUR_API_KEY

@@ -14,6 +14,15 @@ export const configSchema = z.object({
         port: z.number().int().positive(),
         environment: z.enum(['production', 'development']).optional(),
     }),
+    db: z.object({
+        host: z.string(),
+        port: z.number().int().positive(),
+        username: z.string(),
+        password: z.string(),
+        database: z.string(),
+        synchronize: z.boolean().default(false),
+        migrationsRun: z.boolean().default(true),
+    }),
     lnd: z.object({
         socket: z.string(),
         cert: z.string(),

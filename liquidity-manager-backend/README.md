@@ -6,7 +6,28 @@ Backend API for the Lightning Liquidity Manager application.
 
 - View all Lightning Network channels with balances
 - Execute swaps to move balance out of channels using Bitfinex
+- **Persistent swap history** stored in PostgreSQL database
+- Track swap status, outcome, and costs
 - Swap flow: Lightning → Bitfinex → Liquid
+
+## Database
+
+The application uses PostgreSQL to persist swap history. Each swap is recorded with:
+- Swap ID, status, and outcome
+- Channel and peer information
+- Amount swapped and estimated cost
+- Timestamps (created, updated, completed)
+- Liquid address and Bitfinex transaction ID
+- Error messages (if failed)
+
+### Setup Database
+
+Create a PostgreSQL database:
+```bash
+createdb liquidity_manager
+```
+
+The application will automatically run migrations on startup.
 
 ## Swap Flow
 
@@ -35,6 +56,15 @@ Example configuration:
 server:
   port: 7082
   environment: development
+
+db:
+  host: localhost
+  port: 5432
+  username: postgres
+  password: postgres
+  database: liquidity_manager
+  synchronize: false
+  migrationsRun: true
 
 lnd:
   socket: localhost:10009
@@ -73,4 +103,7 @@ Once running, Swagger documentation is available at: `http://localhost:7082/api/
 
 - `GET /api/channels` - List all Lightning channels
 - `POST /api/swap` - Execute a swap to move balance out
+- `GET /api/swap-history` - Get all swap history
+- `GET /api/swap-history/:id` - Get specific swap details
+- `GET /api/swap-history/channel/:channelId` - Get swaps for a specific channel
 - `GET /health` - Health check endpoint

@@ -5,6 +5,7 @@ import { loadSync } from '@grpc/proto-loader';
 import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
 import { ProtoGrpcType as LndGrpcType } from './lnd/lightning.js';
 import { TerminusModule } from '@nestjs/terminus';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChannelsController } from './ChannelsController.js';
 import { ChannelsService } from './ChannelsService.js';
 import { LndService } from './LndService.js';
@@ -13,12 +14,31 @@ import { SwapService } from './SwapService.js';
 import { BitfinexSwapStrategy } from './BitfinexSwapStrategy.js';
 import { HealthController } from './HealthController.js';
 import { LiquidService } from './LiquidService.js';
+import { SwapHistoryController } from './SwapHistoryController.js';
+import { SwapHistoryService } from './SwapHistoryService.js';
+import { LiquiditySwap } from './entities/LiquiditySwap.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 @Module({
     imports: [
+        TypeOrmModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<LiquidityManagerConfiguration>) => {
+                const config = configService.getOrThrow('db', { infer: true });
+                return {
+                    ...config,
+                    type: 'postgres',
+                    entities: [__dirname + '/**/entities/*{.ts,.js}'],
+                    migrations: [__dirname + '/migrations/*{.ts,.js}'],
+                    logging: ['schema', 'migration', 'info'],
+                };
+            },
+        }),
+        TypeOrmModule.forFeature([LiquiditySwap]),
         ConfigModule.forRoot({
             ignoreEnvFile: true,
             isGlobal: true,
@@ -26,10 +46,11 @@ import fs from 'fs';
         }),
         TerminusModule,
     ],
-    controllers: [ChannelsController, SwapController, HealthController],
+    controllers: [ChannelsController, SwapController, SwapHistoryController, HealthController],
     providers: [
         ChannelsService,
         SwapService,
+        SwapHistoryService,
         BitfinexSwapStrategy,
         {
             provide: 'lnd-lightning',

@@ -20,3 +20,20 @@ export interface SwapResult {
     liquidAddress?: string;
     error?: string;
 }
+
+export interface SwapHistory {
+    id: string;
+    channelId: string;
+    peerAlias: string;
+    remotePubkey: string;
+    amountSats: string;
+    status: string;
+    outcome: string | null;
+    bitfinexTxId: string | null;
+    liquidAddress: string | null;
+    costSats: string | null;
+    errorMessage: string | null;
+    createdAt: string;
+    updatedAt: string;
+    completedAt: string | null;
+}

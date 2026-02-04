@@ -7,8 +7,14 @@ Frontend application for the Lightning Liquidity Manager, built with SolidJS.
 - View all Lightning Network channels with their balances
 - Visual balance indicators for each channel
 - Execute swaps to move balance out of channels
+- **View complete swap history** with status and costs
 - Real-time feedback with toast notifications
 - Responsive Bootstrap-based UI
+
+## Pages
+
+- **Channels** (`/`) - Main page showing all channels and swap controls
+- **History** (`/history`) - Complete swap history with filtering and details
 
 ## Development
 

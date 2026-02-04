@@ -34,6 +34,23 @@ services:
     restart: always
     volumes:
       - postgres-daemon-data:/var/lib/postgresql/data
+  postgres-liquidity-manager:
+    image: "postgres:16.4"
+    container_name: 40swap_postgres_liquidity_manager
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: "40swap"
+      POSTGRES_PASSWORD: "40swap"
+      POSTGRES_DB: "liquidity_manager"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U 40swap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    volumes:
+      - postgres-liquidity-manager-data:/var/lib/postgresql/data
   cloudbeaver:
     profiles: ["cloudbeaver"]
     image: dbeaver/cloudbeaver:22.2.5
@@ -389,3 +406,4 @@ volumes:
   electrumx-data:
   postgres-data:
   postgres-daemon-data:
+  postgres-liquidity-manager-data:
