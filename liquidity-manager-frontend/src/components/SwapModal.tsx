@@ -68,6 +68,9 @@ export const SwapModal: Component<SwapModalProps> = (props) => {
             <Form onSubmit={handleSubmit}>
                 <Modal.Body>
                     <div class="mb-3">
+                        <strong>Peer:</strong> {props.channel.peerAlias}
+                    </div>
+                    <div class="mb-3">
                         <strong>Channel ID:</strong> <code>{props.channel.channelId}</code>
                     </div>
                     <div class="mb-3">

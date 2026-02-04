@@ -54,6 +54,7 @@ export const ChannelsPage: Component = () => {
                         <Table responsive hover class="mb-0">
                             <thead>
                                 <tr>
+                                    <th>Peer</th>
                                     <th>Channel ID</th>
                                     <th>Status</th>
                                     <th>Capacity</th>
@@ -69,6 +70,14 @@ export const ChannelsPage: Component = () => {
                                         const balancePercent = (): number => calculateBalancePercentage(channel.localBalance, channel.capacity);
                                         return (
                                             <tr>
+                                                <td>
+                                                    <strong>{channel.peerAlias}</strong>
+                                                    {channel.peerAlias !== channel.remotePubkey && (
+                                                        <div>
+                                                            <small class="text-muted">{channel.remotePubkey.substring(0, 16)}...</small>
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td>
                                                     <code>{channel.channelId}</code>
                                                 </td>

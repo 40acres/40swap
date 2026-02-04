@@ -6,6 +6,7 @@ export interface ChannelInfo {
     active: boolean;
     remotePubkey: string;
     channelPoint: string;
+    peerAlias: string;
 }
 
 export interface SwapRequest {

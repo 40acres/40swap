@@ -10,6 +10,7 @@ export interface ChannelInfo {
     active: boolean;
     remotePubkey: string;
     channelPoint: string;
+    peerAlias: string;
 }
 
 @Injectable()
@@ -21,7 +22,7 @@ export class LndService {
     async listChannels(): Promise<ChannelInfo[]> {
         this.logger.debug('listing all channels');
         return new Promise((resolve, reject) => {
-            this.lightning.listChannels({}, (err, value) => {
+            this.lightning.listChannels({ peerAliasLookup: true }, (err, value) => {
                 if (err) {
                     this.logger.error(`error listing channels: ${err}`);
                     reject(err);
@@ -34,6 +35,7 @@ export class LndService {
                         active: channel.active || false,
                         remotePubkey: channel.remotePubkey || '',
                         channelPoint: channel.channelPoint || '',
+                        peerAlias: channel.peerAlias || channel.remotePubkey || '',
                     }));
                     this.logger.debug(`found ${channels.length} channels`);
                     resolve(channels);
