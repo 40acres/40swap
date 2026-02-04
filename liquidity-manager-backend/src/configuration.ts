@@ -23,6 +23,18 @@ export const configSchema = z.object({
         synchronize: z.boolean().default(false),
         migrationsRun: z.boolean().default(true),
     }),
+    auth: z.object({
+        keycloak: z.object({
+            url: z.string(),
+            realm: z.string(),
+            clientId: z.string(),
+        }),
+        session: z.object({
+            secret: z.string(),
+            maxAge: z.number().int().positive().default(28800000), // 8 hours in ms
+        }),
+        baseUrl: z.string(),
+    }),
     lnd: z.object({
         socket: z.string(),
         cert: z.string(),

@@ -4,13 +4,22 @@ server:
 
 db:
   host: localhost
-  port: 5434
+  port: 5432
   username: 40swap
   password: 40swap
   database: liquidity_manager
   synchronize: false
   migrationsRun: true
 
+auth:
+  keycloak:
+    url: http://localhost:8080
+    realm: 40swap
+    clientId: liquidity-manager
+  session:
+    secret: development-secret-change-in-production
+    maxAge: 28800000
+  baseUrl: http://localhost:7083
 
 bitfinex:
   apiKey: YOUR_API_KEY
@@ -21,3 +30,4 @@ elements:
   rpcUsername: elements
   rpcPassword: elements
   rpcWallet: swap
+

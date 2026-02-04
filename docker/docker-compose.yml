@@ -17,6 +17,7 @@ services:
     restart: always
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/postgres-init.sql
   postgres-daemon:
     image: "postgres:16.4"
     container_name: 40swap_postgres_daemon
@@ -34,23 +35,6 @@ services:
     restart: always
     volumes:
       - postgres-daemon-data:/var/lib/postgresql/data
-  postgres-liquidity-manager:
-    image: "postgres:16.4"
-    container_name: 40swap_postgres_liquidity_manager
-    ports:
-      - "5434:5432"
-    environment:
-      POSTGRES_USER: "40swap"
-      POSTGRES_PASSWORD: "40swap"
-      POSTGRES_DB: "liquidity_manager"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U 40swap"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-    volumes:
-      - postgres-liquidity-manager-data:/var/lib/postgresql/data
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: 40swap_keycloak
@@ -62,10 +46,17 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://postgres:5432/keycloak"
+      KC_DB_USERNAME: "40swap"
+      KC_DB_PASSWORD: "40swap"
     ports:
       - "8080:8080"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
       interval: 10s
@@ -428,4 +419,3 @@ volumes:
   electrumx-data:
   postgres-data:
   postgres-daemon-data:
-  postgres-liquidity-manager-data:

@@ -1,8 +1,10 @@
-import { Controller, Get, Logger, Query, Req, Res, Session, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Logger, Query, Req, Res, Session } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { OidcService } from './OidcService.js';
 import { Public } from './PublicDecorator.js';
+import { LiquidityManagerConfiguration } from './configuration.js';
 
 interface SessionData {
     userId?: string;
@@ -20,7 +22,10 @@ interface SessionData {
 export class AuthController {
     private readonly logger = new Logger(AuthController.name);
 
-    constructor(private readonly oidcService: OidcService) {}
+    constructor(
+        private readonly oidcService: OidcService,
+        private readonly config: ConfigService<LiquidityManagerConfiguration>,
+    ) {}
 
     @Get('login')
     @ApiOperation({ summary: 'Initiate OIDC login flow' })
@@ -46,27 +51,22 @@ export class AuthController {
     @ApiOperation({ summary: 'Handle OIDC callback' })
     @ApiResponse({ status: 302, description: 'Redirect to frontend after successful login' })
     @Public()
-    async callback(
-        @Query('code') code: string,
-        @Query('state') state: string,
-        @Session() session: SessionData,
-        @Res() res: Response,
-    ): Promise<void> {
+    async callback(@Query('code') code: string, @Query('state') state: string, @Session() session: SessionData, @Res() res: Response): Promise<void> {
         try {
             if (!code) {
                 this.logger.error('No authorization code received');
-                return res.redirect(this.getFrontendUrl() + '?error=no_code');
+                return res.redirect(this.getBaseUrl() + '?error=no_code');
             }
 
             if (state !== session.state) {
                 this.logger.error('State mismatch');
-                return res.redirect(this.getFrontendUrl() + '?error=invalid_state');
+                return res.redirect(this.getBaseUrl() + '?error=invalid_state');
             }
 
             const codeVerifier = session.codeVerifier;
             if (!codeVerifier) {
                 this.logger.error('No code verifier in session');
-                return res.redirect(this.getFrontendUrl() + '?error=no_verifier');
+                return res.redirect(this.getBaseUrl() + '?error=no_verifier');
             }
 
             const redirectUri = `${this.getBaseUrl()}/api/auth/callback`;
@@ -85,13 +85,13 @@ export class AuthController {
 
             this.logger.log(`User ${session.username} authenticated successfully`);
 
-            const returnUrl = session.returnUrl || this.getFrontendUrl();
+            const returnUrl = session.returnUrl || this.getBaseUrl();
             delete session.returnUrl;
             res.redirect(returnUrl);
         } catch (error) {
             this.logger.error('Authentication callback error', error);
             this.logger.error((error as Error).stack ?? String(error));
-            res.redirect(this.getFrontendUrl() + '?error=auth_failed');
+            res.redirect(this.getBaseUrl() + '?error=auth_failed');
         }
     }
 
@@ -112,7 +112,7 @@ export class AuthController {
             this.logger.log(`Redirecting to Keycloak logout: ${logoutUrl}`);
             res.redirect(logoutUrl);
         } else {
-            res.redirect(this.getFrontendUrl());
+            res.redirect(this.getBaseUrl());
         }
     }
 
@@ -134,10 +134,7 @@ export class AuthController {
     }
 
     private getBaseUrl(): string {
-        return process.env.BACKEND_URL || 'http://localhost:7083';
-    }
-
-    private getFrontendUrl(): string {
-        return process.env.FRONTEND_URL || 'http://localhost:7083';
+        const authConfig = this.config.getOrThrow('auth', { infer: true });
+        return authConfig.baseUrl;
     }
 }

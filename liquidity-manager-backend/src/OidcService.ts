@@ -13,9 +13,10 @@ export class OidcService implements OnModuleInit {
     constructor(private readonly config: ConfigService<LiquidityManagerConfiguration>) {}
 
     async onModuleInit(): Promise<void> {
-        const keycloakUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
-        const realm = process.env.KEYCLOAK_REALM || '40swap';
-        this.clientId = process.env.KEYCLOAK_CLIENT_ID || 'liquidity-manager';
+        const authConfig = this.config.getOrThrow('auth', { infer: true });
+        const keycloakUrl = authConfig.keycloak.url;
+        const realm = authConfig.keycloak.realm;
+        this.clientId = authConfig.keycloak.clientId;
 
         try {
             this.logger.log(`Discovering OIDC configuration from ${keycloakUrl}/realms/${realm}`);
@@ -108,7 +109,8 @@ export class OidcService implements OnModuleInit {
 
     getEndSessionUrl(idToken: string): string {
         const client = this.getClient();
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:7083';
+        const authConfig = this.config.getOrThrow('auth', { infer: true });
+        const frontendUrl = authConfig.baseUrl;
         return client.endSessionUrl({
             id_token_hint: idToken,
             post_logout_redirect_uri: frontendUrl,

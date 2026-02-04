@@ -10,6 +10,7 @@ The liquidity manager application now has full OIDC-based authentication using K
 - **Admin Console**: http://localhost:8080/admin
 - **Admin Credentials**: admin / admin
 - **Realm**: 40swap
+- **Database**: PostgreSQL (shared with backend, port 5434, database: keycloak)
 - **Status**: ✅ Running in Docker
 
 ### 2. Backend API
@@ -27,9 +28,11 @@ The liquidity manager application now has full OIDC-based authentication using K
 - **URL**: http://localhost:7084
 - **Status**: ✅ Running with `npm start`
 
-### 4. PostgreSQL (Sessions)
+### 4. PostgreSQL (Shared)
 - **Port**: 5434
-- **Database**: liquidity_manager
+- **Databases**: 
+  - `liquidity_manager` - Backend sessions
+  - `keycloak` - Keycloak data (users, realms, clients)
 - **Status**: ✅ Running in Docker
 
 ## Test Users
@@ -69,9 +72,11 @@ Open http://localhost:7084 in your browser
 ### Flow Diagram
 ```
 Browser → Frontend (7084) → Vite Proxy → Backend (7082) → Keycloak (8080)
-                                             ↓
-                                        PostgreSQL (5434)
-                                        (Session Storage)
+                                             ↓                    ↓
+                                             └─── PostgreSQL ─────┘
+                                                  (Port 5432)
+                                                  - liquidity_manager db (sessions)
+                                                  - keycloak db (auth data)
 ```
 
 ### Authentication Flow
@@ -94,22 +99,50 @@ Browser → Frontend (7084) → Vite Proxy → Backend (7082) → Keycloak (8080
 - ✅ **CORS** configured for credentials
 - ✅ **Auth guard** on all API endpoints (except health)
 
-## Environment Variables
+## Configuration
 
-### Backend (.env or export)
-```bash
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=40swap
-KEYCLOAK_CLIENT_ID=liquidity-manager
-SESSION_SECRET=development-secret
-BACKEND_URL=http://localhost:7082
-FRONTEND_URL=http://localhost:7084
+All authentication configuration is managed through the YAML configuration file (`dev/liquidity-manager.conf.yaml`). No environment variables are required.
+
+### Configuration Schema
+
+The authentication settings are defined in the `auth` section:
+
+```yaml
+auth:
+  keycloak:
+    url: http://localhost:8080          # Keycloak server URL
+    realm: 40swap                        # Keycloak realm name
+    clientId: liquidity-manager          # OIDC client ID
+  session:
+    secret: your-secret-key-here         # Session encryption secret (change in production!)
+    maxAge: 28800000                     # Session lifetime in milliseconds (8 hours = 28800000ms)
+  urls:
+    backend: http://localhost:7082       # Backend URL for OIDC redirect URI
+    frontend: http://localhost:7084      # Frontend URL for CORS and post-logout redirect
 ```
 
-### Session Configuration
-- **Idle Timeout**: 30 minutes (cookie maxAge: 8 hours)
-- **Storage**: PostgreSQL table `session`
-- **Cookie**: httpOnly, secure (production), sameSite=lax
+### Configuration Properties
+
+#### Keycloak Settings (`auth.keycloak`)
+- **url**: Base URL of your Keycloak instance
+- **realm**: Name of the Keycloak realm containing your client and users
+- **clientId**: OIDC client ID configured in Keycloak
+
+#### Session Settings (`auth.session`)
+- **secret**: Secret key used to sign session cookies. **Must be changed in production!**
+- **maxAge**: Session lifetime in milliseconds before expiration (default: 8 hours)
+
+#### URL Settings (`auth.urls`)
+- **backend**: Base URL of the backend API. Used for constructing OIDC callback redirects.
+- **frontend**: Base URL of the frontend application. Used for CORS configuration and post-logout redirects.
+
+### Security Considerations
+
+- Always use a strong, randomly generated `session.secret` in production
+- Session cookies are:
+  - **httpOnly**: Cannot be accessed by JavaScript (prevents XSS attacks)
+  - **sameSite: 'lax'**: Provides CSRF protection while allowing redirects
+  - **secure**: Set to `true` in production (HTTPS only)
 
 ## Database Schema
 

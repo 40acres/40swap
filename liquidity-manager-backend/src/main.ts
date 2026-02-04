@@ -22,6 +22,7 @@ async function bootstrap(): Promise<void> {
     app.disable('x-powered-by');
 
     // Configure session store
+    const authConfig = config.auth;
     const PgSession = ConnectPgSimple(session);
     const pgPool = new pg.Pool({
         host: config.db.host,
@@ -38,32 +39,17 @@ async function bootstrap(): Promise<void> {
                 tableName: 'session',
                 createTableIfMissing: false,
             }),
-            secret: process.env.SESSION_SECRET || 'change-me-in-production',
+            secret: authConfig.session.secret,
             resave: false,
             saveUninitialized: false,
             cookie: {
-                maxAge: 8 * 60 * 60 * 1000, // 8 hours
+                maxAge: authConfig.session.maxAge,
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
             },
         }),
     );
-
-    // Configure CORS with credentials
-    const allowedOrigins = [
-        'http://localhost:7083',
-    ];
-    app.enableCors({
-        origin: (origin, callback) => {
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error('Not allowed by CORS'));
-            }
-        },
-        credentials: true,
-    });
 
     const nestConfig = app.get(ConfigService<LiquidityManagerConfiguration>);
     const port = nestConfig.getOrThrow('server.port', { infer: true });
