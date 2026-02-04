@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import configuration, { LiquidityManagerConfiguration } from './configuration.js';
 import { loadSync } from '@grpc/proto-loader';
 import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
@@ -18,6 +19,9 @@ import { LiquidService } from './LiquidService.js';
 import { SwapHistoryController } from './SwapHistoryController.js';
 import { SwapHistoryService } from './SwapHistoryService.js';
 import { LiquiditySwap } from './entities/LiquiditySwap.js';
+import { OidcService } from './OidcService.js';
+import { AuthController } from './AuthController.js';
+import { AuthGuard } from './AuthGuard.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -47,13 +51,18 @@ const __dirname = path.dirname(__filename);
         }),
         TerminusModule,
     ],
-    controllers: [ChannelsController, SwapController, SwapHistoryController, HealthController],
+    controllers: [ChannelsController, SwapController, SwapHistoryController, HealthController, AuthController],
     providers: [
+        {
+            provide: APP_GUARD,
+            useClass: AuthGuard,
+        },
         ChannelsService,
         SwapService,
         SwapHistoryService,
         BitfinexSwapStrategy,
         DummySwapStrategy,
+        OidcService,
         {
             provide: 'lnd-lightning',
             inject: [ConfigService],

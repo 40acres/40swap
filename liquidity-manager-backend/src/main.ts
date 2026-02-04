@@ -7,6 +7,9 @@ import { LogLevel } from '@nestjs/common';
 import configurationLoader from './configuration.js';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import session from 'express-session';
+import ConnectPgSimple from 'connect-pg-simple';
+import pg from 'pg';
 
 const logger = new Logger('ApplicationBootstrap');
 
@@ -17,7 +20,51 @@ async function bootstrap(): Promise<void> {
     });
     app.enableShutdownHooks();
     app.disable('x-powered-by');
-    app.enableCors();
+
+    // Configure session store
+    const PgSession = ConnectPgSimple(session);
+    const pgPool = new pg.Pool({
+        host: config.db.host,
+        port: config.db.port,
+        user: config.db.username,
+        password: config.db.password,
+        database: config.db.database,
+    });
+
+    app.use(
+        session({
+            store: new PgSession({
+                pool: pgPool,
+                tableName: 'session',
+                createTableIfMissing: false,
+            }),
+            secret: process.env.SESSION_SECRET || 'change-me-in-production',
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                maxAge: 8 * 60 * 60 * 1000, // 8 hours
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+            },
+        }),
+    );
+
+    // Configure CORS with credentials
+    const allowedOrigins = [
+        'http://localhost:7083',
+    ];
+    app.enableCors({
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'));
+            }
+        },
+        credentials: true,
+    });
+
     const nestConfig = app.get(ConfigService<LiquidityManagerConfiguration>);
     const port = nestConfig.getOrThrow('server.port', { infer: true });
     app.setGlobalPrefix('api');

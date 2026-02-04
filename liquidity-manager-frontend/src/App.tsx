@@ -1,13 +1,17 @@
-import { Component } from 'solid-js';
+import { Component, Show } from 'solid-js';
 import { Route, Router, A, RouteSectionProps } from '@solidjs/router';
-import { Container, Navbar, Nav } from 'solid-bootstrap';
+import { Container, Navbar, Nav, NavDropdown } from 'solid-bootstrap';
 import { ChannelsPage } from './components/ChannelsPage';
 import { Toaster } from 'solid-toast';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './app.scss';
 import { SwapHistoryPage } from './components/SwapHistoryPage.js';
+import { AuthProvider, useAuth } from './services/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 const Layout: Component<RouteSectionProps> = (props) => {
+    const auth = useAuth();
+
     return (
         <>
             <Navbar bg="dark" variant="dark" expand="lg" class="mb-4">
@@ -16,12 +20,23 @@ const Layout: Component<RouteSectionProps> = (props) => {
                     <Navbar.Toggle />
                     <Navbar.Collapse>
                         <Nav class="ms-auto">
-                            <Nav.Link as={A} href="/">
-                                Channels
-                            </Nav.Link>
-                            <Nav.Link as={A} href="/history">
-                                History
-                            </Nav.Link>
+                            <Show when={auth.isAuthenticated()}>
+                                <Nav.Link as={A} href="/">
+                                    Channels
+                                </Nav.Link>
+                                <Nav.Link as={A} href="/history">
+                                    History
+                                </Nav.Link>
+                                <NavDropdown title={auth.user()?.username || 'User'} id="user-dropdown">
+                                    <NavDropdown.Item disabled>
+                                        {auth.user()?.email}
+                                    </NavDropdown.Item>
+                                    <NavDropdown.Divider />
+                                    <NavDropdown.Item onClick={() => auth.logout()}>
+                                        Logout
+                                    </NavDropdown.Item>
+                                </NavDropdown>
+                            </Show>
                         </Nav>
                     </Navbar.Collapse>
                 </Container>
@@ -33,13 +48,13 @@ const Layout: Component<RouteSectionProps> = (props) => {
 
 const App: Component = () => {
     return (
-        <>
+        <AuthProvider>
             <Router root={Layout}>
-                <Route path="/" component={ChannelsPage} />
-                <Route path="/history" component={SwapHistoryPage} />
+                <Route path="/" component={() => <ProtectedRoute><ChannelsPage /></ProtectedRoute>} />
+                <Route path="/history" component={() => <ProtectedRoute><SwapHistoryPage /></ProtectedRoute>} />
             </Router>
             <Toaster position="bottom-right" />
-        </>
+        </AuthProvider>
     );
 };
 
