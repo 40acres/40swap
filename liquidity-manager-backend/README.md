@@ -2,6 +2,25 @@
 
 Backend API for the Lightning Liquidity Manager application.
 
+## Features
+
+- View all Lightning Network channels with balances
+- Execute swaps to move balance out of channels using Bitfinex
+- Swap flow: Lightning → Bitfinex → Liquid
+
+## Swap Flow
+
+The Bitfinex swap process works as follows:
+
+1. **Get Liquid Address**: Obtains a new address from the Elements/Liquid wallet
+2. **Check Deposit Addresses**: Ensures Bitfinex has Lightning deposit addresses configured
+3. **Generate Invoice**: Requests a Lightning invoice from Bitfinex
+4. **Pay Invoice**: Pays the invoice using LND (moves BTC out of the Lightning channel)
+5. **Monitor Invoice**: Waits for Bitfinex to confirm the payment
+6. **Exchange LNX→BTC**: Converts Lightning credits to BTC on Bitfinex
+7. **Exchange BTC→LBT**: Converts BTC to Liquid Bitcoin (L-BTC) on Bitfinex  
+8. **Withdraw**: Withdraws L-BTC to the Liquid address
+
 ## Configuration
 
 Create a configuration file named `liquidity-manager.conf.yaml` in one of these locations:
@@ -25,6 +44,12 @@ lnd:
 bitfinex:
   apiKey: YOUR_API_KEY
   apiSecret: YOUR_API_SECRET
+
+elements:
+  rpcUrl: http://localhost:18884
+  rpcUsername: elements
+  rpcPassword: elements
+  rpcWallet: swap
 ```
 
 ## Development

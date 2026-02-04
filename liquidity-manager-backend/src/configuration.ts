@@ -23,6 +23,12 @@ export const configSchema = z.object({
         apiKey: z.string(),
         apiSecret: z.string(),
     }),
+    elements: z.object({
+        rpcUrl: z.string(),
+        rpcUsername: z.string(),
+        rpcPassword: z.string(),
+        rpcWallet: z.string(),
+    }),
 });
 
 export type LiquidityManagerConfiguration = z.infer<typeof configSchema>;

@@ -16,5 +16,6 @@ export interface SwapRequest {
 export interface SwapResult {
     success: boolean;
     txid?: string;
+    liquidAddress?: string;
     error?: string;
 }

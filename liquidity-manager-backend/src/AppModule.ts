@@ -12,8 +12,10 @@ import { SwapController } from './SwapController.js';
 import { SwapService } from './SwapService.js';
 import { BitfinexSwapStrategy } from './BitfinexSwapStrategy.js';
 import { HealthController } from './HealthController.js';
+import { LiquidService } from './LiquidService.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 @Module({
     imports: [
@@ -49,6 +51,7 @@ import { fileURLToPath } from 'url';
             },
         },
         LndService,
+        LiquidService,
     ],
 })
 export class AppModule {}

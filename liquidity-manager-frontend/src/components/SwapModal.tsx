@@ -40,7 +40,8 @@ export const SwapModal: Component<SwapModalProps> = (props) => {
             };
             const result = await ApiService.executeSwap(request);
             if (result.success) {
-                toast.success('Swap completed successfully!');
+                const message = result.liquidAddress ? `Swap completed! Liquid address: ${result.liquidAddress}` : 'Swap completed successfully!';
+                toast.success(message);
                 props.onComplete();
             } else {
                 toast.error(`Swap failed: ${result.error}`);
