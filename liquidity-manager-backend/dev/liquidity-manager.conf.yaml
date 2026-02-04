@@ -13,7 +13,7 @@ db:
 
 auth:
   keycloak:
-    url: http://localhost:8080
+    url: http://localhost:7085
     realm: 40swap
     clientId: liquidity-manager
   session:

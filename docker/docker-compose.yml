@@ -51,7 +51,7 @@ services:
       KC_DB_USERNAME: "40swap"
       KC_DB_PASSWORD: "40swap"
     ports:
-      - "8080:8080"
+      - "7085:8080"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     depends_on:
