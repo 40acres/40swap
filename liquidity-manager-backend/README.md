@@ -5,10 +5,12 @@ Backend API for the Lightning Liquidity Manager application.
 ## Features
 
 - View all Lightning Network channels with balances
-- Execute swaps to move balance out of channels using Bitfinex
+- Execute swaps to move balance out of channels using multiple strategies
 - **Persistent swap history** stored in PostgreSQL database
 - Track swap status, outcome, and costs
-- Swap flow: Lightning → Bitfinex → Liquid
+- Multiple swap strategies:
+  - **Dummy**: Test strategy that simulates a swap without moving funds (5 second wait)
+  - **Bitfinex**: Production strategy - Lightning → Bitfinex → Liquid
 
 ## Database
 
@@ -102,7 +104,8 @@ Once running, Swagger documentation is available at: `http://localhost:7082/api/
 ### Endpoints
 
 - `GET /api/channels` - List all Lightning channels
-- `POST /api/swap` - Execute a swap to move balance out
+- `GET /api/swap/strategies` - Get available swap strategies
+- `POST /api/swap` - Execute a swap to move balance out (requires `strategy` field)
 - `GET /api/swap-history` - Get all swap history
 - `GET /api/swap-history/:id` - Get specific swap details
 - `GET /api/swap-history/channel/:channelId` - Get swaps for a specific channel

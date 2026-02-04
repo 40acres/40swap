@@ -1,4 +1,4 @@
-import { ChannelInfo, SwapRequest, SwapResult, SwapHistory } from '../types/api';
+import { ChannelInfo, SwapRequest, SwapInitiateResponse, SwapHistory } from '../types/api';
 
 const API_BASE = '/api';
 
@@ -11,7 +11,16 @@ export class ApiService {
         return response.json();
     }
 
-    static async executeSwap(request: SwapRequest): Promise<SwapResult> {
+    static async getStrategies(): Promise<string[]> {
+        const response = await fetch(`${API_BASE}/swap/strategies`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch strategies: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return data.strategies;
+    }
+
+    static async initiateSwap(request: SwapRequest): Promise<SwapInitiateResponse> {
         const response = await fetch(`${API_BASE}/swap`, {
             method: 'POST',
             headers: {
@@ -21,7 +30,7 @@ export class ApiService {
         });
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Failed to execute swap: ${error}`);
+            throw new Error(`Failed to initiate swap: ${error}`);
         }
         return response.json();
     }

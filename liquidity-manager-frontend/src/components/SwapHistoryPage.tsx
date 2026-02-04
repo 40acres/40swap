@@ -1,7 +1,6 @@
 import { Component, createResource, For, JSX, Show } from 'solid-js';
 import { ApiService } from '../services/ApiService';
 import { Container, Row, Col, Card, Button, Table, Badge } from 'solid-bootstrap';
-import { formatSats } from '../utils/formatters';
 import { SwapHistory } from '../types/api';
 
 export const SwapHistoryPage: Component = () => {
@@ -93,21 +92,33 @@ export const SwapHistoryPage: Component = () => {
                     <Table responsive hover class="mb-0">
                         <thead>
                             <tr>
+                                <th>Swap ID</th>
+                                <th>Strategy</th>
                                 <th>Date</th>
                                 <th>Peer</th>
                                 <th>Channel ID</th>
-                                <th>Amount</th>
-                                <th>Cost</th>
+                                <th>Amount (BTC)</th>
+                                <th>Cost (BTC)</th>
                                 <th>Status</th>
                                 <th>Outcome</th>
                                 <th>Duration</th>
-                                <th>Liquid Address</th>
+                                <th>Address</th>
                             </tr>
                         </thead>
                         <tbody>
                             <For each={props.swaps}>
                                 {(swap) => (
                                     <tr>
+                                        <td>
+                                            <code class="small" style="word-break: break-all;">
+                                                {swap.id}
+                                            </code>
+                                        </td>
+                                        <td>
+                                            <Badge bg={swap.strategy === 'dummy' ? 'secondary' : 'info'} class="text-capitalize">
+                                                {swap.strategy}
+                                            </Badge>
+                                        </td>
                                         <td>
                                             <small>{formatDate(swap.createdAt)}</small>
                                         </td>
@@ -117,10 +128,10 @@ export const SwapHistoryPage: Component = () => {
                                         <td>
                                             <code class="small">{swap.channelId}</code>
                                         </td>
-                                        <td>{formatSats(swap.amountSats)} sats</td>
+                                        <td>{swap.amount}</td>
                                         <td>
-                                            <Show when={swap.costSats} fallback={<span class="text-muted">-</span>}>
-                                                {formatSats(swap.costSats!)} sats
+                                            <Show when={swap.cost} fallback={<span class="text-muted">-</span>}>
+                                                {swap.cost}
                                             </Show>
                                         </td>
                                         <td>
@@ -135,8 +146,8 @@ export const SwapHistoryPage: Component = () => {
                                             <small>{calculateDuration(swap)}</small>
                                         </td>
                                         <td>
-                                            <Show when={swap.liquidAddress} fallback={<span class="text-muted">-</span>}>
-                                                <code class="small">{swap.liquidAddress!.substring(0, 16)}...</code>
+                                            <Show when={swap.address} fallback={<span class="text-muted">-</span>}>
+                                                <code class="small">{swap.address!.substring(0, 16)}...</code>
                                             </Show>
                                         </td>
                                     </tr>

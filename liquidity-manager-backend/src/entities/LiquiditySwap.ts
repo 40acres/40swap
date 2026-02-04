@@ -33,7 +33,10 @@ export class LiquiditySwap {
     remotePubkey!: string;
 
     @Column({ type: 'decimal', precision: 15, scale: 8, transformer: new DecimalTransformer() })
-    amountSats!: Decimal;
+    amount!: Decimal;
+
+    @Column({ type: 'text' })
+    strategy!: string;
 
     @Column({ type: 'text' })
     status!: LiquiditySwapStatus;
@@ -42,19 +45,16 @@ export class LiquiditySwap {
     outcome: LiquiditySwapOutcome | null = null;
 
     @Column({ type: 'text', nullable: true })
-    bitfinexTxId: string | null = null;
+    providerTxId: string | null = null;
 
     @Column({ type: 'text', nullable: true })
     lightningInvoice: string | null = null;
 
     @Column({ type: 'text', nullable: true })
-    preimage: string | null = null;
-
-    @Column({ type: 'text', nullable: true })
-    liquidAddress: string | null = null;
+    address: string | null = null;
 
     @Column({ type: 'decimal', precision: 15, scale: 8, transformer: new DecimalTransformer(), nullable: true })
-    costSats: Decimal | null = null;
+    cost: Decimal | null = null;
 
     @Column({ type: 'text', nullable: true })
     errorMessage: string | null = null;

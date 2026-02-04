@@ -5,6 +5,7 @@ import { Container, Row, Col, Card, Button, Table, Badge, ProgressBar } from 'so
 import { formatSats, calculateBalancePercentage } from '../utils/formatters';
 import { SwapModal } from './SwapModal';
 import { ChannelInfo } from '../types/api';
+import Decimal from 'decimal.js';
 
 export const ChannelsPage: Component = () => {
     const [channels, { refetch }] = createResource(() => ApiService.getChannels());
@@ -57,9 +58,9 @@ export const ChannelsPage: Component = () => {
                                     <th>Peer</th>
                                     <th>Channel ID</th>
                                     <th>Status</th>
-                                    <th>Capacity</th>
-                                    <th>Local Balance</th>
-                                    <th>Remote Balance</th>
+                                    <th>Capacity (BTC)</th>
+                                    <th>Local Balance (BTC)</th>
+                                    <th>Remote Balance (BTC)</th>
                                     <th>Balance</th>
                                     <th>Actions</th>
                                 </tr>
@@ -84,9 +85,9 @@ export const ChannelsPage: Component = () => {
                                                 <td>
                                                     <Badge bg={channel.active ? 'success' : 'secondary'}>{channel.active ? 'Active' : 'Inactive'}</Badge>
                                                 </td>
-                                                <td>{formatSats(channel.capacity)} sats</td>
-                                                <td>{formatSats(channel.localBalance)} sats</td>
-                                                <td>{formatSats(channel.remoteBalance)} sats</td>
+                                                <td>{new Decimal(channel.capacity).div(1e8).toFixed(8)}</td>
+                                                <td>{new Decimal(channel.localBalance).div(1e8).toFixed(8)}</td>
+                                                <td>{new Decimal(channel.remoteBalance).div(1e8).toFixed(8)}</td>
                                                 <td>
                                                     <ProgressBar now={balancePercent()} label={`${balancePercent().toFixed(1)}%`} variant="info" />
                                                 </td>

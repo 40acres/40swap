@@ -5,15 +5,16 @@ import { LndService } from './LndService.js';
 import { LiquidService } from './LiquidService.js';
 import * as crypto from 'crypto';
 import fetch from 'node-fetch';
+import Decimal from 'decimal.js';
 
 export interface SwapStrategy {
-    swapOut(channelId: string, amountSats: number): Promise<SwapResult>;
+    swapOut(swapId: string, channelId: string, amountSats: Decimal): Promise<SwapResult>;
 }
 
 export interface SwapResult {
     success: boolean;
     txid?: string;
-    liquidAddress?: string;
+    address?: string;
     error?: string;
 }
 
@@ -36,26 +37,24 @@ export class BitfinexSwapStrategy implements SwapStrategy {
         this.apiSecret = config.apiSecret;
     }
 
-    async swapOut(channelId: string, amountSats: number): Promise<SwapResult> {
-        this.logger.log(`Starting Bitfinex swap out for channel ${channelId}, amount: ${amountSats} sats`);
+    async swapOut(swapId: string, channelId: string, amount: Decimal): Promise<SwapResult> {
+        this.logger.log(`[swap:${swapId}] Starting Bitfinex swap for channel ${channelId}, amount: ${amount} sats`);
 
         try {
-            const amountBtc = amountSats / 100000000;
+            this.logger.log(`[swap:${swapId}] Step 1/8: Getting Liquid address from Elements`);
+            const address = await this.liquidService.getNewAddress();
+            this.logger.log(`[swap:${swapId}] Liquid address obtained: ${address}`);
 
-            this.logger.log('Step 1: Getting Liquid address from Elements');
-            const liquidAddress = await this.liquidService.getNewAddress();
-            this.logger.log(`Liquid address: ${liquidAddress}`);
-
-            this.logger.log('Step 2: Checking for existing deposit addresses');
+            this.logger.log(`[swap:${swapId}] Step 2/8: Checking for existing deposit addresses`);
             const existingAddresses = await this.getDepositAddresses('LNX');
             if (!existingAddresses || (Array.isArray(existingAddresses) && existingAddresses.length === 0)) {
-                this.logger.log('No existing deposit addresses found, creating new one');
+                this.logger.log(`[swap:${swapId}] No existing deposit addresses found, creating new one`);
                 await this.createDepositAddress('exchange', 'LNX');
-                this.logger.log('Deposit address created successfully');
+                this.logger.log(`[swap:${swapId}] Deposit address created successfully`);
             }
 
-            this.logger.log('Step 3: Generating Lightning invoice from Bitfinex');
-            const invoiceResponse = await this.generateInvoice(amountBtc.toString());
+            this.logger.log(`[swap:${swapId}] Step 3/8: Generating Lightning invoice from Bitfinex`);
+            const invoiceResponse = await this.generateInvoice(amount.toString());
 
             let invoice: string;
             let txId: string;
@@ -63,44 +62,44 @@ export class BitfinexSwapStrategy implements SwapStrategy {
             if (Array.isArray(invoiceResponse) && invoiceResponse.length > 1) {
                 txId = invoiceResponse[0];
                 invoice = invoiceResponse[1];
-                this.logger.log(`Invoice generated - txId: ${txId}`);
+                this.logger.log(`[swap:${swapId}] Invoice generated - Bitfinex txId: ${txId}`);
             } else {
                 throw new Error('Invalid invoice response format');
             }
 
-            this.logger.log('Step 4: Paying Lightning invoice via LND');
+            this.logger.log(`[swap:${swapId}] Step 4/8: Paying Lightning invoice via LND`);
             const preimage = await this.lndService.sendPayment(invoice);
-            this.logger.log(`Payment successful! Preimage: ${preimage.toString('hex')}`);
+            this.logger.log(`[swap:${swapId}] Payment successful! Preimage: ${preimage.toString('hex')}`);
 
-            this.logger.log('Step 5: Monitoring invoice status');
+            this.logger.log(`[swap:${swapId}] Step 5/8: Monitoring invoice status`);
             const monitorResult = await this.monitorInvoice(txId, 100, 10000);
 
             if (!monitorResult.success || monitorResult.finalState !== 'paid') {
                 throw new Error(`Invoice monitoring failed. Final state: ${monitorResult.finalState}`);
             }
 
-            this.logger.log(`Invoice confirmed as paid! State: ${monitorResult.finalState}`);
+            this.logger.log(`[swap:${swapId}] Invoice confirmed as paid! State: ${monitorResult.finalState}`);
 
-            this.logger.log('Step 6: Converting LNX to BTC');
-            await this.exchangeCurrency('LNX', 'BTC', amountBtc);
-            this.logger.log('LNX to BTC conversion submitted');
+            this.logger.log(`[swap:${swapId}] Step 6/8: Converting LNX to BTC`);
+            await this.exchangeCurrency('LNX', 'BTC', amount);
+            this.logger.log(`[swap:${swapId}] LNX to BTC conversion submitted`);
 
-            this.logger.log('Step 7: Converting BTC to LBT');
-            await this.exchangeCurrency('BTC', 'LBT', amountBtc);
-            this.logger.log('BTC to LBT conversion submitted');
+            this.logger.log(`[swap:${swapId}] Step 7/8: Converting BTC to LBT`);
+            await this.exchangeCurrency('BTC', 'LBT', amount);
+            this.logger.log(`[swap:${swapId}] BTC to LBT conversion submitted`);
 
-            this.logger.log('Step 8: Withdrawing LBT to Liquid address');
-            await this.withdraw(amountBtc, liquidAddress, 'LBT');
-            this.logger.log('Withdrawal request submitted successfully');
+            this.logger.log(`[swap:${swapId}] Step 8/8: Withdrawing LBT to Liquid address`);
+            await this.withdraw(amount, address, 'LBT');
+            this.logger.log(`[swap:${swapId}] Withdrawal request submitted successfully`);
 
-            this.logger.log('Swap completed successfully!');
+            this.logger.log(`[swap:${swapId}] Swap completed successfully!`);
             return {
                 success: true,
                 txid: txId,
-                liquidAddress,
+                address,
             };
         } catch (error) {
-            this.logger.error(`Bitfinex swap failed: ${error}`);
+            this.logger.error(`[swap:${swapId}] Bitfinex swap failed: ${error}`);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : String(error),
@@ -281,7 +280,7 @@ export class BitfinexSwapStrategy implements SwapStrategy {
         };
     }
 
-    private async exchangeCurrency(fromCurrency: string, toCurrency: string, amount: number): Promise<unknown> {
+    private async exchangeCurrency(fromCurrency: string, toCurrency: string, amount: Decimal): Promise<unknown> {
         const transferData = {
             from: 'exchange',
             to: 'exchange',
@@ -293,7 +292,7 @@ export class BitfinexSwapStrategy implements SwapStrategy {
         return this.authenticatedRequest('POST', '/v2/auth/w/transfer', transferData);
     }
 
-    private async withdraw(amount: number, address: string, currency: string): Promise<unknown> {
+    private async withdraw(amount: Decimal, address: string, currency: string): Promise<unknown> {
         const withdrawData = {
             wallet: 'exchange',
             method: currency,

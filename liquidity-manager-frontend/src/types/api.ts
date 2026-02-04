@@ -11,7 +11,13 @@ export interface ChannelInfo {
 
 export interface SwapRequest {
     channelId: string;
-    amountSats: number;
+    amount: string;
+    strategy: string;
+}
+
+export interface SwapInitiateResponse {
+    swapId: string;
+    message: string;
 }
 
 export interface SwapResult {
@@ -26,12 +32,13 @@ export interface SwapHistory {
     channelId: string;
     peerAlias: string;
     remotePubkey: string;
-    amountSats: string;
+    amount: string;
+    strategy: string;
     status: string;
     outcome: string | null;
-    bitfinexTxId: string | null;
-    liquidAddress: string | null;
-    costSats: string | null;
+    providerTxId: string | null;
+    address: string | null;
+    cost: string | null;
     errorMessage: string | null;
     createdAt: string;
     updatedAt: string;

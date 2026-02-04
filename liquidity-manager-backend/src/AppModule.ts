@@ -12,6 +12,7 @@ import { LndService } from './LndService.js';
 import { SwapController } from './SwapController.js';
 import { SwapService } from './SwapService.js';
 import { BitfinexSwapStrategy } from './BitfinexSwapStrategy.js';
+import { DummySwapStrategy } from './DummySwapStrategy.js';
 import { HealthController } from './HealthController.js';
 import { LiquidService } from './LiquidService.js';
 import { SwapHistoryController } from './SwapHistoryController.js';
@@ -52,6 +53,7 @@ const __dirname = path.dirname(__filename);
         SwapService,
         SwapHistoryService,
         BitfinexSwapStrategy,
+        DummySwapStrategy,
         {
             provide: 'lnd-lightning',
             inject: [ConfigService],

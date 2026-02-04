@@ -38,7 +38,7 @@ const App: Component = () => {
                 <Route path="/" component={ChannelsPage} />
                 <Route path="/history" component={SwapHistoryPage} />
             </Router>
-            <Toaster position="top-right" />
+            <Toaster position="bottom-right" />
         </>
     );
 };
