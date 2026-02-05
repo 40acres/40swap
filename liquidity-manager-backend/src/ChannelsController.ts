@@ -1,7 +1,17 @@
 import { Controller, Get, Logger } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ChannelsService } from './ChannelsService.js';
-import { ChannelInfo } from './LndService.js';
+
+export interface ChannelInfo {
+    channelId: string;
+    capacity: string;
+    localBalance: string;
+    remoteBalance: string;
+    active: boolean;
+    remotePubkey: string;
+    channelPoint: string;
+    peerAlias: string;
+}
 
 @ApiTags('channels')
 @Controller('channels')

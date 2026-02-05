@@ -1,19 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import configuration, { FortySwapConfiguration } from './configuration.js';
-import path, { dirname } from 'path';
+import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { loadSync } from '@grpc/proto-loader';
-import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
-import { ProtoGrpcType as LndGrpcType } from './lnd/lightning.js';
-import { ProtoGrpcType as InvoicesGrpcType } from './lnd/invoices.js';
-import { LndService } from './LndService.js';
 import { LiquidService } from './LiquidService.js';
 import { NbxplorerService } from './NbxplorerService.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
+import { createLndService, LndService } from '@40swap/crypto-clients';
 
 @Module({
     imports: [
@@ -53,40 +49,9 @@ import { MempoolDotSpaceService } from './MempoolDotSpaceService.js';
         {
             inject: [ConfigService],
             useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
-                const config = configService.getOrThrow('lnd', { infer: true });
-                const pd = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/lightning.proto'), {
-                    enums: String,
-                });
-                const grpcType = loadPackageDefinition(pd) as unknown as LndGrpcType;
-                const sslCreds = credentials.createSsl(Buffer.from(config.cert, 'base64'));
-                const macaroonCreds = credentials.createFromMetadataGenerator((_, callback) => {
-                    const metadata = new Metadata();
-                    metadata.add('macaroon', Buffer.from(config.macaroon, 'base64').toString('hex'));
-                    callback(null, metadata);
-                });
-                return new grpcType.lnrpc.Lightning(config.socket, credentials.combineChannelCredentials(sslCreds, macaroonCreds));
+                return createLndService(configService.getOrThrow('lnd', { infer: true }));
             },
-            provide: 'lnd-lightning',
-        },
-
-        // LND Invoices client provider
-        {
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService<FortySwapConfiguration>) => {
-                const config = configService.getOrThrow('lnd', { infer: true });
-                const pd = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/invoices.proto'), {
-                    enums: String,
-                });
-                const grpcType = loadPackageDefinition(pd) as unknown as InvoicesGrpcType;
-                const sslCreds = credentials.createSsl(Buffer.from(config.cert, 'base64'));
-                const macaroonCreds = credentials.createFromMetadataGenerator((_, callback) => {
-                    const metadata = new Metadata();
-                    metadata.add('macaroon', Buffer.from(config.macaroon, 'base64').toString('hex'));
-                    callback(null, metadata);
-                });
-                return new grpcType.invoicesrpc.Invoices(config.socket, credentials.combineChannelCredentials(sslCreds, macaroonCreds));
-            },
-            provide: 'lnd-invoices',
+            provide: LndService,
         },
 
         // Elements configuration provider

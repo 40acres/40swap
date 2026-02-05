@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LiquidityManagerConfiguration } from './configuration.js';
-import { LndService } from './LndService.js';
+import { LndService } from '@40swap/crypto-clients';
 import { LiquidService } from './LiquidService.js';
 import * as crypto from 'crypto';
 import fetch from 'node-fetch';
@@ -68,7 +68,7 @@ export class BitfinexSwapStrategy implements SwapStrategy {
             }
 
             this.logger.log(`[swap:${swapId}] Step 4/8: Paying Lightning invoice via LND`);
-            const preimage = await this.lndService.sendPayment(invoice);
+            const preimage = await this.lndService.sendPayment(invoice, 0);
             this.logger.log(`[swap:${swapId}] Payment successful! Preimage: ${preimage.toString('hex')}`);
 
             this.logger.log(`[swap:${swapId}] Step 5/8: Monitoring invoice status`);

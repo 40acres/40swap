@@ -14,7 +14,8 @@
         "swap-frontend",
         "shared",
         "liquidity-manager-backend",
-        "liquidity-manager-frontend"
+        "liquidity-manager-frontend",
+        "crypto-clients"
     ],
     "engines": {
         "node": ">=22.0.0 <23.0.0"

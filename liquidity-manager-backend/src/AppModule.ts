@@ -2,14 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import configuration, { LiquidityManagerConfiguration } from './configuration.js';
-import { loadSync } from '@grpc/proto-loader';
-import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
-import { ProtoGrpcType as LndGrpcType } from './lnd/lightning.js';
+import { createLndService, LndService } from '@40swap/crypto-clients';
 import { TerminusModule } from '@nestjs/terminus';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChannelsController } from './ChannelsController.js';
 import { ChannelsService } from './ChannelsService.js';
-import { LndService } from './LndService.js';
 import { SwapController } from './SwapController.js';
 import { SwapService } from './SwapService.js';
 import { BitfinexSwapStrategy } from './BitfinexSwapStrategy.js';
@@ -64,25 +61,12 @@ const __dirname = path.dirname(__filename);
         DummySwapStrategy,
         OidcService,
         {
-            provide: 'lnd-lightning',
+            provide: LndService,
             inject: [ConfigService],
             useFactory: (configService: ConfigService<LiquidityManagerConfiguration>) => {
-                const config = configService.getOrThrow('lnd', { infer: true });
-                const packageDefinition = loadSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'lnd/lightning.proto'), {
-                    enums: String,
-                });
-                const proto = loadPackageDefinition(packageDefinition) as unknown as LndGrpcType;
-                const sslCreds = credentials.createSsl(Buffer.from(config.cert, 'base64'));
-                const macaroonCreds = credentials.createFromMetadataGenerator((args, callback) => {
-                    const metadata = new Metadata();
-                    metadata.add('macaroon', Buffer.from(config.macaroon, 'base64').toString('hex'));
-                    callback(null, metadata);
-                });
-                const combinedCreds = credentials.combineChannelCredentials(sslCreds, macaroonCreds);
-                return new proto.lnrpc.Lightning(config.socket, combinedCreds);
+                return createLndService(configService.getOrThrow('lnd', { infer: true }));
             },
         },
-        LndService,
         LiquidService,
     ],
 })

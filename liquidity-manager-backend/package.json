@@ -5,7 +5,6 @@
     "scripts": {
         "clean": "rm -rf dist",
         "build": "nest build",
-        "build:lnd-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/lnd src/lnd/lnd.client.proto",
         "start": "node dist/main.js",
         "start:dev": "nest start --watch",
         "start:debug": "nest start --debug --watch",
@@ -17,10 +16,8 @@
         "test:e2e": "jest --config ./test/jest-e2e.json"
     },
     "dependencies": {
-        "@40swap/shared": "file:../shared",
+        "@40swap/crypto-clients": "file:../crypto-clients",
         "@anatine/zod-nestjs": "^2.0.3",
-        "@grpc/grpc-js": "^1.11.1",
-        "@grpc/proto-loader": "^0.7.13",
         "@nestjs/common": "^10.3.10",
         "@nestjs/config": "^3.2.3",
         "@nestjs/core": "^10.3.10",
