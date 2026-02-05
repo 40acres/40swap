@@ -19,12 +19,7 @@ export const SwapModal: Component<SwapModalProps> = (props) => {
     const [loading, setLoading] = createSignal(false);
 
     const [strategies] = createResource(async () => {
-        try {
-            return await ApiService.getStrategies();
-        } catch (error) {
-            console.error('Failed to load strategies:', error);
-            return ['dummy', 'bitfinex']; // Fallback
-        }
+        return await ApiService.getStrategies();
     });
 
     const maxAmount = (): number => parseInt(props.channel.localBalance, 10);
@@ -89,7 +84,7 @@ export const SwapModal: Component<SwapModalProps> = (props) => {
                         <Form.Select value={strategy()} onChange={(e) => setStrategy(e.currentTarget.value)} disabled={loading()}>
                             <For each={strategies()}>
                                 {(strat) => (
-                                    <option value={strat}>
+                                    <option value={strat} selected={strat === strategy()}>
                                         {strat === 'dummy' ? 'Dummy (Test - No funds moved)' : strat.charAt(0).toUpperCase() + strat.slice(1)}
                                     </option>
                                 )}
@@ -104,9 +99,10 @@ export const SwapModal: Component<SwapModalProps> = (props) => {
                             placeholder="Enter amount"
                             value={amount()}
                             onInput={(e) => setAmount(e.currentTarget.value)}
-                            min="1"
+                            min="0"
                             max={maxAmount()}
                             disabled={loading()}
+                            step="0.00000001"
                             required
                         />
                         <Form.Text class="text-muted">Maximum: {new Decimal(maxAmount()).div(1e8).toFixed(8)} BTC</Form.Text>

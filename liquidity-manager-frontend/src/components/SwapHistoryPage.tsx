@@ -8,12 +8,12 @@ export const SwapHistoryPage: Component = () => {
 
     const getStatusBadge = (status: string): string => {
         switch (status) {
-            case 'completed':
-                return 'success';
-            case 'failed':
-                return 'danger';
-            case 'pending':
+            case 'CREATED':
+                return 'secondary';
+            case 'IN_PROGRESS':
                 return 'warning';
+            case 'DONE':
+                return 'success';
             default:
                 return 'secondary';
         }
@@ -21,12 +21,10 @@ export const SwapHistoryPage: Component = () => {
 
     const getOutcomeBadge = (outcome: string | null): string => {
         switch (outcome) {
-            case 'success':
+            case 'SUCCESS':
                 return 'success';
-            case 'failed':
+            case 'ERROR':
                 return 'danger';
-            case 'timeout':
-                return 'warning';
             default:
                 return 'secondary';
         }

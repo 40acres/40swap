@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Logger, Post, UsePipes } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { SwapInitiateResponse, SwapService } from './SwapService.js';
+import { STRATEGIES, SwapInitiateResponse, SwapService } from './SwapService.js';
 import { z } from 'zod';
 import { createZodDto, ZodValidationPipe } from '@anatine/zod-nestjs';
 import Decimal from 'decimal.js';
@@ -11,7 +11,7 @@ const SwapRequestSchema = z.object({
         .string()
         .transform((n) => new Decimal(n))
         .refine((n) => n.gt(0), { message: 'Amount must be positive' }),
-    strategy: z.string().optional(),
+    strategy: z.enum(STRATEGIES),
 });
 
 class SwapRequestDto extends createZodDto(SwapRequestSchema) {}
@@ -27,7 +27,7 @@ export class SwapController {
     @Get('strategies')
     @ApiOperation({ summary: 'Get available swap strategies' })
     @ApiResponse({ status: 200, description: 'List of available strategies' })
-    getStrategies(): { strategies: string[] } {
+    getStrategies(): { strategies: ReadonlyArray<string> } {
         this.logger.log('GET /swap/strategies');
         return {
             strategies: this.swapService.getAvailableStrategies(),

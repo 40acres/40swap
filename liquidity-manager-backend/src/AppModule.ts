@@ -9,8 +9,6 @@ import { ChannelsController } from './ChannelsController.js';
 import { ChannelsService } from './ChannelsService.js';
 import { SwapController } from './SwapController.js';
 import { SwapService } from './SwapService.js';
-import { BitfinexSwapStrategy } from './BitfinexSwapStrategy.js';
-import { DummySwapStrategy } from './DummySwapStrategy.js';
 import { HealthController } from './HealthController.js';
 import { LiquidService } from './LiquidService.js';
 import { SwapHistoryController } from './SwapHistoryController.js';
@@ -21,6 +19,7 @@ import { AuthController } from './AuthController.js';
 import { AuthGuard } from './AuthGuard.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { BitfinexClient } from './BitfinexClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,8 +56,6 @@ const __dirname = path.dirname(__filename);
         ChannelsService,
         SwapService,
         SwapHistoryService,
-        BitfinexSwapStrategy,
-        DummySwapStrategy,
         OidcService,
         {
             provide: LndService,
@@ -68,6 +65,14 @@ const __dirname = path.dirname(__filename);
             },
         },
         LiquidService,
+        {
+            provide: BitfinexClient,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService<LiquidityManagerConfiguration>) => {
+                const config = configService.getOrThrow('bitfinex', { infer: true });
+                return new BitfinexClient(config);
+            },
+        },
     ],
 })
 export class AppModule {}

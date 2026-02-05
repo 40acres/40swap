@@ -2,21 +2,9 @@ import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } fro
 import { DecimalTransformer } from './DecimalTransformer.js';
 import Decimal from 'decimal.js';
 
-export enum LiquiditySwapStatus {
-    PENDING = 'pending',
-    INVOICE_GENERATED = 'invoice_generated',
-    INVOICE_PAID = 'invoice_paid',
-    CONVERTING = 'converting',
-    WITHDRAWING = 'withdrawing',
-    COMPLETED = 'completed',
-    FAILED = 'failed',
-}
+export type LiquiditySwapStatus = 'CREATED' | 'IN_PROGRESS' | 'DONE';
 
-export enum LiquiditySwapOutcome {
-    SUCCESS = 'success',
-    FAILED = 'failed',
-    TIMEOUT = 'timeout',
-}
+export type LiquiditySwapOutcome = 'SUCCESS' | 'ERROR';
 
 @Entity()
 export class LiquiditySwap {
