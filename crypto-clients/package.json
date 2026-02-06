@@ -1,0 +1,28 @@
+{
+    "name": "@40swap/crypto-clients",
+    "private": true,
+    "type": "module",
+    "main": "dist/src/index.js",
+    "types": "dist/src/index.d.ts",
+    "scripts": {
+        "clean": "rm -rf dist",
+        "lint": "eslint \"{src,test}/**/*.ts\"",
+        "build": "tsc && copyfiles \"src/**/*.proto\" dist",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build:loop-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/loop src/loop/loop.client.proto",
+        "build:lnd-proto": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/lnd src/lnd/lnd.client.proto",
+        "build:protos": "npm run build:lnd-proto && npm run build:loop-proto"
+    },
+    "dependencies": {
+        "@nestjs/common": "^10.3.10",
+        "@grpc/grpc-js": "^1.11.1",
+        "@grpc/proto-loader": "^0.7.13"
+    },
+    "devDependencies": {
+        "@typescript-eslint/eslint-plugin": "^7.18.0",
+        "@typescript-eslint/parser": "^7.18.0",
+        "eslint": "^8.57.1",
+        "typescript": "^5.6.2",
+        "copyfiles": "^2.4.1"
+    }
+}

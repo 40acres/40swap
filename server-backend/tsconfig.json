@@ -24,11 +24,14 @@
     "sourceMap": true,
     "inlineSources": true,
     "paths": {
-      "@40swap/shared": ["../shared/src/index.ts"]
+      "@40swap/shared": ["../shared/src/index.ts"],
+      "@40swap/crypto-clients": ["../crypto-clients/src/index.ts"]
     }
   },
   "include": ["src"],
   "references": [{
-    "path": "../shared"
+    "path": "../shared",
+  }, {
+    "path": "../crypto-clients"
   }]
 }

@@ -6,7 +6,6 @@ import assert from 'node:assert';
 import Decimal from 'decimal.js';
 import { address, Transaction } from 'bitcoinjs-lib';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
-import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { Chain, findUnblindableOutputs, getLiquidNetworkFromBitcoinNetwork, signContractSpend, SwapInStatus } from '@40swap/shared';
 import { ECPairFactory } from 'ecpair';
@@ -18,6 +17,7 @@ import { sleep } from './utils.js';
 import * as liquid from 'liquidjs-lib';
 import { liquidBlocksToBitcoinBlocks, LiquidClaimPSETBuilder } from './LiquidUtils.js';
 import { LiquidService } from './LiquidService.js';
+import { LndService } from '@40swap/crypto-clients';
 
 const ECPair = ECPairFactory(ecc);
 

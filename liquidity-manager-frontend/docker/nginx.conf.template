@@ -1,0 +1,25 @@
+server {
+        listen 80;
+        listen [::]:80;
+        server_name ${DOMAIN};
+
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+        gzip_min_length 1000;
+
+
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+
+        add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains; preload';
+        add_header Content-Security-Policy "default-src 'self'; object-src 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com/; font-src 'self' https://fonts.gstatic.com/; script-src 'self' 'wasm-unsafe-eval' 'sha256-13AlQYCI1lUfFpJchf4+6xKpe5l5q35faI2w1NMVAxk='; form-action 'self'";
+
+        location /assets {
+            root /usr/share/nginx/html;
+        }
+
+        location /api {
+            proxy_pass http://${BACKEND_HOST};
+        }
+}

@@ -1,0 +1,16 @@
+/* Custom white background for 40swap login */
+body {
+    background-color: #ffffff !important;
+    background-image: none !important;
+}
+
+.login-pf body {
+    background: #ffffff !important;
+}
+
+#kc-header-wrapper {
+    background: #ffffff !important;
+}
+#kc-header {
+    color: black !important;
+}

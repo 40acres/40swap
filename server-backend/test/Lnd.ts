@@ -1,15 +1,15 @@
-import { LightningClient } from '../src/lnd/lnrpc/Lightning.js';
+import { LightningClient } from '@40swap/crypto-clients/src/lnd/lnrpc/Lightning.js';
 import { StartedGenericContainer } from 'testcontainers/build/generic-container/started-generic-container.js';
-import { GetInfoResponse } from '../src/lnd/lnrpc/GetInfoResponse.js';
-import { ChannelPoint } from '../src/lnd/lnrpc/ChannelPoint.js';
-import { CloseStatusUpdate } from '../src/lnd/lnrpc/CloseStatusUpdate.js';
-import { AddInvoiceResponse } from '../src/lnd/lnrpc/AddInvoiceResponse.js';
-import { ChannelGraph } from '../src/lnd/lnrpc/ChannelGraph.js';
-import { Invoice } from '../src/lnd/lnrpc/Invoice.js';
+import { GetInfoResponse } from '@40swap/crypto-clients/src/lnd/lnrpc/GetInfoResponse.js';
+import { ChannelPoint } from '@40swap/crypto-clients/src/lnd/lnrpc/ChannelPoint.js';
+import { CloseStatusUpdate } from '@40swap/crypto-clients/src/lnd/lnrpc/CloseStatusUpdate.js';
+import { AddInvoiceResponse } from '@40swap/crypto-clients/src/lnd/lnrpc/AddInvoiceResponse.js';
+import { ChannelGraph } from '@40swap/crypto-clients/src/lnd/lnrpc/ChannelGraph.js';
+import { Invoice } from '@40swap/crypto-clients/src/lnd/lnrpc/Invoice.js';
 import Decimal from 'decimal.js';
 import { loadSync } from '@grpc/proto-loader';
 import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
-import { ProtoGrpcType as LndGrpcType } from '../src/lnd/lightning.js';
+import { ProtoGrpcType as LndGrpcType } from '@40swap/crypto-clients/src/lnd/lightning.js';
 
 export class Lnd {
     public uri = '';
@@ -40,7 +40,7 @@ export class Lnd {
         const cert = (await container.exec('base64 -w0 /root/.lnd/tls.cert')).stdout;
         const macaroon = (await container.exec('base64 -w0 /root/.lnd/data/chain/bitcoin/regtest/admin.macaroon')).stdout;
 
-        const pd = loadSync('./src/lnd/lightning.proto', {
+        const pd = loadSync('../crypto-clients/src/lnd/lightning.proto', {
             enums: String,
         });
         const grpcType = loadPackageDefinition(pd) as unknown as LndGrpcType;

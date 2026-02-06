@@ -1,7 +1,7 @@
 import { PrometheusService } from './PrometheusService.js';
-import { LndService } from '../LndService.js';
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { Gauge } from 'prom-client';
+import { LndService } from '@40swap/crypto-clients';
 
 @Injectable()
 export class LndChannelInfoMetricProvider implements OnApplicationBootstrap, OnApplicationShutdown {

@@ -8,13 +8,11 @@ import {
     NbxplorerService,
     NBXplorerBitcoinTransactionOutput,
 } from './NbxplorerService.js';
-import { LndService } from './LndService.js';
 import { SwapOut } from './entities/SwapOut.js';
 import assert from 'node:assert';
 import { address, payments, Transaction } from 'bitcoinjs-lib';
 import { buildContractSpendBasePsbt, buildTransactionWithFee, reverseSwapScript } from './bitcoin-utils.js';
 import { signContractSpend, SwapOutStatus, getLiquidNetworkFromBitcoinNetwork, Chain, findUnblindableOutputs } from '@40swap/shared';
-import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { sleep } from './utils.js';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
@@ -25,6 +23,7 @@ import { clearInterval } from 'node:timers';
 import * as liquid from 'liquidjs-lib';
 import { LiquidLockPSETBuilder, LiquidRefundPSETBuilder } from './LiquidUtils.js';
 import { LiquidService } from './LiquidService.js';
+import { LndService, Invoice__Output } from '@40swap/crypto-clients';
 
 const ECPair = ECPairFactory(ecc);
 export const BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS = 20;
@@ -194,7 +193,7 @@ export class SwapOutRunner {
 
     async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
         const { swap } = this;
-        if (swap.chain !== cryptoCode) {
+        if (swap.chain !== cryptoCode || swap.contractAddress == null) {
             return;
         }
         const addressRegex = /ADDRESS:(.*)/;
@@ -210,7 +209,7 @@ export class SwapOutRunner {
                     }
                 }
             } else if (swap.chain === 'LIQUID') {
-                const confidential = liquid.address.fromConfidential(swap.contractAddress!);
+                const confidential = liquid.address.fromConfidential(swap.contractAddress);
                 if (confidential.unconfidentialAddress === txAddress) {
                     if (event.data.outputs.find((o) => o.address === confidential.unconfidentialAddress) != null) {
                         await this.processContractFundingTx(event);

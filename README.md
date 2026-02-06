@@ -55,6 +55,36 @@ npm run start:dev
 7. Open http://localhost:7080 in your browser
 8. You can check the API's' Swagger at http://localhost:7081/docs
 
+## Liquidity Manager
+
+The liquidity manager is a separate application for managing Lightning node liquidity.
+
+### Starting the Liquidity Manager
+
+1. Build shared module (if not already done)
+
+```bash
+cd shared
+npm run build
+```
+
+2. Start liquidity manager backend
+
+```bash
+cd liquidity-manager-backend
+npm run start:dev
+```
+
+3. Start liquidity manager frontend
+
+```bash
+cd liquidity-manager-frontend
+npm run start:dev
+```
+
+4. Open http://localhost:7083 in your browser
+5. You can check the API's Swagger at http://localhost:7082/api/docs
+
 ## Testing
 
 By sourcing [`server-backend/dev/dev-aliases.sh`](server-backend/dev/dev-aliases.sh) you can get access to some useful commands, e.g.:
