@@ -28,7 +28,7 @@ env:
 
 jobs:
   code-quality:
-    runs-on: ubuntu-latest
+    runs-on: 40acres
     steps:
       - uses: actions/checkout@v4
       
@@ -49,7 +49,7 @@ jobs:
         run: npm run lint
 
   integration-testing:
-    runs-on: ubuntu-latest
+    runs-on: 40acres
     needs: code-quality
     permissions:
       contents: read
@@ -105,7 +105,7 @@ jobs:
       startsWith(github.ref, 'refs/tags/')||
       github.event_name == 'pull_request'
     needs: [code-quality, integration-testing]
-    runs-on: ubuntu-latest
+    runs-on: 40acres
     permissions:
       contents: read
       packages: write
