@@ -383,7 +383,9 @@ describe('40Swap backend', () => {
         });
 
         const lspBalance = await lndLsp.getOnChainBalance();
-        const toRemove = lspBalance - 0.1 * 1e8 + 0.01 * 1e8;
+        const swapInputSats = 10_000_000; // 0.1 BTC in sats
+        const bufferSats = 1_000_000; // 0.01 BTC in sats
+        const toRemove = lspBalance - swapInputSats + bufferSats;
         await lndLsp.sendOnChain(toRemove, await bitcoind.getNewAddress());
         await bitcoind.mine(5);
 
