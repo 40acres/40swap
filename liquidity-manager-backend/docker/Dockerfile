@@ -3,7 +3,7 @@ FROM node:22.9.0 AS base
 FROM base AS source
 
 ARG APP="liquidity-manager-backend"
-ARG NPM_COMMAND="npm --workspace=$APP"
+ARG NPM_COMMAND="npm --workspace=crypto-clients --workspace=$APP"
 
 RUN mkdir -p /home/node/40swap && chown -R node:node /home/node/40swap
 WORKDIR /home/node/40swap
