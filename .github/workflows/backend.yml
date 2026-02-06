@@ -23,6 +23,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME_FRONTEND: ${{ github.repository }}-swap-frontend
   IMAGE_NAME_BACKEND: ${{ github.repository }}-server-backend
+  IMAGE_NAME_LM_FRONTEND: ${{ github.repository }}-liquidity-manager-frontend
+  IMAGE_NAME_LM_BACKEND: ${{ github.repository }}-liquidity-manager-backend
 
 jobs:
   code-quality:
@@ -170,9 +172,68 @@ jobs:
         with:
           context: .
           file: server-backend/docker/Dockerfile
-          # Only push the image if this is not a PR.
           push: ${{ github.event_name != 'pull_request' }}
           platforms: linux/amd64
           provenance: false
           tags: ${{ steps.meta-be.outputs.tags }}
           labels: ${{ steps.meta-be.outputs.labels }}
+      - name: Docker meta
+        id: meta-lm-fe
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LM_FRONTEND }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}-{{sha}}
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}
+          labels: |
+            commit=${{ github.sha }}
+            actions_run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - name: Build and push the frontend liquidity manager docker image
+        id: build-and-push-lm-frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: liquidity-manager-frontend/docker/Dockerfile
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          tags: ${{ steps.meta-lm-fe.outputs.tags }}
+          labels: ${{ steps.meta-lm-fe.outputs.labels }}
+      - name: Docker meta
+        id: meta-lm-be
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LM_BACKEND }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}-{{sha}}
+            type=raw,event=push,value=${{ github.ref_name }}-${{github.run_number}}
+          labels: |
+            commit=${{ github.sha }}
+            actions_run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - name: Build and push the backend liquidity manager docker image
+        id: build-and-push-LM-backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server-backend/docker/Dockerfile
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          tags: ${{ steps.meta-lm-be.outputs.tags }}
+          labels: ${{ steps.meta-lm-be.outputs.labels }}
