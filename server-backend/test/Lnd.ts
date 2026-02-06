@@ -185,14 +185,38 @@ export class Lnd {
         });
     }
 
-    async sendPayment(invoice: string): Promise<unknown> {
+    async sendPayment(invoice: string): Promise<void> {
         return new Promise((resolve, reject) => {
             this.client.sendPaymentSync({ paymentRequest: invoice }, (err, value) => {
                 if (err != null || value == null) {
                     console.error(`sendPayment(${invoice}) failed: ${err?.message}`);
                     reject(err);
                 } else {
-                    resolve(value);
+                    resolve();
+                }
+            });
+        });
+    }
+
+    async getOnChainBalance(): Promise<number> {
+        return new Promise((resolve, reject) => {
+            this.client.walletBalance({}, (err, value) => {
+                if (err != null || value == null) {
+                    reject(err);
+                } else {
+                    resolve(Number(value.totalBalance));
+                }
+            });
+        });
+    }
+
+    async sendOnChain(amount: number, addr: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            this.client.sendCoins({ amount, addr }, (err, value) => {
+                if (err != null || value == null) {
+                    reject(err);
+                } else {
+                    resolve(value.txid);
                 }
             });
         });

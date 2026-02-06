@@ -374,6 +374,34 @@ describe('40Swap backend', () => {
         expect(swap.value.outcome).toEqual<SwapOutcome>('SUCCESS');
     });
 
+    it('should fail gracefully a swap out when there is no onchain liquidity', async () => {
+        // Create the swap out
+        const swap = await swapService.createSwapOut({
+            chain: 'BITCOIN',
+            inputAmount: 0.1,
+            sweepAddress: await lndUser.newAddress(),
+        });
+
+        const lspBalance = await lndLsp.getOnChainBalance();
+        const swapInputSats = 10_000_000; // 0.1 BTC in sats
+        const bufferSats = 1_000_000; // 0.01 BTC in sats
+        const toRemove = lspBalance - swapInputSats + bufferSats;
+        await lndLsp.sendOnChain(toRemove, await bitcoind.getNewAddress());
+        await bitcoind.mine(5);
+
+        swap.start();
+        await waitForSwapStatus(swap, 'CREATED');
+        assert(swap.value != null);
+
+        // Pay the Lightning invoice
+        void lndUser.sendPayment(swap.value.invoice);
+        await waitForSwapStatus(swap, 'DONE');
+        expect(swap.value.outcome).toEqual<SwapOutcome>('ERROR');
+
+        const invoice = await lndLsp.lookupInvoice(Buffer.from(swap.value.hash, 'hex'));
+        expect(invoice.state).toEqual('CANCELED');
+    });
+
     async function setUpComposeEnvironment(): Promise<void> {
         const configFilePath = `${os.tmpdir()}/40swap-test-${crypto.randomBytes(4).readUInt32LE(0)}.yml`;
         const composeDef = new DockerComposeEnvironment('test/resources', 'docker-compose.yml')
@@ -419,7 +447,7 @@ describe('40Swap backend', () => {
             swap: {
                 feePercentage: 0.5,
                 minimumAmount: 0.002,
-                maximumAmount: 0.013,
+                maximumAmount: 20,
                 expiryDuration: 'PT30M',
                 lockBlockDelta: {
                     minIn: 144,
