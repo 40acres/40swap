@@ -30,4 +30,14 @@ export class Bitcoind {
         }
         return parseInt(res.stdout.trim(), 10);
     }
+
+    async getNewAddress(): Promise<string> {
+        const res = await this.container.exec('bitcoin-cli -regtest getnewaddress', {
+            user: 'bitcoin',
+        });
+        if (res.exitCode !== 0) {
+            throw new Error(`command failed: ${res.stdout} ${res.stderr}`);
+        }
+        return res.stdout.trim();
+    }
 }
