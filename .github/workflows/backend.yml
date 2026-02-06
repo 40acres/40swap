@@ -67,7 +67,7 @@ jobs:
           files: |
             server-backend/**
             shared/**
-            swap-frontend/**
+            crypto-clients/**
             docker/**
       - name: Setup Node.js
         if: steps.changed-files.outputs.any_modified == 'true'
@@ -85,7 +85,12 @@ jobs:
         if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: shared
         run: npm run build
-      
+
+      - name: Build crypto-clients
+        if: steps.changed-files.outputs.any_modified == 'true'
+        working-directory: crypto-clients
+        run: npm run build
+
       - name: Run tests
         if: steps.changed-files.outputs.any_modified == 'true'
         working-directory: server-backend

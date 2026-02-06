@@ -43,10 +43,14 @@ docker-clean:
 initialize-nodes: 
     ./nodes-setup.sh
 
-# Build shared module
 [working-directory: 'shared']
 build-shared:
     npm run build
+
+[working-directory: 'crypto-clients']
+build-crypto-clients:
+    npm run build
+
 
 # Start backend
 [working-directory: 'server-backend']
@@ -138,7 +142,7 @@ elements-cli *cmd:
 
 # Run backend IgTests
 [working-directory: 'server-backend']
-test-igtest-backend: build-shared 
+test-igtest-backend: build-shared build-crypto-clients
     npm run build && npm run test
 
 # Format code

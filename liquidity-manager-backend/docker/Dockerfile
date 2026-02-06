@@ -20,5 +20,6 @@ RUN $NPM_COMMAND run build
 FROM source AS prod
 
 COPY --chown=node:node --from=build /home/node/40swap/$APP/dist $APP/dist
+COPY --chown=node:node --from=build /home/node/40swap/crypto-clients/dist crypto-clients/dist
 
-CMD ["node", "server-backend/dist/main.js"]
+CMD ["node", "liquidity-manager-backend/dist/main.js"]
