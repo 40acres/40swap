@@ -28,13 +28,9 @@ const Layout: Component<RouteSectionProps> = (props) => {
                                     History
                                 </Nav.Link>
                                 <NavDropdown title={auth.user()?.username || 'User'} id="user-dropdown">
-                                    <NavDropdown.Item disabled>
-                                        {auth.user()?.email}
-                                    </NavDropdown.Item>
+                                    <NavDropdown.Item disabled>{auth.user()?.email}</NavDropdown.Item>
                                     <NavDropdown.Divider />
-                                    <NavDropdown.Item onClick={() => auth.logout()}>
-                                        Logout
-                                    </NavDropdown.Item>
+                                    <NavDropdown.Item onClick={() => auth.logout()}>Logout</NavDropdown.Item>
                                 </NavDropdown>
                             </Show>
                         </Nav>
@@ -50,8 +46,22 @@ const App: Component = () => {
     return (
         <AuthProvider>
             <Router root={Layout}>
-                <Route path="/" component={() => <ProtectedRoute><ChannelsPage /></ProtectedRoute>} />
-                <Route path="/history" component={() => <ProtectedRoute><SwapHistoryPage /></ProtectedRoute>} />
+                <Route
+                    path="/"
+                    component={() => (
+                        <ProtectedRoute>
+                            <ChannelsPage />
+                        </ProtectedRoute>
+                    )}
+                />
+                <Route
+                    path="/history"
+                    component={() => (
+                        <ProtectedRoute>
+                            <SwapHistoryPage />
+                        </ProtectedRoute>
+                    )}
+                />
             </Router>
             <Toaster position="bottom-right" />
         </AuthProvider>

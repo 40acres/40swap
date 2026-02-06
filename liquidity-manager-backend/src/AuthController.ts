@@ -17,6 +17,17 @@ interface SessionData {
     returnUrl?: string;
 }
 
+interface UserInfo {
+    id: string;
+    username?: string;
+    email?: string;
+}
+
+interface SessionResponse {
+    authenticated: boolean;
+    user?: UserInfo;
+}
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -74,7 +85,7 @@ export class AuthController {
 
             const userInfo = await this.oidcService.getUserInfo(tokenSet.access_token!);
 
-            session.userId = userInfo.sub;
+            session.userId = userInfo.sub as string;
             session.username = userInfo.preferred_username as string;
             session.email = userInfo.email as string;
             session.idToken = tokenSet.id_token;
@@ -119,7 +130,7 @@ export class AuthController {
     @Get('session')
     @ApiOperation({ summary: 'Get current session info' })
     @ApiResponse({ status: 200, description: 'Session information' })
-    getSession(@Session() session: SessionData): { authenticated: boolean; user?: any } {
+    getSession(@Session() session: SessionData): SessionResponse {
         if (session.userId) {
             return {
                 authenticated: true,

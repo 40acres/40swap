@@ -28,9 +28,7 @@ export class AuthService {
     }
 
     static login(returnUrl?: string): void {
-        const url = returnUrl 
-            ? `${API_BASE}/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`
-            : `${API_BASE}/auth/login`;
+        const url = returnUrl ? `${API_BASE}/auth/login?returnUrl=${encodeURIComponent(returnUrl)}` : `${API_BASE}/auth/login`;
         window.location.href = url;
     }
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Issuer, Client, generators } from 'openid-client';
+import { Issuer, Client, generators, TokenSet } from 'openid-client';
 import { LiquidityManagerConfiguration } from './configuration.js';
 
 @Injectable()
@@ -66,7 +66,7 @@ export class OidcService implements OnModuleInit {
         });
     }
 
-    async exchangeCodeForTokens(code: string, redirectUri: string, codeVerifier: string): Promise<{ access_token: string; id_token: string }> {
+    async exchangeCodeForTokens(code: string, redirectUri: string, codeVerifier: string): Promise<TokenSet> {
         const issuer = this.getIssuer();
         const metadata = issuer.metadata;
 
@@ -95,14 +95,14 @@ export class OidcService implements OnModuleInit {
 
             const tokenSet = await response.json();
             this.logger.log('Token exchange successful');
-            return tokenSet as any; // TODO
+            return tokenSet as TokenSet;
         } catch (error) {
             this.logger.error('Token exchange failed', error);
             throw error;
         }
     }
 
-    async getUserInfo(accessToken: string) {
+    async getUserInfo(accessToken: string): Promise<Record<string, unknown>> {
         const client = this.getClient();
         return client.userinfo(accessToken);
     }

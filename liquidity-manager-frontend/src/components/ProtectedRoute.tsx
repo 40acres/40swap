@@ -1,5 +1,4 @@
-import { Component, ParentComponent, Show } from 'solid-js';
-import { useNavigate } from '@solidjs/router';
+import { ParentComponent, Show } from 'solid-js';
 import { useAuth } from '../services/AuthContext';
 import { LoginPage } from './LoginPage';
 import { Container, Spinner } from 'solid-bootstrap';

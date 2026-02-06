@@ -1,4 +1,4 @@
-import { createContext, useContext, createSignal, createEffect, onMount, ParentComponent } from 'solid-js';
+import { createContext, useContext, createSignal, onMount, ParentComponent } from 'solid-js';
 import { AuthService, SessionInfo, User } from '../services/AuthService';
 
 interface AuthContextType {
@@ -17,7 +17,7 @@ export const AuthProvider: ParentComponent = (props) => {
     const [session, setSession] = createSignal<SessionInfo>({ authenticated: false });
     const [isLoading, setIsLoading] = createSignal(true);
 
-    const refreshSession = async () => {
+    const refreshSession = async (): Promise<void> => {
         setIsLoading(true);
         try {
             const sessionInfo = await AuthService.getSession();
@@ -34,14 +34,14 @@ export const AuthProvider: ParentComponent = (props) => {
         refreshSession();
     });
 
-    const user = () => session().user;
-    const isAuthenticated = () => session().authenticated;
-    
-    const login = (returnUrl?: string) => {
+    const user = (): User | undefined => session().user;
+    const isAuthenticated = (): boolean => session().authenticated;
+
+    const login = (returnUrl?: string): void => {
         AuthService.login(returnUrl);
     };
 
-    const logout = () => {
+    const logout = (): void => {
         AuthService.logout();
     };
 

@@ -27,6 +27,5 @@ export class Initial1738670000000 implements MigrationInterface {
         `);
     }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-    }
+    public async down(queryRunner: QueryRunner): Promise<void> {}
 }

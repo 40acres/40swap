@@ -2,7 +2,7 @@ import { Component, createSignal, For, Show } from 'solid-js';
 import { createResource } from 'solid-js';
 import { ApiService } from '../services/ApiService';
 import { Container, Row, Col, Card, Button, Table, Badge, ProgressBar } from 'solid-bootstrap';
-import { formatSats, calculateBalancePercentage } from '../utils/formatters';
+import { calculateBalancePercentage } from '../utils/formatters';
 import { SwapModal } from './SwapModal';
 import { ChannelInfo } from '../types/api';
 import Decimal from 'decimal.js';
