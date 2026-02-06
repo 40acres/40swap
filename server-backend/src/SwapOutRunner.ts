@@ -218,7 +218,7 @@ export class SwapOutRunner {
 
     async processNewTransaction(event: NBXplorerNewTransactionEvent, cryptoCode: Chain): Promise<void> {
         const { swap } = this;
-        if (swap.chain !== cryptoCode) {
+        if (swap.chain !== cryptoCode || swap.contractAddress == null) {
             return;
         }
         const addressRegex = /ADDRESS:(.*)/;
@@ -234,7 +234,7 @@ export class SwapOutRunner {
                     }
                 }
             } else if (swap.chain === 'LIQUID') {
-                const confidential = liquid.address.fromConfidential(swap.contractAddress!);
+                const confidential = liquid.address.fromConfidential(swap.contractAddress);
                 if (confidential.unconfidentialAddress === txAddress) {
                     if (event.data.outputs.find((o) => o.address === confidential.unconfidentialAddress) != null) {
                         await this.processContractFundingTx(event);
