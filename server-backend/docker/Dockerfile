@@ -1,8 +1,9 @@
-FROM node:22.9.0 as base
+FROM node:22.9.0 AS base
 
-FROM base as source
+FROM base AS source
 
-ARG NPM_COMMAND="npm --workspace=shared --workspace=server-backend"
+ARG APP="server-backend"
+ARG NPM_COMMAND="npm --workspace=crypto-clients --workspace=shared --workspace=$APP"
 
 RUN mkdir -p /home/node/40swap && chown -R node:node /home/node/40swap
 WORKDIR /home/node/40swap
@@ -11,14 +12,15 @@ USER node
 WORKDIR /home/node/40swap
 RUN $NPM_COMMAND ci --omit=dev
 
-FROM source as build
+FROM source AS build
 
 RUN $NPM_COMMAND ci
 RUN $NPM_COMMAND run build
 
-FROM source as prod
+FROM source AS prod
 
-COPY --chown=node:node --from=build /home/node/40swap/server-backend/dist server-backend/dist
+COPY --chown=node:node --from=build /home/node/40swap/$APP/dist $APP/dist
 COPY --chown=node:node --from=build /home/node/40swap/shared/dist shared/dist
+COPY --chown=node:node --from=build /home/node/40swap/crypto-clients/dist crypto-clients/dist
 
 CMD ["node", "server-backend/dist/main.js"]

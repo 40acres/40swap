@@ -12,7 +12,10 @@
     "workspaces": [
         "server-backend",
         "swap-frontend",
-        "shared"
+        "shared",
+        "liquidity-manager-backend",
+        "liquidity-manager-frontend",
+        "crypto-clients"
     ],
     "engines": {
         "node": ">=22.0.0 <23.0.0"

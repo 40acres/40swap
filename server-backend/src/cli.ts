@@ -9,10 +9,10 @@ import { Command } from 'commander';
 import { NestFactory } from '@nestjs/core';
 import { CLIModule } from './CLIModule.js';
 import { BitfinexProvider } from './providers/BitfinexProvider.js';
-import { LndService } from './LndService.js';
 import { LiquidService } from './LiquidService.js';
 import { INestApplicationContext } from '@nestjs/common';
 import configuration from './configuration.js';
+import { LndService } from '@40swap/crypto-clients';
 
 const program = new Command();
 

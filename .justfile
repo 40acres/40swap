@@ -5,7 +5,8 @@ set fallback := true
 # Aliases #
 ###########
 alias du := docker-up
-alias drm := docker-rm
+alias dd := docker-down
+alias dc := docker-clean
 
 # List all the recipes
 help:
@@ -27,10 +28,14 @@ docker-up $COMPOSE_PROFILES='mempool':
     done
     docker compose $profile_args up -d
 
-# Stop and remove services with docker compose
 [working-directory: 'docker']
-docker-rm:
-    docker compose --profile '*' down  -v
+docker-down:
+    docker compose --profile '*' down
+    just big-network-down
+
+[working-directory: 'docker']
+docker-clean:
+    docker compose --profile '*' down -v
     just big-network-down
 
 # Initialize blockchain and lightning nodes
@@ -38,10 +43,14 @@ docker-rm:
 initialize-nodes: 
     ./nodes-setup.sh
 
-# Build shared module
 [working-directory: 'shared']
 build-shared:
     npm run build
+
+[working-directory: 'crypto-clients']
+build-crypto-clients:
+    npm run build
+
 
 # Start backend
 [working-directory: 'server-backend']
@@ -133,7 +142,7 @@ elements-cli *cmd:
 
 # Run backend IgTests
 [working-directory: 'server-backend']
-test-igtest-backend: build-shared 
+test-igtest-backend: build-shared build-crypto-clients
     npm run build && npm run test
 
 # Format code

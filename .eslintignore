@@ -7,5 +7,7 @@ coverage
 docker
 package-lock.json
 *.d.ts
-server-backend/src/lnd/**/*
-server-backend/src/migrations/**/*
+docs
+server-backend/src/lnd/
+server-backend/src/migrations/
+liquidity-manager-backend/src/lnd/

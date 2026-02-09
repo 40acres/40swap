@@ -1,16 +1,15 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { LightningClient } from './lnd/lnrpc/Lightning.js';
 import { InvoicesClient } from './lnd/invoicesrpc/Invoices.js';
 import { Invoice__Output } from './lnd/lnrpc/Invoice.js';
 import { Channel__Output } from './lnd/lnrpc/Channel.js';
 
-@Injectable()
 export class LndService {
     private readonly logger = new Logger(LndService.name);
 
     constructor(
-        @Inject('lnd-lightning') private lightning: LightningClient,
-        @Inject('lnd-invoices') private invoices: InvoicesClient,
+        private lightning: LightningClient,
+        private invoices: InvoicesClient,
     ) {}
 
     async sendPayment(invoice: string, cltvLimit: number, channel: number | string | null = null): Promise<Buffer> {
