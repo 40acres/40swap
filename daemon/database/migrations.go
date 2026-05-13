@@ -390,6 +390,39 @@ func RenameOnchainFeeSatsAndAddCreatedAndUpdatedAt() *gormigrate.Migration {
 	}
 }
 
+func AddErrorOutcome() *gormigrate.Migration {
+	const ID = "12_add_error_outcome"
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			return tx.Exec(`ALTER TYPE "public"."swap_outcome" ADD VALUE 'ERROR'`).Error
+		},
+		Rollback: func(tx *gorm.DB) error {
+			return nil
+		},
+	}
+}
+
+func AddContractAmountMismatchStatus() *gormigrate.Migration {
+	const ID = "13_add_contract_amount_mismatch_status"
+
+	return &gormigrate.Migration{
+		ID: ID,
+		Migrate: func(tx *gorm.DB) error {
+			if err := tx.Exec(`ALTER TYPE "public"."swap_status" ADD VALUE 'CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED'`).Error; err != nil {
+				return err
+			}
+
+			return tx.Exec(`ALTER TYPE "public"."swap_status" ADD VALUE 'CONTRACT_AMOUNT_MISMATCH'`).Error
+		},
+		Rollback: func(tx *gorm.DB) error {
+			// PostgreSQL does not support removing enum values; rollback is a no-op
+			return nil
+		},
+	}
+}
+
 var migrations = []*gormigrate.Migration{
 	CreateSwapsTables(),
 	RemoveNotNullInOutcome(),
@@ -402,6 +435,8 @@ var migrations = []*gormigrate.Migration{
 	AddIsAutoSwapToSwapOut(),
 	AddContractFieldsToSwapOut(),
 	RenameOnchainFeeSatsAndAddCreatedAndUpdatedAt(),
+	AddErrorOutcome(),
+	AddContractAmountMismatchStatus(),
 }
 
 type Migrator struct {

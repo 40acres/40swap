@@ -19,6 +19,8 @@ const (
 	// if it expires after CONTRACT_FUNDED
 	StatusContractRefundedUnconfirmed SwapStatus = "CONTRACT_REFUNDED_UNCONFIRMED"
 	StatusContractExpired             SwapStatus = "CONTRACT_EXPIRED"
+	StatusContractAmountMismatchUnconfirmed SwapStatus = "CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED"
+	StatusContractAmountMismatch            SwapStatus = "CONTRACT_AMOUNT_MISMATCH"
 )
 
 func (s SwapStatus) String() string {
@@ -49,7 +51,7 @@ func CreateSwapStatusEnumSQL() string {
 		'CONTRACT_CLAIMED_UNCONFIRMED',
 		'DONE',
 		'CONTRACT_REFUNDED_UNCONFIRMED',
-		'CONTRACT_EXPIRED'
+		'CONTRACT_EXPIRED',
 	);
 	`
 }
