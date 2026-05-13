@@ -93,9 +93,13 @@ func (m *SwapMonitor) MonitorSwapOut(ctx context.Context, currentSwap *models.Sw
 			currentSwap.OffchainFeeSats = 0
 			currentSwap.OnchainFeeSats = 0
 		}
-	case models.StatusContractExpired:
-	case models.StatusContractRefundedUnconfirmed:
+	case models.StatusContractExpired,
+		models.StatusContractRefundedUnconfirmed:
 		logger.Debug("contract refunded unconfirmed")
+	case models.StatusInvoicePaid,
+		models.StatusContractAmountMismatchUnconfirmed,
+		models.StatusContractAmountMismatch:
+		logger.Warn("unexpected status for swap out")
 	}
 
 	if changed || contractChanged {
