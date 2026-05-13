@@ -15,7 +15,7 @@ func TestListenAndServe(test *testing.T) {
 	server := NewRPCServer(50051, nil, nil, nil, nil, 1000, Network_REGTEST)
 	errChan := make(chan error)
 	go func() {
-		errChan <- server.ListenAndServe()
+		errChan <- server.ListenAndServe(test.Context())
 	}()
 	select {
 	case err := <-errChan:

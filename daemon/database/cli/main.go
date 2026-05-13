@@ -64,7 +64,7 @@ func main() {
 				Name:  "migrate",
 				Usage: "Migrate the database",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					db, closeDb, err := StartDatabase(cmd)
+					db, closeDb, err := StartDatabase(ctx, cmd)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
@@ -86,7 +86,7 @@ func main() {
 				Name:  "rollback",
 				Usage: "Rollback the database",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					db, closeDb, err := StartDatabase(cmd)
+					db, closeDb, err := StartDatabase(ctx, cmd)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
@@ -108,7 +108,7 @@ func main() {
 				Name:  "reset",
 				Usage: "Reset the database",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					db, closeDb, err := StartDatabase(cmd)
+					db, closeDb, err := StartDatabase(ctx, cmd)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
@@ -137,7 +137,7 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					db, closeDb, err := StartDatabase(cmd)
+					db, closeDb, err := StartDatabase(ctx, cmd)
 					if err != nil {
 						return fmt.Errorf("❌ Could not connect to database: %w", err)
 					}
@@ -176,13 +176,13 @@ func main() {
 	}
 }
 
-func StartDatabase(cmd *cli.Command) (*database.Database, func() error, error) {
+func StartDatabase(ctx context.Context, cmd *cli.Command) (*database.Database, func() error, error) {
 	port, err := validatePort(cmd.Int("db-port"))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	db, closeDb, err := database.New(
+	db, closeDb, err := database.New(ctx,
 		cmd.String("db-user"),
 		cmd.String("db-password"),
 		cmd.String("db-name"),

@@ -144,7 +144,7 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 		// Endpoint (host:port)
 		options.lndEndpoint = lndConnectParams.Host + ":" + lndConnectParams.Port
 	} else {
-		options.macaroonFilePath = strings.Replace(options.macaroonFilePath, "{Network}", string(options.network), -1)
+		options.macaroonFilePath = strings.ReplaceAll(options.macaroonFilePath, "{Network}", string(options.network))
 
 		// Read macaroon file from path
 
@@ -293,6 +293,7 @@ func (c *Client) MonitorPaymentRequest(ctx context.Context, paymentHash string) 
 		}
 
 		log.WithField("invoice", invoice).Debug("New TrackPaymentV2 event")
+		// nolint: exhaustive // lnrpc.Payment_UNKNOWN is deprecated, so we need to ignore either the exhaustive check or the deprecated check.
 		switch invoice.Status {
 		case lnrpc.Payment_SUCCEEDED:
 			return invoice.PaymentPreimage, invoice.FeeSat, nil
@@ -339,6 +340,8 @@ func (c *Client) MonitorPaymentReception(ctx context.Context, rhash []byte) (lig
 			return hex.EncodeToString(invoice.RPreimage), nil
 		case lnrpc.Invoice_CANCELED:
 			return "", lightning.ErrInvoiceCanceled
+		case lnrpc.Invoice_OPEN, lnrpc.Invoice_ACCEPTED:
+			// Do nothing, we only want final status updates
 		}
 	}
 }

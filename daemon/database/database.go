@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -40,7 +41,7 @@ type Database struct {
 	query    *gen.Query
 }
 
-func New(username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
+func New(ctx context.Context, username, password, database string, port uint32, dataPath, host string, keepAlive bool) (*Database, func() error, error) {
 	models.RegisterPreimageSerializer()
 
 	db := Database{
@@ -66,18 +67,18 @@ func New(username, password, database string, port uint32, dataPath, host string
 
 		close = func() error {
 			if err := db.close(); err != nil {
-				return fmt.Errorf("Could not close database connection: %w", err)
+				return fmt.Errorf("could not close database connection: %w", err)
 			}
 
 			if !keepAlive {
 				if err := postgres.Stop(); err != nil {
-					if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(port) {
-						killPostgres(port)
+					if errors.Is(err, embeddedpostgres.ErrServerNotStarted) && isPostgresRunning(ctx, port) {
+						killPostgres(ctx, port)
 
 						return nil
 					}
 
-					return fmt.Errorf("Could not stop embedded database: %w", err)
+					return fmt.Errorf("could not stop embedded database: %w", err)
 				}
 				log.Info("✅ DB stopped")
 			}
@@ -118,7 +119,7 @@ func (d *Database) GetConnectionURL() string {
 func (d *Database) getGorm() (*gorm.DB, error) {
 	gormDB, err := gorm.Open(postgres.Open(d.GetConnectionURL()), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("Could not connect GORM: %w", err)
+		return nil, fmt.Errorf("could not connect GORM: %w", err)
 	}
 
 	log.Info("✅ DB connected")
@@ -160,11 +161,11 @@ func (d *Database) Generate(path string) error {
 func (d *Database) close() error {
 	db, err := d.orm.DB()
 	if err != nil {
-		return fmt.Errorf("Could not get database connection: %w", err)
+		return fmt.Errorf("could not get database connection: %w", err)
 	}
 
 	if err := db.Close(); err != nil {
-		return fmt.Errorf("Could not close database connection: %w", err)
+		return fmt.Errorf("could not close database connection: %w", err)
 	}
 
 	return nil
@@ -196,12 +197,12 @@ func newEmbeddedDatabase(username, password, database string, port uint32, dataP
 	return postgres, nil
 }
 
-func isPostgresRunning(port uint32) bool {
+func isPostgresRunning(ctx context.Context, port uint32) bool {
 	if port < 1 || port > 65535 {
 		return false
 	}
 	//nolint:gosec
-	out, err := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-t").Output()
+	out, err := exec.CommandContext(ctx, "lsof", "-i", fmt.Sprintf(":%d", port), "-t").Output()
 	if err != nil {
 		return false
 	}
@@ -209,14 +210,14 @@ func isPostgresRunning(port uint32) bool {
 	return len(out) > 0
 }
 
-func killPostgres(port uint32) {
+func killPostgres(ctx context.Context, port uint32) {
 	if port < 1 || port > 65535 {
 		return
 	}
 	//nolint:gosec
-	out, err := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-t").Output()
+	out, err := exec.CommandContext(ctx, "lsof", "-i", fmt.Sprintf(":%d", port), "-t").Output()
 	if err == nil {
 		pid := strings.TrimSpace(string(out))
-		_ = exec.Command("kill", "-9", pid).Run()
+		_ = exec.CommandContext(ctx, "kill", "-9", pid).Run()
 	}
 }
