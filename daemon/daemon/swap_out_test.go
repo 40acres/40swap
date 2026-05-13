@@ -19,7 +19,6 @@ import (
 const (
 	preimageHex     = "0eb3946ca75520d314068a3f41eb88bec2d1cd8f73f76a77adc578a7cd141c5e"
 	validPrivateKey = "bde48e15ae57a00bbf7db477f007061619d7177fd50387d65bcb0f5884c2dc4b"
-	validPsbt       = "cHNidP8BAFICAAAAAUTUQqhi4jZ+IYm4I2z9SXwcM4fTFsTg5FmkG10jirupAQAAAAD9////Ac8IAwAAAAAAFgAUfA20aAzorvbl9UnLmcHIbLQKEhYrAQAAAAEBK1gJAwAAAAAAIgAgKlsk+PAa0gJOclmBE+EoInvLFv0ODlOqT6Sqoz6+LQABBWmCASCHY6kUkO16DsaBr8sYpei09eaYcY2634WIIQIbyEJ+n1u1sEnahSXSbWKvnIRFJfKH3HxGYjRWJQ0Jbmd1AisBsXUhA5a4mglS1cVIS9NkYK2gOfwCKP8Qit+3/LajkZ4lMX/faKwAAA=="
 )
 
 func TestSwapMonitor_ClaimSwapOut(t *testing.T) {
