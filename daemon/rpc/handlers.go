@@ -268,6 +268,10 @@ func mapStatus(status models.SwapStatus) (Status, error) {
 		return Status_CONTRACT_REFUNDED_UNCONFIRMED, nil
 	case models.StatusContractExpired:
 		return Status_CONTRACT_EXPIRED, nil
+	case models.StatusContractAmountMismatchUnconfirmed:
+		return Status_CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED, nil
+	case models.StatusContractAmountMismatch:
+		return Status_CONTRACT_AMOUNT_MISMATCH, nil
 	default:
 		return 0, fmt.Errorf("invalid swap status")
 	}
