@@ -12,6 +12,7 @@ const (
 	OutcomeSuccess  SwapOutcome = "SUCCESS"
 	OutcomeRefunded SwapOutcome = "REFUNDED"
 	OutcomeExpired  SwapOutcome = "EXPIRED"
+	OutcomeError    SwapOutcome = "ERROR"
 )
 
 func (o SwapOutcome) String() string {

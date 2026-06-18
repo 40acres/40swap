@@ -64,8 +64,9 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 
 	switch newStatus {
 	case models.StatusCreated:
-		// Do nothing
 		logger.Debug("waiting for payment")
+	case models.StatusInvoicePaymentIntentReceived:
+		logger.Warn("unexpected status for swap in")
 	case models.StatusContractFundedUnconfirmed:
 		if newSwap.LockTx != nil {
 			txId, err := getTxId(*newSwap.LockTx)
@@ -91,18 +92,28 @@ func (m *SwapMonitor) MonitorSwapIn(ctx context.Context, currentSwap *models.Swa
 			outcome := models.OutcomeExpired
 			currentSwap.Outcome = &outcome
 			logger.Debug("failed. The contract has expired, waiting to be refunded")
-		default:
+		case models.OutcomeError:
+			outcome := models.OutcomeError
+			currentSwap.Outcome = &outcome
+			logger.Debug("failed. The swap ended with an error")
+		case models.OutcomeSuccess:
 			outcome := models.OutcomeSuccess
 			currentSwap.Outcome = &outcome
-			// FAILED doesn't exist in the 40swap backend so we don't need to check it
 			logger.Debug("success. The funds have been claimed")
 			preimage, err := m.getPreimage(ctx, currentSwap.PaymentRequest)
 			if err != nil {
 				return fmt.Errorf("failed to get preimage: %w", err)
 			}
-
 			currentSwap.PreImage = preimage
+		case models.OutcomeFailed:
+			outcome := models.OutcomeFailed
+			currentSwap.Outcome = &outcome
+			logger.Debug("failed.")
 		}
+	case models.StatusContractAmountMismatchUnconfirmed:
+		logger.Debug("on-chain payment detected with wrong amount, waiting for confirmation")
+	case models.StatusContractAmountMismatch:
+		logger.Debug("contract funded with wrong amount, waiting for contract to expire")
 	case models.StatusContractRefundedUnconfirmed:
 		log.Debug("the refund has been sent, waiting for on-chain confirmation")
 	case models.StatusContractExpired:

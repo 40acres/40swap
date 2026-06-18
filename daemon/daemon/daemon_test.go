@@ -18,19 +18,9 @@ import (
 )
 
 const (
-	testSwapId = "abc"
-	testPsbt   = "cHNidP8BAF4CAAAAAebcw2XfHoopKx18ULWF0I7AnoofStu5fYK6Gw/h3N5KAQAA" +
-		"AAD9////Adp25zsAAAAAIgAg9q16iQ9ibL8Qh2iOsKXARie3hM32ui9Fp3bAj86aq9PiAAA" +
-		"AAAEBK2Z35zsAAAAAIgAg3xr4GtUMUHo8/3EiFNMfpTb/WlTc4YeVqtm78aDSWtsBBWSpFI" +
-		"Kk4PsTu5sqL5J8ju/Onlbd4kF5h2MhAqnfNT0ODvVOmREaPFRsvVAzcNw/ILgASvJMDvL9F" +
-		"qN/ZwLiALF1IQMi5J5CowMrFZslrnQxnk8UJZRTdEHxgASs69YHnhzcHmisAAA="
-	invalidPsbt              = "invalidpsbt"
-	invalidRefundAddress     = "bcrt1qjhly8vx6mks9rqmuja9g92dw4yg4jfr3hdlhf9"
-	validRefundAddress       = "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx"
-	invalidHexPrivateKey     = "invalidprivatekey"
-	invalidPrivateKeyForPsbt = "cad79019e89c2b2f066fe0789880a33cad3aeb8aeb4c6323bf6550f583e7112b"
-	validPrivateKeyForPsbt   = "bcd373971104b42b624a5675e759b014b7a59b2707419e6de8ddb02ba4456566"
-	testRefundTxId           = "90714c7bbd14440c4120ef62f9353e893164fdc942dcbc860103440ab6d23697"
+	testSwapId             = "abc"
+	validRefundAddress     = "bcrt1q76kh4zg0vfkt7yy8dz8tpfwqgcnm0pxd76az73d8wmqgln5640fsdy0mjx"
+	validPrivateKeyForPsbt = "bcd373971104b42b624a5675e759b014b7a59b2707419e6de8ddb02ba4456566"
 )
 
 // Helper function for tests
@@ -67,6 +57,7 @@ func Test_MonitorSwapIns(t *testing.T) {
 	outcomeRefunded := models.OutcomeRefunded
 	outcomeExpired := models.OutcomeExpired
 	outcomeSuccess := models.OutcomeSuccess
+	outcomeError := models.OutcomeError
 	tests := []struct {
 		name  string
 		setup func()
@@ -194,6 +185,56 @@ func Test_MonitorSwapIns(t *testing.T) {
 			},
 			// Since local construction fails, no want expectation - the test should expect an error
 			want: nil,
+		},
+		{
+			name: "Swap in contract amount mismatch unconfirmed",
+			setup: func() {
+				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
+					Status: models.StatusContractAmountMismatchUnconfirmed,
+				}, nil)
+			},
+			req: models.SwapIn{
+				SwapID: testSwapId,
+				Status: models.StatusCreated,
+			},
+			want: &models.SwapIn{
+				SwapID: testSwapId,
+				Status: models.StatusContractAmountMismatchUnconfirmed,
+			},
+		},
+		{
+			name: "Swap in contract amount mismatch confirmed",
+			setup: func() {
+				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
+					Status: models.StatusContractAmountMismatch,
+				}, nil)
+			},
+			req: models.SwapIn{
+				SwapID: testSwapId,
+				Status: models.StatusContractAmountMismatchUnconfirmed,
+			},
+			want: &models.SwapIn{
+				SwapID: testSwapId,
+				Status: models.StatusContractAmountMismatch,
+			},
+		},
+		{
+			name: "Swap in done with error outcome",
+			setup: func() {
+				swapClient.EXPECT().GetSwapIn(ctx, testSwapId).Return(&swaps.SwapInResponse{
+					Status:  models.StatusDone,
+					Outcome: outcomeError,
+				}, nil)
+			},
+			req: models.SwapIn{
+				SwapID: testSwapId,
+				Status: models.StatusContractAmountMismatch,
+			},
+			want: &models.SwapIn{
+				SwapID:  testSwapId,
+				Status:  models.StatusDone,
+				Outcome: &outcomeError,
+			},
 		},
 		{
 			name: "Swap in refund in progress",

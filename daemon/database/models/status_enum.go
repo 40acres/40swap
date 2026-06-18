@@ -17,8 +17,10 @@ const (
 	StatusContractClaimedUnconfirmed   SwapStatus = "CONTRACT_CLAIMED_UNCONFIRMED"
 	StatusDone                         SwapStatus = "DONE"
 	// if it expires after CONTRACT_FUNDED
-	StatusContractRefundedUnconfirmed SwapStatus = "CONTRACT_REFUNDED_UNCONFIRMED"
-	StatusContractExpired             SwapStatus = "CONTRACT_EXPIRED"
+	StatusContractRefundedUnconfirmed       SwapStatus = "CONTRACT_REFUNDED_UNCONFIRMED"
+	StatusContractExpired                   SwapStatus = "CONTRACT_EXPIRED"
+	StatusContractAmountMismatchUnconfirmed SwapStatus = "CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED"
+	StatusContractAmountMismatch            SwapStatus = "CONTRACT_AMOUNT_MISMATCH"
 )
 
 func (s SwapStatus) String() string {

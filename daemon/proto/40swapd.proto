@@ -40,6 +40,10 @@ enum Status {
   // Expiry-related statuses.
   CONTRACT_REFUNDED_UNCONFIRMED = 7; // Contract refunded but unconfirmed.
   CONTRACT_EXPIRED = 8; // Contract expired.
+
+  // Amount mismatch statuses.
+  CONTRACT_AMOUNT_MISMATCH_UNCONFIRMED = 9; // Contract funded with wrong amount, unconfirmed.
+  CONTRACT_AMOUNT_MISMATCH = 10; // Contract funded with wrong amount, confirmed.
 }
 
 // Message definitions for SwapIn operation.
