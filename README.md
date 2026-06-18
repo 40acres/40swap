@@ -21,14 +21,21 @@ npm install --workspaces
 2. Start services with docker compose
 
 ```bash
-cd server-backend/dev
-docker compose up
+cd docker 
+docker compose up <profile>
+```
+
+or
+
+```bash
+just docker-up
 ```
 
 3. Initialize blockchain and lightning nodes
 
 ```bash
-server-backend/dev/nodes-setup.sh
+cd docker
+nodes-setup.sh
 ```
 
 4. Build shared module
@@ -60,7 +67,7 @@ npm run start:dev
 By sourcing [`server-backend/dev/dev-aliases.sh`](server-backend/dev/dev-aliases.sh) you can get access to some useful commands, e.g.:
 
 ```bash
-source server-backend/dev/dev-aliases.sh
+source docker/dev-aliases.sh
 # mine N blocks
 40swap-bitcoin-cli -generate $N
 # pay lightning invoice from user node

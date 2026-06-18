@@ -17,7 +17,7 @@ install-dependencies:
 
 # Start services with docker compose
 [working-directory: 'docker']
-docker-up $COMPOSE_PROFILES='mempool':
+docker-up $COMPOSE_PROFILES='mempool-btc':
     #!/usr/bin/env bash
     set -euo pipefail
     IFS=',' read -ra profiles <<< "$COMPOSE_PROFILES"

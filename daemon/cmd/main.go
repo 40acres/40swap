@@ -206,7 +206,7 @@ func main() {
 						return err
 					}
 
-					db, closeDb, err := database.New(
+					db, closeDb, err := database.New(ctx,
 						c.String("db-user"),
 						c.String("db-password"),
 						c.String("db-name"),
@@ -586,10 +586,6 @@ var testnet = cli.BoolFlag{
 var bitcoin = cli.BoolFlag{
 	Name:  "bitcoin",
 	Usage: "Use Bitcoin chain",
-}
-var liquid = cli.BoolFlag{
-	Name:  "liquid",
-	Usage: "Use Liquid chain",
 }
 
 // Ports and hosts

@@ -401,7 +401,7 @@ func BuildPSBTFromOutpoint(spendingTxHex *wire.MsgTx, lockScript string, outpoin
 	// Create the output script from the address
 	outputScript, err := txscript.PayToAddrScript(destinationAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create output script: %w", err)
+		return nil, fmt.Errorf("failed to create output script: %w", err)
 	}
 
 	txOut := wire.NewTxOut(amount, outputScript)

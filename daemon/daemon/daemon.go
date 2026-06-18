@@ -33,7 +33,7 @@ func Start(ctx context.Context, server *rpc.Server, db Repository, swaps swaps.C
 	}
 
 	go func() {
-		err := server.ListenAndServe()
+		err := server.ListenAndServe(ctx)
 		if err != nil {
 			log.Fatalf("couldn't start server: %v", err)
 		}

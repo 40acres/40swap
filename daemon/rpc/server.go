@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -47,8 +48,9 @@ func NewRPCServer(port uint32, repository Repository, swapClient swaps.ClientInt
 	return svr
 }
 
-func (server *Server) ListenAndServe() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Port))
+func (server *Server) ListenAndServe(ctx context.Context) error {
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", fmt.Sprintf(":%d", server.Port))
 	if err != nil {
 		return fmt.Errorf("failed to listen to port: %w", err)
 	}
