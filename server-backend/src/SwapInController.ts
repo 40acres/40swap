@@ -7,7 +7,6 @@ import { address, Psbt, Transaction } from 'bitcoinjs-lib';
 import { NbxplorerService } from './NbxplorerService.js';
 import { DataSource } from 'typeorm';
 import { SwapIn } from './entities/SwapIn.js';
-import { LndService } from './LndService.js';
 import { buildContractSpendBasePsbt, buildTransactionWithFee } from './bitcoin-utils.js';
 import { BitcoinConfigurationDetails, BitcoinService } from './BitcoinService.js';
 import { SwapService } from './SwapService.js';
@@ -25,6 +24,7 @@ import {
 import { LiquidRefundPSETBuilder } from './LiquidUtils.js';
 import { LiquidService } from './LiquidService.js';
 import * as liquid from 'liquidjs-lib';
+import { LndService } from '@40swap/crypto-clients';
 
 const ECPair = ECPairFactory(ecc);
 

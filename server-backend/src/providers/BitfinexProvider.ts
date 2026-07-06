@@ -1,7 +1,7 @@
 import { SwapProvider } from './SwapProvider.js';
-import { LndService } from '../LndService.js';
 import * as crypto from 'crypto';
 import { LiquidService } from '../LiquidService.js';
+import { LndService } from '@40swap/crypto-clients';
 
 type BitfinexMethod = 'BTC' | 'LNX' | 'LBT';
 type BitfinexWalletType = 'exchange' | 'margin' | 'funding';

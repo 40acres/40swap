@@ -45,7 +45,6 @@ done
 40swap-lsp-lncli connect "$user_uri"
 40swap-alice-lncli connect "$user_uri"
 
-wait_for_chain_sync
 # opening channels one way
 wait_for_chain_sync
 40swap-lsp-lncli openchannel $alice_pubkey 5000000
@@ -87,6 +86,7 @@ lnd:
 EOM
 
 echo "$dev_config" > ../server-backend/dev/40swap.lightning.yml
+echo "$dev_config" > ../liquidity-manager-backend/dev/liquidity-manager.lightning.yml
 
 # Liquid setup:
 docker exec -it 40swap_elements elements-cli -chain=liquidregtest createwallet "main" false false "" false true true false

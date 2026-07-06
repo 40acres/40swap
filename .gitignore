@@ -17,6 +17,7 @@ node_modules
 .DS_Store
 
 server-backend/dev/40swap.lightning.yml
+liquidity-manager-backend/dev/liquidity-manager.lightning.yml
 
 daemon/cmd/cmd
 40swap.lightning.yml

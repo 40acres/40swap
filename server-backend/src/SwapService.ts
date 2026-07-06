@@ -12,7 +12,6 @@ import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { NBXplorerBlockEvent, NBXplorerNewTransactionEvent, NbxplorerService } from './NbxplorerService.js';
 import { DataSource, Not } from 'typeorm';
-import { LndService } from './LndService.js';
 import { OnEvent } from '@nestjs/event-emitter';
 import { BLOCKS_BETWEEN_CLTV_AND_SWAP_EXPIRATIONS, SwapOutRunner } from './SwapOutRunner.js';
 import { SwapOut } from './entities/SwapOut.js';
@@ -22,6 +21,7 @@ import { FortySwapConfiguration } from './configuration.js';
 import { payments as liquidPayments } from 'liquidjs-lib';
 import { LiquidService } from './LiquidService.js';
 import { getLiquidNetworkFromBitcoinNetwork } from '@40swap/shared';
+import { LndService } from '@40swap/crypto-clients';
 
 const ECPair = ECPairFactory(ecc);
 
