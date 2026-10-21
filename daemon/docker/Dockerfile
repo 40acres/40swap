@@ -1,4 +1,4 @@
-ARG BASE_BUILDER_IMAGE=golang:1.24.1-alpine # This is the alpine-based image for building, e.g. "golang:1.20.4-alpine"
+ARG BASE_BUILDER_IMAGE=golang:1.26.10-alpine # This is the alpine-based image for building, e.g. "golang:1.20.4-alpine"
 ARG BASE_RUNNER_IMAGE=alpine:latest # This is the alpine-based image for running, e.g. "alpine:latest"
 
 FROM ${BASE_BUILDER_IMAGE} AS builder
